@@ -85,12 +85,32 @@ npm run dev:agent        # → http://localhost:3001/health → 200 {"ok":true}
 Windows PowerShell equivalents work for quick checks, but use WSL for `alexa-ai` CLI later:
 `alexa-ai configure` (after Preview granted) → `alexa-ai new mcp` / `deploy` → web simulator test.
 
-## MVP proof (Phase 1, not yet implemented)
+## MVP proof (Phase 1 — DONE, no Alexa yet)
 
-> “Alexa, create a document on my laptop for my biology homework.”
-> → `Biology Homework.docx` created/opened on the Windows laptop.
+> “Create a document on my laptop for my biology homework.”
+> → `My Biology Homework.docx` created + opened in `~/Documents/REACH/`.
 
-Skeleton currently returns `not_implemented` for capabilities — wiring is Phase 1.
+```bash
+# Terminal 1 — REACH Core
+npm run dev:server
+
+# Terminal 2 — Windows agent
+npm run dev:agent
+
+# Terminal 3 — direct capability test
+curl -X POST localhost:3001/capabilities/create_document `
+  -H "content-type: application/json" `
+  -d '{"title":"Biology Homework","body":"Cell structure"}'
+
+# End-to-end (same routing Alexa will use)
+curl -X POST localhost:3000/tools/execute_on_my_devices `
+  -H "content-type: application/json" `
+  -d '{"task":"Create a document on my laptop for my biology homework"}'
+# → {"taskId":"task_..."} in ~200ms, then:
+curl localhost:3000/tools/task/<taskId>
+# → {"status":"completed","evidence":{"deviceId":"windows-laptop",
+#     "capabilityId":"create_document","artifactUri":"...\\My Biology Homework.docx"}}
+```
 
 ## AWS Builder plan (Bedrock-only)
 
