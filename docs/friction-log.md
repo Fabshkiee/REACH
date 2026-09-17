@@ -93,6 +93,22 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround: verify with `ConvertTo-Json` instead of `Select-Object` for these endpoints.
 * Suggestion: n/a (tooling note for future agent-driven testing).
 
+## 2026-09-17 — Shared-transport MCP: post-initialize calls 500'd with no server log
+* Task: Phase 3 — expose the existing McpServer over Streamable HTTP with one shared transport.
+* Steps: wired single `StreamableHTTPServerTransport` + `connect()` at boot; `initialize` negotiated `2025-11-25` fine, then `tools/list` and everything after → HTTP 500, nothing in server logs.
+* Expected vs actual: expected shared transport to serve all requests; actual the single connected protocol instance rejects session-less follow-ups — stateless requires fresh server+transport per request (confirmed in SDK's `simpleStatelessStreamableHttp` example).
+* Severity: High (core Phase 3 design, found in first test).
+* Workaround (kept): `createMcpServer()` + `createMcpTransport()` factories, per-POST construction, `transport.close()`/`server.close()` on response close. Re-ran full matrix → green.
+* Suggestion: SDK docs should call out "shared transport + connect-at-boot is stateful-only" next to the stateless example.
+
+## 2026-09-17 — Windows `timeout` is not GNU timeout (Inspector attempt)
+* Task: timebox the MCP Inspector CLI run.
+* Steps: prefixed with `timeout 60 npx ...` → `ERROR: Invalid syntax` (Windows `timeout` is a delay command).
+* Expected vs actual: expected GNU behavior; actual arg error before Inspector even started.
+* Severity: Low (harness only).
+* Workaround: `Start-Job` + `Wait-Job -Timeout 90` instead. Inspector CLI then worked first try.
+* Suggestion: n/a (tooling note).
+
 ---
 
 ## Template for new entries
