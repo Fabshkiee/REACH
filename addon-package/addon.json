@@ -1,0 +1,55 @@
+{
+  "manifestVersion": "1.0",
+  "storeListing": {
+    "distributionCountries": ["US"],
+    "locales": {
+      "en-US": {
+        "default": "DEFAULT",
+        "name": {
+          "value": "REACH"
+        },
+        "shortDescription": "Tell Alexa what you want. Your devices make it happen.",
+        "fullDescription": "REACH is a capability bridge between Alexa+ and your personal devices. Describe a goal and REACH delegates it to explicitly authorized device capabilities — e.g. creating a document on your laptop — tracks the task, and returns the result.",
+        "examplePhrases": [
+          "Create a document on my laptop for my biology homework",
+          "Check the status of my laptop task",
+          "Save meeting minutes on my laptop"
+        ],
+        "privacyAndCompliance": {
+          "privacyPolicyUrl": "https://example.com/TODO-replace-before-deploy/privacy",
+          "termsOfUseUrl": "https://example.com/TODO-replace-before-deploy/terms"
+        },
+        "mediaAssets": {
+          "icons": {
+            "light": [
+              { "size": "72x72", "uri": "https://example.com/TODO/icon-72x72.png" },
+              { "size": "64x64", "uri": "https://example.com/TODO/icon-64x64.png" },
+              { "size": "88x88", "uri": "https://example.com/TODO/icon-88x88.png" },
+              { "size": "126x126", "uri": "https://example.com/TODO/icon-126x126.png" },
+              { "size": "180x180", "uri": "https://example.com/TODO/icon-180x180.png" },
+              { "size": "241x241", "uri": "https://example.com/TODO/icon-241x241.png" }
+            ],
+            "dark": []
+          },
+          "carouselImages": [
+            { "uri": "https://example.com/TODO/carousel-1.png", "altText": "REACH creates a document on your laptop from Alexa+", "size": "600x900" }
+          ],
+          "bannerImages": []
+        }
+      }
+    }
+  },
+  "integrations": [
+    {
+      "type": "MCP",
+      "config": {
+        "endpoints": {
+          "default": {
+            "type": "HTTPS",
+            "uri": "https://example.com/TODO-replace-with-cloudflared-or-prod/mcp"
+          }
+        }
+      }
+    }
+  ]
+}
