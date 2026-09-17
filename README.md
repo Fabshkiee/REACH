@@ -94,8 +94,14 @@ Windows PowerShell equivalents work for quick checks, but use WSL for `alexa-ai`
 # Terminal 1 — REACH Core
 npm run dev:server
 
-# Terminal 2 — Windows agent
+# Terminal 2 — Windows agent (auto-registers + heartbeats every 30s)
 npm run dev:agent
+
+# Optional: shared secret for the core↔agent channel (set SAME value both sides).
+# Unset = local traffic trusted (warns at boot). No secrets are committed.
+#   $env:AGENT_TOKEN="dev-secret"  (PowerShell) / AGENT_TOKEN=dev-secret (bash)
+# Test knobs: DEVICE_TIMEOUT_MS (default 90000), HEARTBEAT_INTERVAL_MS (default 30000),
+#   REACH_DATA_DIR (default <server-cwd>/data), DISPATCH_TIMEOUT_MS (default 60000).
 
 # Terminal 3 — direct capability test
 curl -X POST localhost:3001/capabilities/create_document `

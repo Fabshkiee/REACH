@@ -69,6 +69,30 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround: left that one file; close Word manually before demo re-takes.
 * Suggestion: n/a (platform behavior, not a bug — open-failure path already best-effort in code).
 
+## 2026-09-17 — Agent boot raced core boot: "no devices online" on fresh start
+* Task: Phase 2 verify — boot core+agent together, expect immediate registration.
+* Steps: started both via background jobs, waited 14s; `GET /devices` → `[]`; E2E doc → `failed "no capable device online"`.
+* Expected vs actual: expected register-on-boot to land; actual agent's single register hit a still-starting core, next retry only 30s later (after the test window).
+* Severity: High (demo-visible: fresh boot reads as offline; also skews fail-fast routing).
+* Workaround (kept): immediate attempt at boot + retry every 5s until first success, then steady 30s (`startHeartbeat` fast lane in `windows-agent/src/agent.ts`). Re-ran → registered + available on first check.
+* Suggestion: n/a (project-side timing design; worth remembering for any future multi-agent rollout).
+
+## 2026-09-17 — DEVICE_TIMEOUT_MS shorter than heartbeat interval = permanent "offline"
+* Task: Phase 2 expiry test with `DEVICE_TIMEOUT_MS=4000` and default 30s heartbeat.
+* Steps: agent registered, but every `GET /devices` read `available: false` — last beat always older than 4s.
+* Expected vs actual: expected available-then-expired; actual always expired between beats.
+* Severity: Medium (test-harness config error, not product code).
+* Workaround: test with `HEARTBEAT_INTERVAL_MS=2000` + `DEVICE_TIMEOUT_MS=6000` → available=true live, false 8s after kill. Production defaults (30s/90s) keep a 3x margin.
+* Suggestion: n/a (project-side note — document the timeout > 2×interval invariant; done in README knobs).
+
+## 2026-09-17 — PowerShell blank table on single-element JSON arrays
+* Task: read `GET /devices` via `Select-Object id, available | Format-Table`.
+* Steps: `ConvertTo-Json` showed the fields; `Select-Object` rendered an empty row (twice, incl. `Select -ExpandProperty`).
+* Expected vs actual: expected table; actual blank — `Invoke-RestMethod` single-object array deserialization quirk.
+* Severity: Low (harness display only; `ConvertTo-Json` output verified the data both times).
+* Workaround: verify with `ConvertTo-Json` instead of `Select-Object` for these endpoints.
+* Suggestion: n/a (tooling note for future agent-driven testing).
+
 ---
 
 ## Template for new entries
