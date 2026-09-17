@@ -36,7 +36,18 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "reach-server", mcp: "stub-registered" });
 });
 
-// Debug-only skeleton routes (Phase 3 replaces with Streamable HTTP transport + OAuth).
+// Debug-only HTTP mirrors of the MCP tools (Phase 3 replaces with Streamable HTTP transport + OAuth).
+// Lets Phase 1 verify end-to-end without an MCP client: POST /tools/execute_on_my_devices → GET /tools/task/:id.
+app.post("/tools/execute_on_my_devices", (req, res) => {
+  try {
+    res.json(executeOnMyDevices(req.body as { task: string }));
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "invalid input" });
+  }
+});
+app.get("/tools/task/:id", (req, res) => {
+  res.json(getTaskStatus({ taskId: req.params.id }));
+});
 app.get("/debug/capabilities", (_req, res) => res.json(listCapabilities()));
 app.get("/debug/devices", (_req, res) => res.json(listDevices()));
 
