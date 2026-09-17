@@ -5,3 +5,6 @@ export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number];
 export function isAllowed(capability: string): capability is AllowedCapability {
   return (ALLOWED_CAPABILITIES as readonly string[]).includes(capability);
 }
+
+export { CreateDocumentSchema, createDocument } from "./createDocument.js";
+export type { CreateDocumentInput, CreateDocumentResult } from "./createDocument.js";
