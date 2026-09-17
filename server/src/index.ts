@@ -1,44 +1,48 @@
 import express from "express";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { warnIfAuthDisabled, requireAgentAuth } from "./auth.js";
-import { ExecuteOnMyDevicesSchema, GetTaskStatusSchema, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
+import { executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
+import { createMcpServer } from "./mcp/server.js";
+import { createMcpTransport } from "./mcp/transport.js";
 import { listCapabilities } from "./registry/capabilityGraph.js";
 import { heartbeat, isDeviceAvailable, listDevices, registerDevice } from "./registry/deviceStore.js";
-
-// Runtime hook proof for Alexa+ judging: MCP SDK imported AND instantiated.
-export const mcpServer = new McpServer({ name: "reach", version: "0.1.0" });
-mcpServer.registerTool(
-  "execute_on_my_devices",
-  {
-    description: "Accept a natural-language task and delegate it to the user's devices. Returns a taskId fast.",
-    inputSchema: ExecuteOnMyDevicesSchema.shape,
-  },
-  async (args) => {
-    const { taskId } = executeOnMyDevices(args as { task: string });
-    return { content: [{ type: "text", text: JSON.stringify({ taskId }) }] };
-  },
-);
-mcpServer.registerTool(
-  "get_task_status",
-  {
-    description: "Retrieve progress/result for a longer-running task by taskId.",
-    inputSchema: GetTaskStatusSchema.shape,
-  },
-  async (args) => {
-    const out = getTaskStatus(args as { taskId: string });
-    return { content: [{ type: "text", text: JSON.stringify(out) }] };
-  },
-);
 
 const app = express();
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "reach-server", mcp: "stub-registered" });
+  res.json({ ok: true, service: "reach-server", mcp: "streamable-http" });
 });
 
-// Debug-only HTTP mirrors of the MCP tools (Phase 3 replaces with Streamable HTTP transport + OAuth).
-// Lets Phase 1 verify end-to-end without an MCP client: POST /tools/execute_on_my_devices → GET /tools/task/:id.
+// Canonical MCP surface: Streamable HTTP (MCP 2025-11-25), stateless.
+// Inspector, Alexa+, and any MCP client speak here. Per the SDK's stateless
+// pattern, each POST gets a fresh server + transport (no sessions exist).
+app.post("/mcp", (req, res) => {
+  void (async () => {
+    const server = createMcpServer();
+    try {
+      const transport = createMcpTransport();
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+      res.on("close", () => {
+        transport.close();
+        void server.close();
+      });
+    } catch (error) {
+      console.error("Error handling MCP request:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: "Internal server error" }, id: null });
+      }
+    }
+  })();
+});
+app.get("/mcp", (_req, res) => {
+  res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null });
+});
+app.delete("/mcp", (_req, res) => {
+  res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "stateless mode: no sessions to terminate" }, id: null });
+});
+
+// Legacy HTTP mirrors of the MCP tools (curl-friendly; canonical surface is /mcp).
 app.post("/tools/execute_on_my_devices", (req, res) => {
   try {
     res.json(executeOnMyDevices(req.body as { task: string }));
@@ -84,7 +88,7 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => res.status(404
 const port = Number(process.env.PORT ?? 3000);
 if (process.env.NODE_ENV !== "test") {
   warnIfAuthDisabled("reach-server");
-  app.listen(port, () => console.log(`reach-server on :${port}`));
+  app.listen(port, () => console.log(`reach-server on :${port} (mcp: streamable-http stateless)`));
 }
 
 export default app;
