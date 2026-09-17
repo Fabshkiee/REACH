@@ -1,5 +1,6 @@
 import express from "express";
-import { AGENT_ID, registrationPayload } from "./agent.js";
+import { AGENT_ID, registrationPayload, startHeartbeat } from "./agent.js";
+import { requireAgentAuth } from "./auth.js";
 import { ALLOWED_CAPABILITIES, CreateDocumentSchema, createDocument, isAllowed } from "./capabilities/index.js";
 
 const app = express();
@@ -14,7 +15,7 @@ app.get("/capabilities", (_req, res) => {
 });
 
 // Dev-only direct test route for create_document (no dispatch envelope needed).
-app.post("/capabilities/create_document", async (req, res) => {
+app.post("/capabilities/create_document", requireAgentAuth, async (req, res) => {
   const parsed = CreateDocumentSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "invalid input", issues: parsed.error.issues });
@@ -27,7 +28,7 @@ app.post("/capabilities/create_document", async (req, res) => {
   }
 });
 
-app.post("/jobs/dispatch", async (req, res) => {
+app.post("/jobs/dispatch", requireAgentAuth, async (req, res) => {
   const { capability, args } = req.body as { capability?: string; args?: unknown };
   if (!capability || !isAllowed(capability)) {
     return res.status(403).json({ error: `capability not allowed: ${capability ?? "missing"}` });
@@ -49,7 +50,11 @@ app.post("/jobs/dispatch", async (req, res) => {
 
 const port = Number(process.env.AGENT_PORT ?? 3001);
 if (process.env.NODE_ENV !== "test") {
-  app.listen(port, () => console.log(`windows-agent skeleton on :${port}`));
+  if (!process.env.AGENT_TOKEN) {
+    console.warn("[agent] AGENT_TOKEN unset — dispatch trusts local traffic. Set AGENT_TOKEN to enforce.");
+  }
+  app.listen(port, () => console.log(`windows-agent on :${port}`));
+  startHeartbeat();
 }
 
 export default app;
