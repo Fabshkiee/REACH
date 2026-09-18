@@ -28,6 +28,14 @@ Allowlist + heartbeat + evidence note (5s).
 ## 2:40–2:55 Close (Impact)
 “Goals, not devices. Any authorized computer/phone/software.” + repo + AWS Bedrock credit.
 
+## Film prep (do immediately before every take)
+
+* Close Word (it locks auto-opened files) and clear `~/Documents/REACH` test files.
+* Clear task history so the panel reads clean on camera: delete `server/data/tasks/*.json`
+  (keep `server/data/devices/` — registration re-beats on its own, or restart the agent).
+* Boot core + agent, wait ~10s for first heartbeat, confirm `/sim` devices panel shows Online.
+* Film the happy path first (doc goal), fail-fast second (plants goal) — one unbroken browser take each.
+
 ## Shot list (capture during build)
 * [x] `/sim` conversation + evidence card (Phase 3.5 — film against this, not Inspector).
 * [ ] Simulator voice + taskId response.

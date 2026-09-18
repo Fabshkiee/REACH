@@ -117,6 +117,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): full rewrite to the 1:1 echo — unified empty state, receipt-style evidence with `<details>` IDs, recovery chips, SR announcer + focus management, poll timeout, Alexa-blue accent. Detector re-run: clean (exit 0). Critique re-run deferred to filmed-screenshot round.
 * Suggestion: n/a (process note — critique-before-rewrite caught real issues eyeballing missed).
 
+## 2026-09-18 — Stale detached servers shadowed verification (false negative)
+* Task: verify new input validation; garbage inputs all ACCEPTED despite correct code.
+* Steps: ran full matrix → 4/4 accepted + task files created; checked `Win32_Process` → found old detached `node.exe` instances (from an earlier "run it" session) still holding ports 3000/3001, so test jobs silently talked to stale code.
+* Expected vs actual: expected fresh-code behavior; actual stale processes won the port race with zero errors surfaced.
+* Severity: Medium (verification integrity — a false negative here could have shipped doubt about correct code).
+* Workaround (kept): kill all REACH node processes before verification runs; re-ran → 4/4 HTTP 400, zero files, MCP `-32602`. Purged the 6 junk task files the false run created.
+* Suggestion: n/a (harness discipline — always confirm process table before trusting a verify run).
+
 ---
 
 ## Template for new entries
