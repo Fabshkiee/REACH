@@ -9,11 +9,12 @@ Track: **Alexa+**. Mini: **AWS Builder**. Skip: Open Source.
 ## Repo (GitHub URL on form)
 * [ ] Public + MIT `LICENSE` detectable in About (this skeleton: done) OR private shared with `testing@devpost.com` + `@AmazonAppDev`.
 * [ ] All source + assets + setup/run instructions (`README.md` — skeleton done, verify on clean clone).
-* [ ] Runtime hook: `McpServer` imported+instantiated (`server/src/index.ts`), `BedrockRuntimeClient` imported (`server/src/aws/bedrock.stub.ts`) — skeleton done; real calls by Phase 3/5.
-* [ ] Alexa+: MCP `2025-11-25` over Streamable HTTP (Phase 3); sim path exempt but we target real route.
+* [ ] Runtime hook: `McpServer` created per request (`server/src/mcp/server.ts`), `BedrockRuntimeClient` imported (`server/src/aws/bedrock.stub.ts`, live calls in A-series) — plus planner/trace evidence once built.
+* [ ] Alexa+: MCP `2025-11-25` over Streamable HTTP (done, verified); sim path exempt but we target real route.
 
 ## Video
 * [ ] `<3min`, public YouTube/Vimeo, shows functioning on intended platform (simulator + laptop).
+* [ ] Video shows three unrelated goals on one engine + approval beat + refusal beat (script: `docs/demo-script.md`).
 * [ ] No third-party trademarks/copyrighted music without permission. Script: `docs/demo-script.md`.
 
 ## Text
