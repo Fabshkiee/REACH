@@ -1,49 +1,78 @@
-# Architecture
+# Architecture (v2 — current truth)
 
-> REACH expands the set of capabilities Alexa+ can reach — explicitly authorized user
-> devices/software otherwise outside Alexa's native surface.
+> Current truth: agent-loop architecture. v1 history lives only in `docs/v1-retired.md`
+> and git history — nothing below describes v1 behavior.
+
+REACH is a **control plane for the user's computing environment**: a general
+agent loop that maps arbitrary natural-language goals onto advertised device
+capabilities, enforces a risk-based policy on every action, and reports
+plan + trace + evidence. Capabilities are plugged in, never hardcoded into routing.
 
 ```text
-                Alexa+
-                  │
-             MCP / HTTPS (Streamable HTTP, MCP 2025-11-25)
-                  │
-        ┌─────────▼─────────┐
-        │    REACH Core     │  server/
-        │ Intent / Tasks    │    tasks/: queued → running → completed/failed + evidence
-        │ Capability Graph  │    registry/capabilityGraph.ts: goal → capabilities → devices
-        │ Device Registry   │    registry/deviceStore.ts: register + heartbeat (90s window)
-        └──────┬──────┬─────┘
-               │      │  HTTPS REST + polling (MVP)
-        ┌──────▼─┐  ┌─▼───────┐
-        │ Laptop │  │  iPhone │ (later)
-        │ Agent  │  │  Agent  │
-        └────┬───┘  └────┬────┘
+                Alexa+ / sim UI / any MCP client
+                            │
+                   MCP / HTTPS (Streamable HTTP, 2025-11-25)
+                            │
+              ┌─────────────▼──────────────┐
+              │        REACH Core          │
+              │                            │
+              │  Layer 1  Planner (Bedrock)│  goal → plan → propose → observe
+              │  Layer 2  Executor         │  validate → dispatch → verify
+              │  Layer 3  Policy engine    │  allow / confirm / deny per action
+              │  Tasks    queued → running → completed/failed
+              │           (+ awaiting_approval / awaiting_input)
+              │  Audit    every action: schema-checked, timed, logged, verified
+              └──────┬───────────────┬─────┘
+                     │               │  HTTPS REST + polling
+              ┌──────▼─┐          ┌──▼──────┐
+              │ Laptop │          │  future │
+              │ Agent  │          │ agents  │
+              └────┬───┘          └─────────┘
+                   │
+        files / browser / apps primitives
 ```
 
-## Design principles (judging: Design + Idea)
+## The loop (the core product)
 
-* Users describe **goals**, not devices/APIs. REACH reasons about **capabilities**.
-* Alexa surface stays at 2 semantic tools; agents expose allowlisted capabilities only.
-* Long tasks are async + stateful; MCP returns `taskId` in <500ms, never blocks.
-* Fail safely when device/capability unavailable (403 + `failed` task, no silent hang).
-* No generic `run_command`. No per-capability Alexa tools.
+```text
+Goal → inspect environment → reason next action → propose
+     → policy check → execute → verify result → continue / replan / recover
+     → report plan + trace + evidence
+```
 
-## Persistence (Phase 2 — why files, not a database)
+* The model **proposes**; the executor **decides**. No action runs unvalidated.
+* The planner can emit `ask_user` when a target genuinely can't be inferred —
+  the only questionnaire, per-decision, never setup.
+* Verification is mandatory after meaningful actions; the full trace ships in evidence.
 
-* `TaskStore` / `DeviceStore` are **interfaces**; `FileTaskStore` / `FileDeviceStore`
-  are the adapters (`server/src/tasks/taskStore.ts`, `server/src/registry/deviceStore.ts`).
-  Swapping backends (SQLite/Postgres) is one factory line — callers never move.
-* File-backed is deliberate for a single-user local-first bridge: zero native builds
-  (`better-sqlite3` needs C++ compilation on Windows — real judge-setup friction),
-  zero new dependencies, and human-inspectable state (`server/data/tasks/*.json`
-  shows the state machine working). Writes are atomic (sibling tmp + rename) with a
-  versioned schema, so crashes can't tear state.
-* Runtime state lives in `server/data/` (gitignored, overridable via `REACH_DATA_DIR`).
+## Layer 2 — generic primitives (typed, not task skills)
 
-## Positioning vs. landscape (Sep 17 review)
+Capabilities are uniform `{id, schema, scopes, handler}` entries: files
+(search/read/write/move/verify, incl. pdf/xlsx readers), browser
+(goto/snapshot/act/download via Playwright), apps (launch known-safe +
+open-by-association). Adding one is ~20 lines; routing never names goals.
 
-Crowded with specialized domain agents (Aura+ concierge, KinSwitch people-handoff,
-Dwell planner, SHIFT/RELAY continuity, HomeKeeper/Custodian/PetPulse context).
-REACH is **infrastructure**: the impressive part is a real non-native device capability
-executing (`.docx` on laptop), not that Alexa orchestrated steps.
+## Layer 3 — policy (risk × target × scope × intent)
+
+* **Auto:** ordinary user-owned operations with clear intent (find in Downloads,
+  move to the tax folder, save to Desktop).
+* **Confirm:** delete, overwrite, send/submit/publish/purchase, unknown binaries,
+  ambiguous or sensitive targets. Action-specific, scoped, expiring approvals.
+* **Deny:** system dirs, other users' data, known secret locations, code execution.
+  No raw shell exists anywhere in the system.
+* User-owned space is **inferred** (profile minus deny patterns), never configured
+  per folder. See `docs/security.md`.
+
+## Proving generality (acceptance, not features)
+
+Three unrelated goals, zero special cases — if any needs custom routing, the
+architecture failed: (1) browser+file (find + download), (2) local organize
+(find + rename + move, with an approval beat), (3) application inspect + report.
+Demo spine: `docs/demo-script.md`.
+
+## Positioning (unchanged)
+
+Not a universal remote, not Jarvis, not a household concierge. Unlike domain
+agents, REACH is infrastructure: the impressive part is a real non-native
+capability executing through a general loop — prowess proven by *unrelated*
+goals succeeding on the *same* engine.
