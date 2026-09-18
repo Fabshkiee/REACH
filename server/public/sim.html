@@ -195,7 +195,14 @@
   .ritem { width: 100%; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
   .ritem:hover { border-color: var(--accent); }
   .ritem .top { display: flex; align-items: center; gap: 8px; }
-  .ritem .goal { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ritem .goal {
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-width: 0;
+  }
   .ritem .meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
   .st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); flex: none; }
   .st.completed { color: var(--accent-text); border-color: var(--accent); }
