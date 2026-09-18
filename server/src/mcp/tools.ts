@@ -2,8 +2,16 @@ import { z } from "zod";
 import { createTask, getTask, listRecentTasks } from "../tasks/taskStore.js";
 import { routeTask } from "../tasks/runner.js";
 
+const MEANINGLESS = /^(undefined|null|nan|none|n\/a)$/i;
+
 export const ExecuteOnMyDevicesSchema = z.object({
-  task: z.string().min(3).max(2000).describe("Natural-language user goal, e.g. create a homework document on my laptop."),
+  task: z
+    .string()
+    .trim()
+    .min(3)
+    .max(2000)
+    .refine((t) => !MEANINGLESS.test(t), { message: "task must be a real goal, not a placeholder" })
+    .describe("Natural-language user goal, e.g. create a homework document on my laptop."),
 });
 
 export const GetTaskStatusSchema = z.object({
