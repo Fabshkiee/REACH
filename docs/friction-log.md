@@ -109,6 +109,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround: `Start-Job` + `Wait-Job -Timeout 90` instead. Inspector CLI then worked first try.
 * Suggestion: n/a (tooling note).
 
+## 2026-09-18 — Impeccable critique scored sim.html 14/40; detector named the slop
+* Task: run dual-agent critique (design review + mechanical detector) on `server/public/sim.html` before the 1:1 rewrite.
+* Steps: Assessment A (heuristics, cognitive load, personas) + Assessment B (`detect.mjs`, 2 warnings) + user screenshot evidence.
+* Expected vs actual: expected "close, needs polish"; actual 14/40 Poor — split empty state, log-dump evidence card, raw IDs on camera, dead-end failures. Detector precisely named two tells: 3px side-tab status borders, colored focus glow.
+* Severity: Medium (demo surface is filmed; code was always fine).
+* Workaround (kept): full rewrite to the 1:1 echo — unified empty state, receipt-style evidence with `<details>` IDs, recovery chips, SR announcer + focus management, poll timeout, Alexa-blue accent. Detector re-run: clean (exit 0). Critique re-run deferred to filmed-screenshot round.
+* Suggestion: n/a (process note — critique-before-rewrite caught real issues eyeballing missed).
+
 ---
 
 ## Template for new entries
