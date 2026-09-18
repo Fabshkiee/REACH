@@ -75,11 +75,14 @@ nvm use 24               # or install Node 24 LTS
 npm install
 npm run typecheck
 
-# Terminal 1 — REACH Core skeleton (health only)
+# Terminal 1 — REACH Core (MCP on :3000, sim UI, device mesh)
 npm run dev:server       # → http://localhost:3000/health → 200 {"ok":true}
 
-# Terminal 2 — Windows agent skeleton (health + stubs)
+# Terminal 2 — Windows agent (registers + heartbeats, does the real work on :3001)
 npm run dev:agent        # → http://localhost:3001/health → 200 {"ok":true}
+
+# Browser — simulated Alexa+ interaction (text stand-in for voice, real backend)
+# → http://localhost:3000/sim
 ```
 
 Windows PowerShell equivalents work for quick checks, but use WSL for `alexa-ai` CLI later:
@@ -128,7 +131,7 @@ curl localhost:3000/tools/task/<taskId>
 ## Submission pointers
 
 * License: MIT at repo root (Devpost-detectable).
-* Runtime hook: `McpServer` instantiated in `server/src/index.ts`, `BedrockRuntimeClient` imported in stub.
+* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`, `BedrockRuntimeClient` imported in stub.
 * Video (TODO): `<3min`, film real `.docx` on laptop + simulator. Script: `docs/demo-script.md`.
 * Friction log (bonus up to 10%): `docs/friction-log.md` — updated continuously.
 * Checklist: `docs/submission-checklist.md`.

@@ -8,9 +8,10 @@ Show Alexa hearing a request it natively can’t fulfill. Closing line tease:
 “Alexa+ understands what you want. REACH gives that intent somewhere to go.”
 
 ## 0:20–1:10 Instant proof (Tech)
-* Say: “Alexa, create a document on my laptop for my biology homework.”
-* Show: Alexa+ → task queued → laptop screen: `Biology Homework.docx` appears + opens.
+* Type in `/sim`: “Create a document on my laptop for my biology homework.”
+* Show: taskId in ms → Working… → evidence card → laptop screen: `My Biology Homework.docx` appears + opens.
 * Overlay tiny: `execute_on_my_devices → capability create_document → windows-laptop`.
+* Optional 5s beat: type the plants goal → red failure card (safe failure, verbatim reason).
 
 ## 1:10–2:00 Hero workflow (Tech + Design, async)
 * Say: “Open my next meeting, capture ten minutes, make minutes, save on my laptop.”
@@ -28,6 +29,7 @@ Allowlist + heartbeat + evidence note (5s).
 “Goals, not devices. Any authorized computer/phone/software.” + repo + AWS Bedrock credit.
 
 ## Shot list (capture during build)
+* [x] `/sim` conversation + evidence card (Phase 3.5 — film against this, not Inspector).
 * [ ] Simulator voice + taskId response.
 * [ ] Laptop filesystem + open docx (unedited take).
 * [ ] `get_task_status` polling / task timeline.
