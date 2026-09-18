@@ -70,6 +70,18 @@ architecture failed: (1) browser+file (find + download), (2) local organize
 (find + rename + move, with an approval beat), (3) application inspect + report.
 Demo spine: `docs/demo-script.md`.
 
+## Build status (what exists vs what is planned — read before citing anything above)
+
+* **Built and verified:** Streamable HTTP MCP (`/mcp`, 2025-11-25), file-backed
+  task/device stores, heartbeat mesh with re-register, Bearer channel auth,
+  fail-fast task model, sim UI shell, Inspector + SDK-client validation.
+* **Planned in A-series:** planner loop (A3), generic primitives (A2), policy
+  engine + approvals/ask_user (A1), fail-closed boot + shell-free open (A1/A2),
+  keyword-router deletion (A3), live Bedrock calls (A3).
+* Anything in this doc without a "planned" mark describes intent shared by both
+  layers only where the built code already supports it; when in doubt, the code
+  wins and the doc gets fixed.
+
 ## Positioning (unchanged)
 
 Not a universal remote, not Jarvis, not a household concierge. Unlike domain

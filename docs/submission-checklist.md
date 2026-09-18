@@ -7,8 +7,8 @@ Track: **Alexa+**. Mini: **AWS Builder**. Skip: Open Source.
 * [ ] New or significantly updated during submission window (Aug 31–Oct 23 2026) — describe updates.
 
 ## Repo (GitHub URL on form)
-* [ ] Public + MIT `LICENSE` detectable in About (this skeleton: done) OR private shared with `testing@devpost.com` + `@AmazonAppDev`.
-* [ ] All source + assets + setup/run instructions (`README.md` — skeleton done, verify on clean clone).
+* [ ] Public + MIT `LICENSE` detectable in About (done) OR private shared with `testing@devpost.com` + `@AmazonAppDev`.
+* [ ] All source + assets + setup/run instructions (`README.md` — done, verify on clean clone).
 * [ ] Runtime hook: `McpServer` created per request (`server/src/mcp/server.ts`), `BedrockRuntimeClient` imported (`server/src/aws/bedrock.stub.ts`, live calls in A-series) — plus planner/trace evidence once built.
 * [ ] Alexa+: MCP `2025-11-25` over Streamable HTTP (done, verified); sim path exempt but we target real route.
 

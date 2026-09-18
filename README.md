@@ -48,7 +48,7 @@ arbitrary user goals**: observe → plan → act → verify, with policy enforce
   `get_task_status` → status + plan + trace + evidence (`queued → running →
   completed/failed`, plus `awaiting_approval` / `awaiting_input`);
   `decide_approval` → resolve action-specific approvals.
-* No raw shell, no per-goal routes. The model proposes; the executor decides.
+* No raw shell in v2 (lands in A-series: today's opener still shells out — see Build status in `docs/architecture.md`); no per-goal routes in v2 (keyword router deleted in A3).
 * Device is `available` = authenticated + recent heartbeat + reachable. Fail safely when offline.
 
 ## Repo shape
@@ -71,7 +71,7 @@ reach/
 * Git, MCP Inspector (`npx @modelcontextprotocol/inspector`), `cloudflared` (tunnel for local MCP dev).
 * Accounts: Amazon/Alexa developer + **Alexa+ Private Preview request**, AWS account (+ $150 credit request by Oct 21 12pm PT), GitHub.
 
-## Setup / run (skeleton)
+## Setup / run
 
 ```bash
 # WSL2 Ubuntu (recommended)

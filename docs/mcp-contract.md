@@ -23,7 +23,9 @@ behind it — see `docs/architecture.md`.
 ### `execute_on_my_devices`
 * Input: `{ task: string }` (trimmed, 3–2000 chars, placeholders refused). Any natural-language goal.
 * Output: `{ taskId: string }`. MUST return fast (<500ms); planning + execution run async.
-* Every goal runs the same planner → executor → policy loop. No goal-string routing exists.
+* Every goal runs the same planner → executor → policy loop (lands in A3, which
+  deletes goal-string routing; until then the v1 router serves doc goals only —
+  see `docs/v1-retired.md`). No per-goal routes in v2, ever.
 
 ### `get_task_status`
 * Input: `{ taskId: string }`.

@@ -3,7 +3,7 @@ import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-r
 /**
  * AWS Builder (Bedrock-only) stub — proves runtime SDK hook for judging.
  * Real content generation lands in the hero workflow (transcript → minutes).
- * Requires AWS_REGION + Bedrock model access; never called in skeleton sprint.
+ * Requires AWS_REGION + Bedrock model access; never called until the planner loop lands (A-series).
  */
 const region = process.env.AWS_REGION ?? "us-east-1";
 export const bedrockClient = new BedrockRuntimeClient({ region });
