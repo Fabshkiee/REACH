@@ -2,15 +2,19 @@
 
 > **Alexa+ understands what you want. REACH gives that intent somewhere to go.**
 
-REACH is an MCP-powered capability bridge between Alexa+ and the user's personal devices.
-Alexa+ handles conversational understanding; REACH expands where that intent can execute —
-including capabilities not natively exposed through Alexa (e.g. creating a real `.docx` on your laptop).
+REACH is a general agent loop for the user's computing environment: it maps
+arbitrary natural-language goals onto advertised device capabilities, enforces
+a risk-based policy on every action, and reports plan + trace + evidence.
+Alexa+ (or any MCP client) handles conversational understanding; REACH expands
+where that intent can execute — including capabilities not natively exposed
+through Alexa. Truth: `docs/architecture.md`. v1 history: `docs/v1-retired.md`.
 
 **Not a universal remote. Not Jarvis. Not a household concierge.**
 Unlike Aura+ (household concierge + memory) or KinSwitch (reassignment between people),
-REACH delegates across **devices/capabilities in your computing environment** via an explicitly
-authorized capability allowlist. Unlike Dwell/SHIFT/RELAY/HomeKeeper (domain planners),
-REACH is **infrastructure for arbitrary user goals**: required capabilities → available devices → execution.
+REACH drives **goals through capabilities in your computing environment** via a
+planner over an explicitly authorized, pluggable capability set. Unlike
+Dwell/SHIFT/RELAY/HomeKeeper (domain planners), REACH is **infrastructure for
+arbitrary user goals**: observe → plan → act → verify, with policy enforcement.
 
 ## Track / prizes
 
@@ -18,42 +22,43 @@ REACH is **infrastructure for arbitrary user goals**: required capabilities → 
 * Mini-challenge: **AWS Builder** (Bedrock-only for MVP — meeting transcript → minutes).
 * Deadline: **Oct 23, 2026 12:00 PM PDT**. Video `<3min` showing real functioning.
 
-## Architecture
+## Architecture (v2 — see `docs/architecture.md` for truth)
 
 ```text
-                Alexa+
-                  │
-             MCP / HTTPS (Streamable HTTP)
-                  │
-        ┌─────────▼─────────┐
-        │    REACH Core     │  server/
-        │ Intent / Tasks    │
-        │ Capability Graph  │
-        │ Device Registry   │
-        └──────┬──────┬─────┘
-               │      │ (HTTPS REST + polling for MVP)
-        ┌──────▼─┐  ┌─▼───────┐
-        │ Laptop │  │  iPhone │ (later)
-        │ Agent  │  │  Agent  │
-        └────┬───┘  └────┬────┘
-             │            │
-      Files / Apps   Photos / Shortcuts
+                Alexa+ / sim UI / any MCP client
+                            │
+                   MCP / HTTPS (Streamable HTTP)
+                            │
+              ┌─────────────▼──────────────┐
+              │        REACH Core          │
+              │  Planner (Bedrock)         │  goal → plan → propose → observe
+              │  Executor + Policy         │  validate → allow/confirm/deny
+              │  Tasks + Audit trace       │  plan + trace + evidence
+              └──────┬───────────────┬─────┘
+                     │               │ (HTTPS REST + polling)
+              ┌──────▼─┐          ┌──▼──────┐
+              │ Laptop │          │  future │
+              │ Agent  │          │ agents  │
+              └────┬───┘          └─────────┘
+                   │
+        files / browser / apps primitives
 ```
 
-* Alexa-facing surface (stable, semantic, 2 tools only):
-  * `execute_on_my_devices(task: string) → { taskId }` — async, returns fast (<500ms).
-  * `get_task_status(taskId) → { status, result? }` — `queued → running → completed/failed`.
-* No `run_command`, no per-capability Alexa tools.
+* Agent-facing surface: `execute_on_my_devices(task)` → async `taskId` (<500ms);
+  `get_task_status` → status + plan + trace + evidence (`queued → running →
+  completed/failed`, plus `awaiting_approval` / `awaiting_input`);
+  `decide_approval` → resolve action-specific approvals.
+* No raw shell, no per-goal routes. The model proposes; the executor decides.
 * Device is `available` = authenticated + recent heartbeat + reachable. Fail safely when offline.
 
 ## Repo shape
 
 ```text
 reach/
-├── server/           # REACH Core + MCP (Streamable HTTP) + registry + tasks + Bedrock stub
-├── windows-agent/    # Laptop agent: health, heartbeat, capability allowlist (create_document first)
+├── server/           # REACH Core: planner, executor, policy, MCP, tasks, audit
+├── windows-agent/    # Laptop agent: file/browser/app primitives, heartbeat
 ├── addon-package/    # Alexa+ addon.json stub (fill icons/privacy URLs before deploy)
-├── docs/             # contract, checklists, friction log, demo script, submission checklist
+├── docs/             # architecture (truth), contract, security, checklists, demo script
 └── README.md
 ```
 
@@ -88,10 +93,12 @@ npm run dev:agent        # → http://localhost:3001/health → 200 {"ok":true}
 Windows PowerShell equivalents work for quick checks, but use WSL for `alexa-ai` CLI later:
 `alexa-ai configure` (after Preview granted) → `alexa-ai new mcp` / `deploy` → web simulator test.
 
-## MVP proof (Phase 1 — DONE, no Alexa yet)
+## Proven so far (v1 milestones — engine since replaced, see `docs/v1-retired.md`)
 
 > “Create a document on my laptop for my biology homework.”
-> → `My Biology Homework.docx` created + opened in `~/Documents/REACH/`.
+> → `My Biology Homework.docx` created + opened in `~/Documents/REACH`,
+> via Inspector, SDK client, and sim UI; tasks survive restarts; presence via
+> heartbeat; MCP 2025-11-25 over Streamable HTTP.
 
 ```bash
 # Terminal 1 — REACH Core
@@ -100,8 +107,9 @@ npm run dev:server
 # Terminal 2 — Windows agent (auto-registers + heartbeats every 30s)
 npm run dev:agent
 
-# Optional: shared secret for the core↔agent channel (set SAME value both sides).
-# Unset = local traffic trusted (warns at boot). No secrets are committed.
+# Auth today: set the SAME AGENT_TOKEN on both sides to enforce Bearer auth.
+# (Unset = local traffic trusted with a boot warning — v2 direction is fail-closed;
+#  lands in the A-series builds. Never commit secrets — see docs/security.md.)
 #   $env:AGENT_TOKEN="dev-secret"  (PowerShell) / AGENT_TOKEN=dev-secret (bash)
 # Test knobs: DEVICE_TIMEOUT_MS (default 90000), HEARTBEAT_INTERVAL_MS (default 30000),
 #   REACH_DATA_DIR (default <server-cwd>/data), DISPATCH_TIMEOUT_MS (default 60000).
@@ -121,21 +129,24 @@ curl localhost:3000/tools/task/<taskId>
 #     "capabilityId":"create_document","artifactUri":"...\\My Biology Homework.docx"}}
 ```
 
-## AWS Builder plan (Bedrock-only)
+## AWS Builder plan (Bedrock as the planner brain)
 
-* `server/src/aws/bedrock.stub.ts` imports `BedrockRuntimeClient` (runtime hook) and exposes
-  `generateMinutes(transcript)` TODO. Real call lands in hero workflow:
-  meeting capture → transcript → Bedrock → minutes → saved `.docx`.
+* Bedrock (Converse, Haiku default via `BEDROCK_MODEL_ID`, `us-east-1`) drives the
+  ReAct loop — goal → plan → proposed actions — and drafts structured document
+  content. Runtime hook exists today (`BedrockRuntimeClient` in
+  `server/src/aws/bedrock.stub.ts`); live calls land in the A-series builds.
+* Meeting-transcription hero parked; content drafting folded into the planner.
 * Document model + usage in `docs/aws-builder.md` + Product Feedback at submission.
 
 ## Submission pointers
 
 * License: MIT at repo root (Devpost-detectable).
-* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`, `BedrockRuntimeClient` imported in stub.
-* Video (TODO): `<3min`, film real `.docx` on laptop + simulator. Script: `docs/demo-script.md`.
+* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`, `BedrockRuntimeClient` imported in stub (live Bedrock in A-series).
+* Video (TODO): `<3min` — three unrelated goals on one engine + approval beat. Script: `docs/demo-script.md`.
 * Friction log (bonus up to 10%): `docs/friction-log.md` — updated continuously.
 * Checklist: `docs/submission-checklist.md`.
 
 ## Status
 
-Skeleton sprint: health endpoints + type stubs only. See `docs/*` for contracts and next phases.
+Docs sprint: v2 truth written (`docs/architecture.md` + `docs/v1-retired.md`).
+Build order: A1 policy+executor → A2 primitives → A3 planner loop → A4 sim approvals + acceptance → film.
