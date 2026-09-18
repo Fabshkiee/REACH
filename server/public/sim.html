@@ -8,27 +8,38 @@
   :root {
     --bg: #0c141b;
     --panel: #212b33;
-    --panel-deep: #182028;
+    --panel-deep: #161e25;
     --line: rgba(255, 255, 255, .08);
     --text: #e9edef;
-    --muted: #98a2ab;
-    --accent: #2dd4bf;
+    --muted: #9aa4ad;
+    --accent: #1f9ede;
+    --accent-text: #6fc3f2;
     --danger: #f87171;
     --radius: 12px;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
+    min-height: 100vh;
     background: var(--bg);
+    background-image: radial-gradient(60% 42% at 72% 0%, rgba(31, 158, 222, .13), transparent 70%);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 15px;
     line-height: 1.5;
   }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
   .app { display: flex; min-height: 100vh; }
 
-  /* Left rail — decorative echo of the reference app */
+  /* Left rail — compositional echo of the reference app */
   .rail {
     width: 64px;
     flex: none;
@@ -36,72 +47,93 @@
     flex-direction: column;
     align-items: center;
     gap: 26px;
-    padding-top: 28px;
+    padding-top: 88px;
     border-right: 1px solid var(--line);
   }
-  .rail svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; stroke-width: 1.6; }
-  .rail .active svg { stroke: var(--accent); }
+  .rail svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .rail .active svg { stroke: var(--accent-text); }
 
-  /* Center column */
-  .center { flex: 1; display: flex; flex-direction: column; max-width: 760px; margin: 0 auto; width: 100%; padding: 0 24px; }
-  .caption { color: var(--muted); font-size: 12px; text-align: center; margin: 18px 0 0; }
-  .greeting { margin: auto 0; text-align: center; padding-bottom: 8vh; }
-  .greeting h1 { font-size: 28px; font-weight: 600; margin: 0 0 24px; letter-spacing: -.01em; }
-  .greeting.hidden { display: none; }
+  /* Center */
+  .center { flex: 1; display: flex; flex-direction: column; max-width: 780px; margin: 0 auto; width: 100%; padding: 0 24px; min-width: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 20px 0 0; }
+  .wordmark { font-size: 22px; font-weight: 700; letter-spacing: -.02em; color: var(--accent-text); }
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .home { margin: auto 0; text-align: center; padding: 24px 0 10vh; }
+  .home h1 { font-size: 28px; font-weight: 600; letter-spacing: -.01em; text-wrap: balance; margin: 0 0 28px; }
+  .home.hidden { display: none; }
 
   .pill {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 999px;
     padding: 6px 6px 6px 20px;
+    max-width: 640px;
+    margin: 0 auto;
   }
-  .pill input {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text);
-    font: inherit;
-    min-width: 0;
-  }
+  .pill:focus-within { border-color: var(--accent); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+  .pill input { flex: 1; background: none; border: none; color: var(--text); font: inherit; min-width: 0; }
   .pill input::placeholder { color: var(--muted); }
   .pill input:focus { outline: none; }
-  .pill:focus-within { border-color: var(--accent); }
-  .send {
+  .iconbtn {
     flex: none;
     width: 36px;
     height: 36px;
     border: none;
     border-radius: 50%;
-    background: var(--accent);
-    color: #06231f;
-    cursor: pointer;
+    background: none;
+    color: var(--muted);
     display: flex;
     align-items: center;
     justify-content: center;
   }
+  .iconbtn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .iconbtn[disabled] { opacity: .45; cursor: default; }
+  .send { background: var(--accent); color: #fff; cursor: pointer; }
+  .send svg { width: 16px; height: 16px; stroke-width: 2.2; }
   .send:disabled { opacity: .45; cursor: default; }
-  .send svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
   .chips button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: var(--panel);
     border: 1px solid var(--line);
     color: var(--text);
     font: inherit;
     font-size: 13px;
     border-radius: 999px;
-    padding: 8px 16px;
+    padding: 9px 14px 9px 18px;
     cursor: pointer;
+    max-width: 100%;
   }
   .chips button:hover { border-color: var(--accent); }
+  .chips button:disabled { opacity: .45; cursor: default; }
+  .chips svg { width: 14px; height: 14px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .chips span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .composer { padding: 16px 0 24px; }
+  .dock { padding: 12px 0 10px; }
+  .footnote { color: var(--muted); font-size: 12px; text-align: center; margin: 0; padding-bottom: 22px; }
 
   /* Thread */
-  .thread { display: flex; flex-direction: column; gap: 16px; padding: 24px 0 8px; overflow-y: auto; }
+  .thread { display: flex; flex-direction: column; gap: 14px; padding: 20px 0 4px; overflow-y: auto; }
+  .thread:empty { display: none; }
   .user {
     align-self: flex-end;
     background: var(--panel);
@@ -110,63 +142,67 @@
     padding: 10px 16px;
     max-width: 80%;
   }
-  .statusline { color: var(--muted); font-size: 12px; }
-  .statusline .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 8px; animation: pulse 1.2s ease-in-out infinite; }
+  .statusline { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .statusline .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; animation: pulse 1.2s ease-out infinite; }
   @keyframes pulse { 50% { opacity: .25; } }
   @media (prefers-reduced-motion: reduce) { .statusline .pulse { animation: none; } }
 
-  .card {
-    background: var(--panel-deep);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    max-width: 80%;
-  }
-  .card.ok { border-left: 3px solid var(--accent); }
-  .card.fail { border-left: 3px solid var(--danger); }
-  .card h3 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
-  .card .row {
-    display: flex;
-    gap: 12px;
-    padding: 7px 0;
-    border-top: 1px solid var(--line);
-    font-size: 13px;
-  }
-  .card .row:first-of-type { border-top: none; }
+  .card { background: var(--panel-deep); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px 16px; }
+  .card h3 { margin: 6px 0 8px; font-size: 16px; font-weight: 600; }
+  .card h3:focus { outline: none; }
+  .card h3:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+  .cardhead { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; }
+  .cardhead .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .cardhead.ok { color: var(--accent-text); }
+  .cardhead.ok .dot { background: var(--accent); }
+  .cardhead.fail { color: var(--danger); }
+  .cardhead.fail .dot { background: var(--danger); }
+  .cardhead time { margin-left: auto; font-weight: 400; color: var(--muted); }
+  .card .row { display: flex; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
   .card .k { flex: none; width: 88px; color: var(--muted); }
   .card .mono { font-family: Consolas, "SF Mono", monospace; font-size: 12px; word-break: break-all; }
-  .card .reason { color: var(--text); }
+  .card .reason { color: var(--text); font-size: 14px; }
+  .card .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    border-radius: 8px;
+    padding: 7px 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent-text); }
+  .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .card details { margin-top: 10px; }
+  .card summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  .card details .mono { display: block; margin-top: 6px; color: var(--muted); }
 
   /* Right panel */
-  .panel {
-    width: 300px;
-    flex: none;
-    border-left: 1px solid var(--line);
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    overflow-y: auto;
-  }
-  .panel h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
+  .panel { width: 300px; flex: none; border-left: 1px solid var(--line); padding: 20px; overflow-y: auto; }
+  .panel h2 { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin: 16px 0 8px; }
   .panel h2:first-child { margin-top: 0; }
-  .device, .recent-item {
-    background: var(--panel-deep);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 10px 14px;
-    font-size: 13px;
-  }
+  .device, .ritem { background: var(--panel-deep); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; }
+  .device + .device, .ritem + .ritem, .rexp { margin-top: 8px; }
   .device .name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
   .dot.off { background: var(--muted); }
-  .device .meta, .recent-item .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .recent-item { cursor: pointer; width: 100%; text-align: left; color: var(--text); font: inherit; }
-  .recent-item:hover { border-color: var(--accent); }
-  .recent-item .goal { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .st.completed { color: var(--accent); border-color: var(--accent); }
+  .device .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .ritem { width: 100%; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+  .ritem:hover { border-color: var(--accent); }
+  .ritem .top { display: flex; align-items: center; gap: 8px; }
+  .ritem .goal { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ritem .meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); flex: none; }
+  .st.completed { color: var(--accent-text); border-color: var(--accent); }
   .st.failed { color: var(--danger); border-color: var(--danger); }
+  .rexp { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; font-size: 12px; color: var(--muted); }
+  .rexp .rowbtns { display: flex; gap: 8px; margin-top: 8px; }
+  .empty { color: var(--muted); font-size: 13px; }
 
   @media (max-width: 900px) { .panel, .rail { display: none; } }
 </style>
@@ -175,157 +211,303 @@
 <div class="app">
   <nav class="rail" aria-hidden="true">
     <span class="active"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg></span>
-    <span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
-    <span><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9"/><path d="M3 5v4h4"/><path d="M12 7v5l3 2"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 00-4 10.5c.8.7 1 1.5 1 2.5h6c0-1 .2-1.8 1-2.5A6 6 0 0012 3z"/><path d="M9 18h6M10 21h4"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12l3 3 5-6"/></svg></span>
     <span><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></span>
   </nav>
 
   <main class="center">
-    <p class="caption">Simulated Alexa+ interaction — backend, devices, and files are real.</p>
-    <div class="greeting" id="greeting">
+    <div class="topbar">
+      <span class="wordmark">reach</span>
+      <span class="avatar" aria-hidden="true">R</span>
+    </div>
+
+    <div class="home" id="home">
       <h1>Hello, how can I help?</h1>
+      <div id="composerHome"></div>
       <div class="chips" id="chips"></div>
     </div>
-    <div class="thread" id="thread" aria-live="polite"></div>
-    <div class="composer">
+
+    <div class="thread" id="thread" aria-label="Conversation"></div>
+    <div class="dock" id="dock" hidden>
       <form class="pill" id="ask">
+        <label class="vh" for="goal">Ask REACH</label>
         <input id="goal" type="text" placeholder="Ask REACH" autocomplete="off" maxlength="2000">
-        <button class="send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+        <button class="iconbtn" type="button" disabled tabindex="-1" aria-disabled="true" title="Voice input is not part of this simulation"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="10" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></button>
+        <button class="iconbtn" type="button" disabled tabindex="-1" aria-disabled="true" title="Attachments are not part of this simulation"><svg viewBox="0 0 24 24"><path d="M21 12l-8 8a5 5 0 01-7-7l8-8a3.5 3.5 0 015 5l-8 8a2 2 0 01-3-3l7-7"/></svg></button>
+        <button class="send iconbtn" id="sendBtn" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
       </form>
     </div>
+    <p class="footnote">Simulated Alexa+ interaction — backend, devices, and files are real.</p>
   </main>
 
-  <aside class="panel">
+  <aside class="panel" aria-label="Devices and recent tasks">
     <h2>Devices</h2>
     <div id="devices"></div>
     <h2>Recent tasks</h2>
     <div id="recent"></div>
   </aside>
 </div>
+<div class="vh" id="sr-live" aria-live="polite"></div>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const thread = $("thread"), greeting = $("greeting"), devicesEl = $("devices"), recentEl = $("recent");
+  const thread = $("thread"), home = $("home"), dock = $("dock"),
+        devicesEl = $("devices"), recentEl = $("recent"),
+        form = $("ask"), input = $("goal"), sendBtn = $("sendBtn"),
+        live = $("sr-live");
+  const MAX_NODES = 40, POLL_MS = 1000, POLL_LIMIT = 90;
   const EXAMPLES = [
     "Create a document on my laptop for my biology homework",
     "Remind me to water the plants",
   ];
+  const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const COPY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>';
+  let busy = false, expandedId = null, lastDevicesJson = "";
+
+  // Composer lives in the home block until the first send, then docks bottom.
+  $("composerHome").appendChild(form);
   EXAMPLES.forEach((text) => {
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = text;
-    b.onclick = () => { $("goal").value = text; send(); };
+    b.innerHTML = "<span></span>" + CHEV;
+    b.firstElementChild.textContent = text;
+    b.title = text;
+    b.onclick = () => { input.value = text; void send(); };
     $("chips").appendChild(b);
   });
 
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const ago = (iso) => {
+    if (!iso) return "never";
     const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
-    return s < 60 ? s + "s ago" : Math.round(s / 60) + "m ago";
+    return s < 5 ? "just now" : s < 60 ? s + "s ago" : Math.round(s / 60) + "m ago";
   };
   const fileName = (p) => (p || "").split(/[\\/]/).pop();
+  const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  function prune() {
+    while (thread.children.length > MAX_NODES) thread.removeChild(thread.firstChild);
+  }
+  function announce(msg) { live.textContent = ""; requestAnimationFrame(() => { live.textContent = msg; }); }
+
+  function setBusy(v) {
+    busy = v;
+    sendBtn.disabled = v;
+    sendBtn.setAttribute("aria-disabled", String(v));
+    [...$("chips").children].forEach((c) => { c.disabled = v; });
+  }
+
+  function showThread() {
+    if (!home.classList.contains("hidden")) {
+      home.classList.add("hidden");
+      dock.hidden = false;
+      dock.appendChild(form);
+    }
+  }
 
   function addUser(text) {
     const d = document.createElement("div");
     d.className = "user";
     d.textContent = text;
     thread.appendChild(d);
+    prune();
     d.scrollIntoView({ block: "nearest" });
   }
 
-  function addStatus(taskId, ms) {
+  function addWorking() {
     const d = document.createElement("div");
     d.className = "statusline";
-    d.innerHTML = '<span class="pulse"></span><span></span>';
-    const label = d.lastElementChild;
-    label.textContent = "Working… " + taskId + " · " + ms + "ms";
+    const dot = document.createElement("span");
+    dot.className = "pulse";
+    dot.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = "Working…";
+    d.append(dot, label);
     thread.appendChild(d);
-    return label;
+    prune();
+    const t0 = Date.now();
+    const tick = setInterval(() => {
+      label.textContent = "Working… " + Math.round((Date.now() - t0) / 1000) + "s";
+    }, POLL_MS);
+    return { el: d, stop: () => clearInterval(tick) };
   }
 
-  function addCard(kind, title, rows) {
-    const d = document.createElement("div");
-    d.className = "card " + kind;
-    d.innerHTML = "<h3></h3>";
-    d.firstElementChild.textContent = title;
-    for (const [k, v, mono] of rows) {
-      const r = document.createElement("div");
-      r.className = "row";
-      const kk = document.createElement("span");
-      kk.className = "k";
-      kk.textContent = k;
-      const vv = document.createElement("span");
-      if (mono) vv.className = "mono";
-      vv.textContent = v;
-      r.append(kk, vv);
-      d.appendChild(r);
+  function actionRow(buttons) {
+    const row = document.createElement("div");
+    row.className = "actions";
+    for (const [label, fn, svg] of buttons) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn";
+      b.textContent = label;
+      if (svg) b.insertAdjacentHTML("afterbegin", svg);
+      b.onclick = fn;
+      row.appendChild(b);
     }
-    thread.appendChild(d);
-    d.scrollIntoView({ block: "nearest" });
+    return row;
   }
 
-  async function poll(taskId, label) {
-    for (;;) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const t = await (await fetch("/tools/task/" + encodeURIComponent(taskId))).json();
-      label.textContent = "Status: " + t.status + " · " + taskId;
+  function copyPath(path, btn) {
+    const done = () => { btn.textContent = "Copied"; setTimeout(() => { btn.textContent = "Copy path"; }, 1500); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(path).then(done, done);
+    else done();
+  }
+
+  function reuseGoal(goal) {
+    input.value = goal;
+    input.focus();
+  }
+
+  function addDoneCard(t) {
+    const ev = t.evidence || {};
+    const name = fileName(ev.artifactUri) || "Done";
+    const card = document.createElement("div");
+    card.className = "card";
+    const head = document.createElement("div");
+    head.className = "cardhead ok";
+    head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Completed</span>';
+    const time = document.createElement("time");
+    time.textContent = clock();
+    head.appendChild(time);
+    const h = document.createElement("h3");
+    h.textContent = name;
+    h.tabIndex = -1;
+    const what = document.createElement("div");
+    what.className = "row";
+    what.innerHTML = '<span class="k">Result</span>';
+    const wv = document.createElement("span");
+    wv.textContent = ev.note || "Saved on your laptop.";
+    what.appendChild(wv);
+    const where = document.createElement("div");
+    where.className = "row";
+    where.innerHTML = '<span class="k">Saved to</span>';
+    const wv2 = document.createElement("span");
+    wv2.className = "mono";
+    wv2.textContent = ev.artifactUri || "";
+    where.appendChild(wv2);
+    card.append(head, h, what, where);
+    card.appendChild(actionRow([
+      ["Copy path", (e) => copyPath(ev.artifactUri || "", e.target.closest("button")), COPY_SVG],
+      ["Reuse goal", () => reuseGoal(t.goal)],
+    ]));
+    const det = document.createElement("details");
+    const sum = document.createElement("summary");
+    sum.textContent = "Technical details";
+    const mono = document.createElement("span");
+    mono.className = "mono";
+    mono.textContent = "device " + (ev.deviceId || "?") + " · capability " + (ev.capabilityId || "?") + " · " + t.id;
+    det.append(sum, mono);
+    card.appendChild(det);
+    thread.appendChild(card);
+    prune();
+    h.focus({ preventScroll: false });
+    announce("Done: " + name);
+  }
+
+  function addFailCard(message, goal, retryLabel) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const head = document.createElement("div");
+    head.className = "cardhead fail";
+    head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Could not do that</span>';
+    const time = document.createElement("time");
+    time.textContent = clock();
+    head.appendChild(time);
+    const p = document.createElement("div");
+    p.className = "reason";
+    p.textContent = message;
+    p.tabIndex = -1;
+    card.append(head, p);
+    const row = document.createElement("div");
+    row.className = "actions";
+    const tryBtn = document.createElement("button");
+    tryBtn.type = "button";
+    tryBtn.className = "btn";
+    tryBtn.textContent = retryLabel || "Try an example instead";
+    tryBtn.onclick = () => { input.value = EXAMPLES[0]; void send(); };
+    const reuse = document.createElement("button");
+    reuse.type = "button";
+    reuse.className = "btn";
+    reuse.textContent = "Edit goal";
+    reuse.onclick = () => { input.value = goal; input.focus(); };
+    row.append(tryBtn, reuse);
+    card.appendChild(row);
+    thread.appendChild(card);
+    prune();
+    p.focus({ preventScroll: false });
+    announce("Failed: " + message);
+  }
+
+  async function poll(taskId) {
+    for (let i = 0; i < POLL_LIMIT; i++) {
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      let t;
+      try {
+        t = await (await fetch("/tools/task/" + encodeURIComponent(taskId))).json();
+      } catch {
+        return { status: "error", error: "Lost contact with the core mid-task. Is the server still running?" };
+      }
       if (t.status === "completed" || t.status === "failed") return t;
     }
+    return { status: "error", error: "The laptop is taking too long — over 90 seconds. Check the agent, then try again." };
   }
 
   async function runTask(goal) {
-    greeting.classList.add("hidden");
+    showThread();
     addUser(goal);
-    const t0 = performance.now();
-    const { taskId } = await (await fetch("/tools/execute_on_my_devices", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ task: goal }),
-    })).json();
-    const ms = Math.round(performance.now() - t0);
-    const label = addStatus(taskId, ms);
-    const t = await poll(taskId, label);
-    label.parentElement.querySelector(".pulse")?.remove();
-    if (t.status === "completed" && t.evidence) {
-      addCard("ok", fileName(t.evidence.artifactUri) || "Done", [
-        ["Device", t.evidence.deviceId || ""],
-        ["Capability", t.evidence.capabilityId || ""],
-        ["Saved to", t.evidence.artifactUri || "", true],
-        ["Note", t.evidence.note || ""],
-      ]);
-    } else {
-      const card = document.createElement("div");
-      card.className = "card fail";
-      const h = document.createElement("h3");
-      h.textContent = "Could not do that";
-      const p = document.createElement("div");
-      p.className = "reason";
-      p.textContent = t.error || "Unknown error.";
-      card.append(h, p);
-      thread.appendChild(card);
-      card.scrollIntoView({ block: "nearest" });
+    setBusy(true);
+    const work = addWorking();
+    let outcome;
+    try {
+      const res = await fetch("/tools/execute_on_my_devices", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ task: goal }),
+      });
+      if (!res.ok) throw new Error("core refused the goal (HTTP " + res.status + ")");
+      const { taskId } = await res.json();
+      outcome = await poll(taskId);
+    } catch (err) {
+      outcome = { status: "error", error: err instanceof Error ? err.message : "Could not reach the core." };
     }
+    work.stop();
+    work.el.remove();
+    setBusy(false);
+    if (outcome.status === "completed") addDoneCard(outcome);
+    else addFailCard(outcome.error || "Unknown error.", goal);
     refreshRecent();
+    input.focus();
   }
 
   async function send() {
-    const input = $("goal");
+    if (busy) return;
     const goal = input.value.trim();
-    if (!goal) return;
+    if (!goal) { input.focus(); return; }
     input.value = "";
     await runTask(goal);
   }
 
-  $("ask").addEventListener("submit", (e) => { e.preventDefault(); void send(); });
+  form.addEventListener("submit", (e) => { e.preventDefault(); void send(); });
 
   async function refreshDevices() {
     try {
       const ds = await (await fetch("/devices")).json();
+      const sig = JSON.stringify(ds.map((d) => [d.id, d.available, d.lastHeartbeatAt]));
+      if (sig === lastDevicesJson) return;
+      lastDevicesJson = sig;
       devicesEl.innerHTML = "";
       if (!ds.length) {
         const d = document.createElement("div");
         d.className = "device";
-        d.innerHTML = '<div class="meta">No devices registered.</div>';
+        const m = document.createElement("div");
+        m.className = "meta";
+        m.textContent = "No devices registered — start the agent.";
+        d.appendChild(m);
         devicesEl.appendChild(d);
         return;
       }
@@ -336,6 +518,7 @@
         name.className = "name";
         const dot = document.createElement("span");
         dot.className = "dot" + (d.available ? "" : " off");
+        dot.setAttribute("aria-hidden", "true");
         const nm = document.createElement("span");
         nm.textContent = d.name || d.id;
         name.append(dot, nm);
@@ -348,51 +531,91 @@
     } catch { /* core unreachable — leave panel as-is */ }
   }
 
+  function statusPill(status) {
+    const pill = document.createElement("span");
+    pill.className = "st " + status;
+    pill.textContent = status;
+    return pill;
+  }
+
   async function refreshRecent() {
     try {
       const ts = await (await fetch("/tools/tasks?limit=8")).json();
       recentEl.innerHTML = "";
+      if (!ts.length) {
+        const d = document.createElement("div");
+        d.className = "empty";
+        d.textContent = "No tasks yet — send a goal to begin.";
+        recentEl.appendChild(d);
+        return;
+      }
       for (const t of ts) {
-        const b = document.createElement("button");
-        b.className = "recent-item";
-        const g = document.createElement("div");
-        g.className = "goal";
-        g.textContent = t.goal;
-        const m = document.createElement("div");
-        m.className = "meta";
-        const pill = document.createElement("span");
-        pill.className = "st " + t.status;
-        pill.textContent = t.status;
-        m.append(pill, document.createTextNode("  " + t.id));
-        b.append(g, m);
-        b.onclick = async () => {
+        if (expandedId !== t.id) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "ritem";
+          b.title = t.goal;
+          const top = document.createElement("div");
+          top.className = "top";
+          const g = document.createElement("div");
+          g.className = "goal";
+          g.textContent = t.goal;
+          top.append(g, statusPill(t.status));
+          const m = document.createElement("div");
+          m.className = "meta";
+          m.textContent = ago(t.updatedAt);
+          b.append(top, m);
+          b.onclick = () => { expandedId = t.id; void refreshRecent(); };
+          recentEl.appendChild(b);
+        } else {
+          const wrap = document.createElement("div");
+          wrap.className = "ritem";
+          const top = document.createElement("div");
+          top.className = "top";
+          const g = document.createElement("div");
+          g.className = "goal";
+          g.textContent = t.goal;
+          top.append(g, statusPill(t.status));
+          const m = document.createElement("div");
+          m.className = "meta";
+          m.textContent = ago(t.updatedAt);
+          wrap.append(top, m);
+          const exp = document.createElement("div");
+          exp.className = "rexp";
           const full = await (await fetch("/tools/task/" + encodeURIComponent(t.id))).json();
-          addUser(t.goal);
+          const line = document.createElement("div");
           if (full.status === "completed" && full.evidence) {
-            addCard("ok", fileName(full.evidence.artifactUri) || "Done", [
-              ["Device", full.evidence.deviceId || ""],
-              ["Capability", full.evidence.capabilityId || ""],
-              ["Saved to", full.evidence.artifactUri || "", true],
-              ["Note", full.evidence.note || ""],
-            ]);
-          } else if (full.status === "failed") {
-            const card = document.createElement("div");
-            card.className = "card fail";
-            const h = document.createElement("h3");
-            h.textContent = "Could not do that";
-            const p = document.createElement("div");
-            p.className = "reason";
-            p.textContent = full.error || "Unknown error.";
-            card.append(h, p);
-            thread.appendChild(card);
+            line.textContent = fileName(full.evidence.artifactUri) + " · " + (full.evidence.note || "");
           } else {
-            const line = document.createElement("div");
-            line.className = "statusline";
-            line.textContent = "Status: " + full.status + " · " + t.id;
-            thread.appendChild(line);
+            line.textContent = full.error || ("Status: " + full.status);
           }
-        };
-        recentEl.appendChild(b);
+          exp.appendChild(line);
+          const row = document.createElement("div");
+          row.className = "rowbtns";
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.className = "btn";
+          toggle.textContent = "Collapse";
+          toggle.onclick = () => { expandedId = null; void refreshRecent(); };
+          row.appendChild(toggle);
+          if (full.status === "completed" && full.evidence?.artifactUri) {
+            const cp = document.createElement("button");
+            cp.type = "button";
+            cp.className = "btn";
+            cp.textContent = "Copy path";
+            cp.onclick = (e) => copyPath(full.evidence.artifactUri, e.target.closest("button"));
+            row.appendChild(cp);
+          }
+          const ru = document.createElement("button");
+          ru.type = "button";
+          ru.className = "btn";
+          ru.textContent = "Reuse goal";
+          ru.onclick = () => reuseGoal(t.goal);
+          row.appendChild(ru);
+          exp.appendChild(row);
+          wrap.appendChild(exp);
+          recentEl.appendChild(wrap);
+        }
       }
     } catch { /* ignore */ }
   }
