@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REACH — simulated Alexa+ interaction</title>
+<style>
+  :root {
+    --bg: #0c141b;
+    --panel: #212b33;
+    --panel-deep: #182028;
+    --line: rgba(255, 255, 255, .08);
+    --text: #e9edef;
+    --muted: #98a2ab;
+    --accent: #2dd4bf;
+    --danger: #f87171;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .app { display: flex; min-height: 100vh; }
+
+  /* Left rail — decorative echo of the reference app */
+  .rail {
+    width: 64px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    padding-top: 28px;
+    border-right: 1px solid var(--line);
+  }
+  .rail svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; stroke-width: 1.6; }
+  .rail .active svg { stroke: var(--accent); }
+
+  /* Center column */
+  .center { flex: 1; display: flex; flex-direction: column; max-width: 760px; margin: 0 auto; width: 100%; padding: 0 24px; }
+  .caption { color: var(--muted); font-size: 12px; text-align: center; margin: 18px 0 0; }
+  .greeting { margin: auto 0; text-align: center; padding-bottom: 8vh; }
+  .greeting h1 { font-size: 28px; font-weight: 600; margin: 0 0 24px; letter-spacing: -.01em; }
+  .greeting.hidden { display: none; }
+
+  .pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 6px 6px 20px;
+  }
+  .pill input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text);
+    font: inherit;
+    min-width: 0;
+  }
+  .pill input::placeholder { color: var(--muted); }
+  .pill input:focus { outline: none; }
+  .pill:focus-within { border-color: var(--accent); }
+  .send {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #06231f;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .send:disabled { opacity: .45; cursor: default; }
+  .send svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; }
+  .chips button {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    border-radius: 999px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  .chips button:hover { border-color: var(--accent); }
+
+  .composer { padding: 16px 0 24px; }
+
+  /* Thread */
+  .thread { display: flex; flex-direction: column; gap: 16px; padding: 24px 0 8px; overflow-y: auto; }
+  .user {
+    align-self: flex-end;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    max-width: 80%;
+  }
+  .statusline { color: var(--muted); font-size: 12px; }
+  .statusline .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 8px; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .statusline .pulse { animation: none; } }
+
+  .card {
+    background: var(--panel-deep);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    max-width: 80%;
+  }
+  .card.ok { border-left: 3px solid var(--accent); }
+  .card.fail { border-left: 3px solid var(--danger); }
+  .card h3 { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
+  .card .row {
+    display: flex;
+    gap: 12px;
+    padding: 7px 0;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .card .row:first-of-type { border-top: none; }
+  .card .k { flex: none; width: 88px; color: var(--muted); }
+  .card .mono { font-family: Consolas, "SF Mono", monospace; font-size: 12px; word-break: break-all; }
+  .card .reason { color: var(--text); }
+
+  /* Right panel */
+  .panel {
+    width: 300px;
+    flex: none;
+    border-left: 1px solid var(--line);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+  }
+  .panel h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 6px; }
+  .panel h2:first-child { margin-top: 0; }
+  .device, .recent-item {
+    background: var(--panel-deep);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .device .name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+  .dot.off { background: var(--muted); }
+  .device .meta, .recent-item .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .recent-item { cursor: pointer; width: 100%; text-align: left; color: var(--text); font: inherit; }
+  .recent-item:hover { border-color: var(--accent); }
+  .recent-item .goal { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .st.completed { color: var(--accent); border-color: var(--accent); }
+  .st.failed { color: var(--danger); border-color: var(--danger); }
+
+  @media (max-width: 900px) { .panel, .rail { display: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-hidden="true">
+    <span class="active"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+    <span><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg></span>
+  </nav>
+
+  <main class="center">
+    <p class="caption">Simulated Alexa+ interaction — backend, devices, and files are real.</p>
+    <div class="greeting" id="greeting">
+      <h1>Hello, how can I help?</h1>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="thread" id="thread" aria-live="polite"></div>
+    <div class="composer">
+      <form class="pill" id="ask">
+        <input id="goal" type="text" placeholder="Ask REACH" autocomplete="off" maxlength="2000">
+        <button class="send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </form>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <h2>Devices</h2>
+    <div id="devices"></div>
+    <h2>Recent tasks</h2>
+    <div id="recent"></div>
+  </aside>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const thread = $("thread"), greeting = $("greeting"), devicesEl = $("devices"), recentEl = $("recent");
+  const EXAMPLES = [
+    "Create a document on my laptop for my biology homework",
+    "Remind me to water the plants",
+  ];
+  EXAMPLES.forEach((text) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = text;
+    b.onclick = () => { $("goal").value = text; send(); };
+    $("chips").appendChild(b);
+  });
+
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const ago = (iso) => {
+    const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+    return s < 60 ? s + "s ago" : Math.round(s / 60) + "m ago";
+  };
+  const fileName = (p) => (p || "").split(/[\\/]/).pop();
+
+  function addUser(text) {
+    const d = document.createElement("div");
+    d.className = "user";
+    d.textContent = text;
+    thread.appendChild(d);
+    d.scrollIntoView({ block: "nearest" });
+  }
+
+  function addStatus(taskId, ms) {
+    const d = document.createElement("div");
+    d.className = "statusline";
+    d.innerHTML = '<span class="pulse"></span><span></span>';
+    const label = d.lastElementChild;
+    label.textContent = "Working… " + taskId + " · " + ms + "ms";
+    thread.appendChild(d);
+    return label;
+  }
+
+  function addCard(kind, title, rows) {
+    const d = document.createElement("div");
+    d.className = "card " + kind;
+    d.innerHTML = "<h3></h3>";
+    d.firstElementChild.textContent = title;
+    for (const [k, v, mono] of rows) {
+      const r = document.createElement("div");
+      r.className = "row";
+      const kk = document.createElement("span");
+      kk.className = "k";
+      kk.textContent = k;
+      const vv = document.createElement("span");
+      if (mono) vv.className = "mono";
+      vv.textContent = v;
+      r.append(kk, vv);
+      d.appendChild(r);
+    }
+    thread.appendChild(d);
+    d.scrollIntoView({ block: "nearest" });
+  }
+
+  async function poll(taskId, label) {
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const t = await (await fetch("/tools/task/" + encodeURIComponent(taskId))).json();
+      label.textContent = "Status: " + t.status + " · " + taskId;
+      if (t.status === "completed" || t.status === "failed") return t;
+    }
+  }
+
+  async function runTask(goal) {
+    greeting.classList.add("hidden");
+    addUser(goal);
+    const t0 = performance.now();
+    const { taskId } = await (await fetch("/tools/execute_on_my_devices", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ task: goal }),
+    })).json();
+    const ms = Math.round(performance.now() - t0);
+    const label = addStatus(taskId, ms);
+    const t = await poll(taskId, label);
+    label.parentElement.querySelector(".pulse")?.remove();
+    if (t.status === "completed" && t.evidence) {
+      addCard("ok", fileName(t.evidence.artifactUri) || "Done", [
+        ["Device", t.evidence.deviceId || ""],
+        ["Capability", t.evidence.capabilityId || ""],
+        ["Saved to", t.evidence.artifactUri || "", true],
+        ["Note", t.evidence.note || ""],
+      ]);
+    } else {
+      const card = document.createElement("div");
+      card.className = "card fail";
+      const h = document.createElement("h3");
+      h.textContent = "Could not do that";
+      const p = document.createElement("div");
+      p.className = "reason";
+      p.textContent = t.error || "Unknown error.";
+      card.append(h, p);
+      thread.appendChild(card);
+      card.scrollIntoView({ block: "nearest" });
+    }
+    refreshRecent();
+  }
+
+  async function send() {
+    const input = $("goal");
+    const goal = input.value.trim();
+    if (!goal) return;
+    input.value = "";
+    await runTask(goal);
+  }
+
+  $("ask").addEventListener("submit", (e) => { e.preventDefault(); void send(); });
+
+  async function refreshDevices() {
+    try {
+      const ds = await (await fetch("/devices")).json();
+      devicesEl.innerHTML = "";
+      if (!ds.length) {
+        const d = document.createElement("div");
+        d.className = "device";
+        d.innerHTML = '<div class="meta">No devices registered.</div>';
+        devicesEl.appendChild(d);
+        return;
+      }
+      for (const d of ds) {
+        const el = document.createElement("div");
+        el.className = "device";
+        const name = document.createElement("div");
+        name.className = "name";
+        const dot = document.createElement("span");
+        dot.className = "dot" + (d.available ? "" : " off");
+        const nm = document.createElement("span");
+        nm.textContent = d.name || d.id;
+        name.append(dot, nm);
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = (d.available ? "Online" : "Offline") + " · " + (d.capabilities || []).length + " capabilities · beat " + ago(d.lastHeartbeatAt);
+        el.append(name, meta);
+        devicesEl.appendChild(el);
+      }
+    } catch { /* core unreachable — leave panel as-is */ }
+  }
+
+  async function refreshRecent() {
+    try {
+      const ts = await (await fetch("/tools/tasks?limit=8")).json();
+      recentEl.innerHTML = "";
+      for (const t of ts) {
+        const b = document.createElement("button");
+        b.className = "recent-item";
+        const g = document.createElement("div");
+        g.className = "goal";
+        g.textContent = t.goal;
+        const m = document.createElement("div");
+        m.className = "meta";
+        const pill = document.createElement("span");
+        pill.className = "st " + t.status;
+        pill.textContent = t.status;
+        m.append(pill, document.createTextNode("  " + t.id));
+        b.append(g, m);
+        b.onclick = async () => {
+          const full = await (await fetch("/tools/task/" + encodeURIComponent(t.id))).json();
+          addUser(t.goal);
+          if (full.status === "completed" && full.evidence) {
+            addCard("ok", fileName(full.evidence.artifactUri) || "Done", [
+              ["Device", full.evidence.deviceId || ""],
+              ["Capability", full.evidence.capabilityId || ""],
+              ["Saved to", full.evidence.artifactUri || "", true],
+              ["Note", full.evidence.note || ""],
+            ]);
+          } else if (full.status === "failed") {
+            const card = document.createElement("div");
+            card.className = "card fail";
+            const h = document.createElement("h3");
+            h.textContent = "Could not do that";
+            const p = document.createElement("div");
+            p.className = "reason";
+            p.textContent = full.error || "Unknown error.";
+            card.append(h, p);
+            thread.appendChild(card);
+          } else {
+            const line = document.createElement("div");
+            line.className = "statusline";
+            line.textContent = "Status: " + full.status + " · " + t.id;
+            thread.appendChild(line);
+          }
+        };
+        recentEl.appendChild(b);
+      }
+    } catch { /* ignore */ }
+  }
+
+  refreshDevices();
+  refreshRecent();
+  setInterval(refreshDevices, 5000);
+</script>
+</body>
+</html>

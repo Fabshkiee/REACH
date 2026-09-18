@@ -1,4 +1,7 @@
 import express from "express";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { warnIfAuthDisabled, requireAgentAuth } from "./auth.js";
 import { executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
 import { createMcpServer } from "./mcp/server.js";
@@ -11,6 +14,19 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "reach-server", mcp: "streamable-http" });
+});
+
+// Simulated Alexa+ interaction layer (text stand-in for voice). Single static
+// file; talks to the task mirrors below. Works under tsx (server/public) and
+// compiled output (dist/public, copied at build).
+const simCandidates = [
+  join(dirname(fileURLToPath(import.meta.url)), "..", "public", "sim.html"),
+  join(dirname(fileURLToPath(import.meta.url)), "public", "sim.html"),
+];
+app.get("/sim", (_req, res) => {
+  const found = simCandidates.find((p) => existsSync(p));
+  if (!found) return res.status(500).json({ error: "sim.html missing: run npm run build or start via tsx" });
+  res.sendFile(found);
 });
 
 // Canonical MCP surface: Streamable HTTP (MCP 2025-11-25), stateless.
