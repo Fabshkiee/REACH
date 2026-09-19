@@ -84,13 +84,19 @@ export function getApproval(id: string, now = Date.now()): StoredApproval | unde
 /**
  * Resolve exactly once. Returns undefined when unknown, already resolved, or
  * expired — approvals are single-use by construction.
+ *
+ * The planner can never be the decider: only these trusted user-facing
+ * channels are accepted, and no code path in the planner/executor calls this
+ * function (enforced by test: executor never imports this store).
  */
+const TRUSTED_DECIDERS = new Set(["http:sim-ui", "http:sim-console", "mcp:decide_approval", "test"]);
 export function resolveApproval(
   id: string,
   decision: "approve" | "deny",
   decidedBy: string,
   now = Date.now(),
 ): StoredApproval | undefined {
+  if (!TRUSTED_DECIDERS.has(decidedBy)) return undefined;
   const apr = getApproval(id, now);
   if (!apr || apr.status !== "pending") return undefined;
   const resolved: StoredApproval = {
