@@ -74,10 +74,12 @@ Demo spine: `docs/demo-script.md`.
 
 * **Built and verified:** Streamable HTTP MCP (`/mcp`, 2025-11-25), file-backed
   task/device stores, heartbeat mesh with re-register, Bearer channel auth,
-  fail-fast task model, sim UI shell, Inspector + SDK-client validation.
-* **Planned in A-series:** planner loop (A3), generic primitives (A2), policy
-  engine + approvals/ask_user (A1), fail-closed boot + shell-free open (A1/A2),
-  keyword-router deletion (A3), live Bedrock calls (A3).
+  fail-fast task model, sim UI shell, Inspector + SDK-client validation,
+  policy engine + action framework + executor with audit trace, approvals/input
+  model with single-use expiring nonces, `decide_approval` tool, `npm test` green.
+* **Planned in A-series:** planner loop (A3), generic primitives (A2), fail-closed
+  boot + shell-free open, keyword-router deletion (A3), live Bedrock calls (A3),
+  sim approval/question cards (A4).
 * Anything in this doc without a "planned" mark describes intent shared by both
   layers only where the built code already supports it; when in doubt, the code
   wins and the doc gets fixed.

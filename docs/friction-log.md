@@ -127,6 +127,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 
 ---
 
+## 2026-09-19 — Test runner hung with zero output (unawaited handler promise)
+* Task: run new `npm test` suites for A1 policy/executor.
+* Steps: `tsx --test` timed out at 180s with no output at all.
+* Expected vs actual: expected pass/fail lines; actual infinite hang — the executor's timeout only called `ctrl.abort()` but still `await`ed the handler, and the test handler pends forever, so the abort signalled nothing and the await never settled.
+* Severity: High (suite looked broken; real product bug too — a hanging primitive would hang a task forever).
+* Workaround (kept): race handler against a rejecting timeout gate (`Promise.race`), abort + reject together. Also added `--test-timeout=30000` to the test script so any future hang fails fast instead of hanging CI.
+* Suggestion: n/a (product + harness fix in one).
+
 ## Template for new entries
 * Task:
 * Steps:
