@@ -51,6 +51,9 @@ export interface PendingInput {
   question: string;
   options?: string[];
   createdAt: string;
+  /** Set when the user answers; the executor consumes it on resume. */
+  answer?: string;
+  answeredAt?: string;
 }
 
 export interface ReachTask {

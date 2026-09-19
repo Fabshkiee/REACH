@@ -1,7 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
+  DecideApprovalSchema,
   ExecuteOnMyDevicesSchema,
   GetTaskStatusSchema,
+  decideApproval,
   executeOnMyDevices,
   getTaskStatus,
 } from "./tools.js";
@@ -32,6 +34,18 @@ export function createMcpServer(): McpServer {
     },
     async (args) => {
       const out = getTaskStatus(args as { taskId: string });
+      return { content: [{ type: "text", text: JSON.stringify(out) }] };
+    },
+  );
+  server.registerTool(
+    "decide_approval",
+    {
+      description:
+        "Approve or deny one pending action. Approvals are single-use and expiring; approving grants exactly the quoted action instance.",
+      inputSchema: DecideApprovalSchema.shape,
+    },
+    async (args) => {
+      const out = decideApproval(args as { approvalId: string; decision: "approve" | "deny" }, "mcp:decide_approval");
       return { content: [{ type: "text", text: JSON.stringify(out) }] };
     },
   );

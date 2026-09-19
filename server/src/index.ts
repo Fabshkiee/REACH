@@ -3,7 +3,8 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { warnIfAuthDisabled, requireAgentAuth } from "./auth.js";
-import { executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
+import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
+import { getTask, setTaskStatus } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
 import { createMcpTransport } from "./mcp/transport.js";
 import { listCapabilities } from "./registry/capabilityGraph.js";
@@ -72,6 +73,37 @@ app.get("/tools/task/:id", (req, res) => {
 app.get("/tools/tasks", (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 20) || 20, 100);
   res.json(listTasks(limit));
+});
+
+// User channel for approvals and answers (localhost browser/sim UI).
+// Trusted the same way as other read/status surfaces; remote callers use the
+// decide_approval MCP tool or Phase-4 OAuth. `decidedBy` is always recorded.
+app.post("/approvals/:id/approve", (req, res) => {
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
+  res.json(decideApproval({ approvalId: id, decision: "approve" }, "http:sim-ui"));
+});
+app.post("/approvals/:id/deny", (req, res) => {
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
+  res.json(decideApproval({ approvalId: id, decision: "deny" }, "http:sim-ui"));
+});
+app.post("/tasks/:id/input", (req, res) => {
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
+  const { text } = req.body as { text?: unknown };
+  if (typeof text !== "string" || !text.trim() || text.length > 2000) {
+    return res.status(400).json({ error: "invalid input: need {text} (1–2000 chars)" });
+  }
+  const task = getTask(id);
+  if (!task) return res.status(404).json({ error: `unknown task ${id}` });
+  if (task.status !== "awaiting_input" || !task.pendingInput) {
+    return res.status(409).json({ error: `task ${id} is not waiting for input (status: ${task.status})` });
+  }
+  setTaskStatus(id, "running", {
+    pendingInput: { ...task.pendingInput, answer: text.trim(), answeredAt: new Date().toISOString() },
+  });
+  res.json({ ok: true, taskId: id, resumed: true });
 });
 app.get("/debug/capabilities", (_req, res) => res.json(listCapabilities()));
 app.get("/debug/devices", (_req, res) => res.json(listDevices()));
