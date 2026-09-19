@@ -1,4 +1,10 @@
-export type TaskStatus = "queued" | "running" | "completed" | "failed";
+export type TaskStatus =
+  | "queued"
+  | "running"
+  | "awaiting_approval"
+  | "awaiting_input"
+  | "completed"
+  | "failed";
 
 export interface TaskEvidence {
   deviceId: string;
@@ -6,6 +12,45 @@ export interface TaskEvidence {
   /** Local path, file URI, or result reference produced by the device agent. */
   artifactUri?: string;
   note?: string;
+}
+
+/** One audited step of a task: the constitution's 8-field evidence record. */
+export interface ActionRecord {
+  actionId: string;
+  actionClass: string;
+  name: string;
+  target?: string;
+  policyVerdict: "allow" | "confirm" | "deny";
+  policyReason: string;
+  startedAt: string;
+  endedAt?: string;
+  ok?: boolean;
+  resultSummary?: string;
+  verified?: boolean;
+  approvalId?: string;
+}
+
+/** A paused confirmation: single-action, quoted, expiring. */
+export interface PendingApproval {
+  id: string;
+  taskId: string;
+  actionName: string;
+  actionClass: string;
+  /** Exact target the user is asked about. */
+  target?: string;
+  /** What happens if approved, in plain words. */
+  consequence: string;
+  args: Record<string, unknown>;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/** A paused clarifying question from the planner. */
+export interface PendingInput {
+  taskId: string;
+  question: string;
+  options?: string[];
+  createdAt: string;
 }
 
 export interface ReachTask {
@@ -17,6 +62,14 @@ export interface ReachTask {
   updatedAt: string;
   evidence?: TaskEvidence;
   error?: string;
+  /** Subtask linkage for multi-step plans. */
+  parentId?: string;
+  /** Planner's working plan (human-readable steps). */
+  plan?: string[];
+  /** Full audit trace, appended per action. */
+  trace?: ActionRecord[];
+  pendingApproval?: PendingApproval;
+  pendingInput?: PendingInput;
 }
 
 export interface ExecuteOnMyDevicesInput {

@@ -1,8 +1,10 @@
 import { join } from "node:path";
 import { dataDir, ensureDir, listJsonBasenames, readJson, writeJsonAtomic } from "../store/jsonFile.js";
-import type { ReachTask, TaskStatus } from "./types.js";
+import type { ActionRecord, ReachTask, TaskStatus } from "./types.js";
 
-export const TASK_SCHEMA_VERSION = 1;
+export const TASK_SCHEMA_VERSION = 2;
+/** v1 files (pre-trace model) still load; new fields arrive as undefined. */
+const READABLE_VERSIONS = new Set([1, 2]);
 
 export interface TaskStore {
   create(goal: string): ReachTask;
@@ -41,7 +43,7 @@ class FileTaskStore implements TaskStore {
   get(id: string): ReachTask | undefined {
     if (!isSafeId(id)) return undefined;
     const raw = readJson<{ version?: number } & ReachTask>(taskPath(id));
-    if (!raw || raw.version !== TASK_SCHEMA_VERSION) return undefined;
+    if (!raw || !READABLE_VERSIONS.has(raw.version ?? 0)) return undefined;
     return raw;
   }
 
@@ -57,7 +59,7 @@ class FileTaskStore implements TaskStore {
     const dir = tasksDir();
     const tasks = listJsonBasenames(dir)
       .map((f) => readJson<{ version?: number } & ReachTask>(join(dir, f)))
-      .filter((t): t is { version?: number } & ReachTask => !!t && t.version === TASK_SCHEMA_VERSION);
+      .filter((t): t is { version?: number } & ReachTask => !!t && READABLE_VERSIONS.has(t.version ?? 0));
     tasks.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     return tasks.slice(0, limit);
   }
@@ -81,6 +83,13 @@ export function getTask(id: string): ReachTask | undefined {
 
 export function setTaskStatus(id: string, status: TaskStatus, patch: Partial<ReachTask> = {}): ReachTask | undefined {
   return store.setStatus(id, status, patch);
+}
+
+/** Append one audit record to a task's trace (read-modify-write in one place). */
+export function appendActionRecord(id: string, record: ActionRecord): ReachTask | undefined {
+  const existing = store.get(id);
+  if (!existing) return undefined;
+  return store.setStatus(id, existing.status, { trace: [...(existing.trace ?? []), record] });
 }
 
 export function listRecentTasks(limit?: number): ReachTask[] {
