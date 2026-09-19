@@ -89,7 +89,10 @@ const ALWAYS_CONFIRM: ReadonlySet<ActionClass> = new Set([
  * Order: structural denies first, then class defaults, then clarity escalation.
  */
 export function classify(action: ProposedAction, ctx: PolicyContext = defaultPolicyContext()): PolicyDecision {
-  const target = (action.target ?? "").trim();
+  const rawTarget = (action.target ?? "").trim();
+  // Resolve first (against userRoot) so `..\..` escapes are judged by where
+  // they LAND, not by how they're spelled. resolve() handles absolute targets.
+  const target = rawTarget ? normalizeTarget(resolve(ctx.userRoot, rawTarget)) : "";
 
   const secret = target ? hitsSecretLocation(target) : undefined;
   if (secret) {
