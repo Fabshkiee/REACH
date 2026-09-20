@@ -115,6 +115,7 @@ export function registerAgentActions(): void {
         description: d.description,
         schema: d.schema,
         timeoutMs: d.timeoutMs,
+        targetOf: (args) => targetForAction(d.name, args),
         verify: (result) => {
           const r = result as { ok?: unknown; error?: unknown };
           if (r && typeof r === "object" && r.ok === true) return `${d.capability} ok`;

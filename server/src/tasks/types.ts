@@ -73,6 +73,8 @@ export interface ReachTask {
   trace?: ActionRecord[];
   pendingApproval?: PendingApproval;
   pendingInput?: PendingInput;
+  /** Planner token accounting (cents-visibility for the Builder story). */
+  usage?: { inputTokens: number; outputTokens: number; calls: number };
 }
 
 export interface ExecuteOnMyDevicesInput {

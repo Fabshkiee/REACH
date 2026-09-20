@@ -16,6 +16,11 @@ export interface ActionDefinition {
   schema: z.ZodTypeAny;
   timeoutMs: number;
   /**
+   * Extract the policy target from validated args. The loop passes this to
+   * policy — definitions that omit it leave targeting to raw input (rare).
+   */
+  targetOf?: (args: Record<string, unknown>) => string | undefined;
+  /**
    * Post-execution check. Return a summary string on success; throw or return
    * false when the result fails verification. Verification is mandatory.
    */

@@ -1,5 +1,5 @@
 import { defaultPolicyContext } from "./engine.js";
-import { listDevices } from "../registry/deviceStore.js";
+import { isDeviceAvailable, listDevices } from "../registry/deviceStore.js";
 import type { PolicyContext } from "./types.js";
 
 /**
@@ -13,4 +13,18 @@ export function policyContextFor(deviceId?: string): PolicyContext {
   const device = listDevices().find((d) => d.id === deviceId);
   if (!device?.knownApps?.length) return base;
   return { ...base, knownApps: device.knownApps };
+}
+
+/** Union of known-safe apps across all currently available devices. */
+export function policyContextForAvailable(): PolicyContext {
+  const base = defaultPolicyContext();
+  const apps = [
+    ...new Set(
+      listDevices()
+        .filter((d) => isDeviceAvailable(d))
+        .flatMap((d) => d.knownApps ?? []),
+    ),
+  ];
+  if (apps.length === 0) return base;
+  return { ...base, knownApps: apps };
 }
