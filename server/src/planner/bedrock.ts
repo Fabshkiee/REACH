@@ -116,5 +116,7 @@ function toFriendlyError(err: unknown, modelId: string): Error {
   if (name === "ValidationException") {
     return new Error(`Bedrock rejected the request shape: ${message.slice(0, 300)}`);
   }
-  return err instanceof Error ? err : new Error(`Bedrock call failed: ${message.slice(0, 200)}`);
+  // Generic failures (e.g. SignatureDoesNotMatch from a bad secret key) carry
+  // multi-KB canonical-string dumps — quote the head, never the whole thing.
+  return err instanceof Error ? new Error(`${err.name || "Bedrock error"}: ${message.slice(0, 300)}`) : new Error(`Bedrock call failed: ${message.slice(0, 200)}`);
 }
