@@ -126,9 +126,15 @@ export function registerAgentActions(): void {
         timeoutMs: d.timeoutMs,
         targetOf: (args) => targetForAction(d.name, args),
         verify: (result) => {
-          const r = result as { ok?: unknown; error?: unknown };
-          if (r && typeof r === "object" && r.ok === true) return `${d.capability} ok`;
-          throw new Error(typeof r?.error === "string" ? r.error : `${d.capability} did not report ok`);
+          const r = result as { ok?: unknown; error?: unknown; opened?: unknown; openNote?: unknown };
+          if (!(r && typeof r === "object" && r.ok === true)) {
+            throw new Error(typeof r?.error === "string" ? r.error : `${d.capability} did not report ok`);
+          }
+          // Open state is best-effort by design — but it must be VISIBLE, never
+          // silently swallowed. A "completed" task with opened:false tells the truth.
+          const opened =
+            r.opened === undefined ? "" : r.opened === true ? " (opened)" : ` (open skipped: ${String(r.openNote ?? "unknown")})`;
+          return `${d.capability} ok${opened}`;
         },
         handler: async (args) => callAgent(d.capability, args),
       });
