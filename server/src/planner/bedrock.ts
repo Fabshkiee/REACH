@@ -9,6 +9,19 @@ import type { HistoryEntry, PlannerBackend, PlannerToolCall, PlannerToolDef } fr
 
 export const DEFAULT_MODEL_ID = "amazon.nova-lite-v1:0";
 
+/**
+ * Bedrock tool names allow [a-zA-Z0-9_-] only — our dotted names
+ * (files.read) are mapped reversibly (files__read) on the wire.
+ */
+export function toBedrockToolName(name: string): string {
+  return name.replace(/\./g, "__");
+}
+
+function fromBedrockToolName(sanitized: string, offered: string[]): string {
+  const hit = offered.find((n) => toBedrockToolName(n) === sanitized);
+  return hit ?? sanitized;
+}
+
 function toConverseMessages(history: HistoryEntry[]): Message[] {
   const out: Message[] = [];
   for (const h of history) {
@@ -20,7 +33,8 @@ function toConverseMessages(history: HistoryEntry[]): Message[] {
       const content: ContentBlock[] = [];
       if (h.text) content.push({ text: h.text });
       for (const tc of h.toolCalls ?? []) {
-        content.push({ toolUse: { toolUseId: tc.id, name: tc.name, input: tc.args as never } });
+        // History echoes use wire names too — Bedrock validates every turn.
+        content.push({ toolUse: { toolUseId: tc.id, name: toBedrockToolName(tc.name), input: tc.args as never } });
       }
       out.push({ role: "assistant", content });
       continue;
@@ -73,7 +87,7 @@ export class BedrockPlannerBackend implements PlannerBackend {
             // The SDK types this as smithy's internal DocumentType; our schemas
             // are plain JSON by construction (asserted in schema.test.ts).
             tools: input.tools.map((t) => ({
-              toolSpec: { name: t.name, description: t.description, inputSchema: { json: t.inputSchema as never } },
+              toolSpec: { name: toBedrockToolName(t.name), description: t.description, inputSchema: { json: t.inputSchema as never } },
             })),
           },
         }),
@@ -83,12 +97,13 @@ export class BedrockPlannerBackend implements PlannerBackend {
     }
     let text = "";
     const toolCalls: PlannerToolCall[] = [];
+    const offered = input.tools.map((t) => t.name);
     for (const block of res.output?.message?.content ?? []) {
       if ("text" in block && typeof block.text === "string") text += block.text;
       if ("toolUse" in block && block.toolUse) {
         toolCalls.push({
           id: block.toolUse.toolUseId ?? `tc_${Math.random().toString(36).slice(2, 10)}`,
-          name: block.toolUse.name ?? "",
+          name: fromBedrockToolName(block.toolUse.name ?? "", offered),
           args: (block.toolUse.input as Record<string, unknown> | undefined) ?? {},
         });
       }
