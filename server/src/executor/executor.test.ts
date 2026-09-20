@@ -150,7 +150,9 @@ describe("executor", () => {
     assert.equal(getTask(t.id)?.trace?.[0]?.verified, false);
   });
 
-  it("approve resumes, deny fails with quote (via real decide_approval)", async () => {
+  it("approve resumes the loop, deny fails with quote (via real decide_approval)", async () => {
+    const { ScriptedPlannerBackend } = await import("../planner/mock.js");
+    const { setPlannerBackendFactory } = await import("../planner/loop.js");
     defineAction({
       name: "test.nuke",
       actionClass: "delete",
@@ -161,9 +163,22 @@ describe("executor", () => {
     });
     const t1 = task();
     const p1 = await proposeAction(t1.id, { actionClass: "delete", name: "test.nuke", target: "old.txt", args: {} });
-    const ok = decideApproval({ approvalId: p1.approvalId!, decision: "approve" }, "test");
-    assert.equal(ok.ok, true);
-    assert.equal(getTask(t1.id)?.status, "running");
+    // Resume with a mock planner that declares the resumed work done.
+    setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ text: "Resumed and finished." }]));
+    try {
+      const ok = decideApproval({ approvalId: p1.approvalId!, decision: "approve" }, "test");
+      assert.equal(ok.ok, true);
+      const start = Date.now();
+      for (;;) {
+        const s = getTask(t1.id)?.status;
+        if (s === "completed" || s === "failed") break;
+        if (Date.now() - start > 8000) throw new Error(`approve-resume stalled at ${s}`);
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      assert.equal(getTask(t1.id)?.status, "completed");
+    } finally {
+      setPlannerBackendFactory(undefined);
+    }
 
     const t2 = task();
     const p2 = await proposeAction(t2.id, { actionClass: "delete", name: "test.nuke", target: "old.txt", args: {} });

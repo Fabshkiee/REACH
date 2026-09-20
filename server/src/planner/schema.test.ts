@@ -12,7 +12,7 @@ describe("flat json schema converter", () => {
         overwrite: z.boolean().default(false),
       }),
     );
-    assert.equal(out, {
+    assert.deepEqual(out, {
       type: "object",
       properties: {
         path: { type: "string", minLength: 1, maxLength: 2000 },
