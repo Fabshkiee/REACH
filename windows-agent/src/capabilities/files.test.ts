@@ -79,4 +79,29 @@ describe("agent file primitives", () => {
     await wf(join(root, "fix", "b.bin"), Buffer.from([0, 1, 2, 3]));
     await assert.rejects(readFile({ path: "fix\\b.bin" }), /binary|unsupported/);
   });
+
+  it("finds priority locations before giant subtrees (recall regression)", async () => {
+    // A 3000-file junk dir must not starve Desktop of visit budget: user
+    // locations are ordered first. limit:1 stops at the first hit, so a small
+    // visit count PROVES priority ordering (without it, junkheap burns first).
+    const { mkdir, writeFile: wf } = await import("node:fs/promises");
+    await mkdir(join(root, "Desktop", "REACH"), { recursive: true });
+    await wf(join(root, "Desktop", "REACH", "needle.txt"), "here");
+    await mkdir(join(root, "junkheap"), { recursive: true });
+    for (let i = 0; i < 3000; i++) {
+      await wf(join(root, "junkheap", `f${i}.txt`), "junk");
+    }
+    const r = await searchFiles({ query: "needle", root: ".", mode: "name", limit: 1 });
+    assert.equal(r.hits.length, 1);
+    assert.ok(r.hits[0]!.path.endsWith("needle.txt"));
+    assert.ok(r.visited < 100, `expected early find, visited ${r.visited}`);
+  });
+
+  it("skips machine-generated dirs (documented recall tradeoff)", async () => {
+    const { mkdir, writeFile: wf } = await import("node:fs/promises");
+    await mkdir(join(root, "proj", "dist"), { recursive: true });
+    await wf(join(root, "proj", "dist", "skipme-target.txt"), "x");
+    const r = await searchFiles({ query: "skipme-target", root: "proj", mode: "name", limit: 20 });
+    assert.equal(r.hits.length, 0);
+  });
 });
