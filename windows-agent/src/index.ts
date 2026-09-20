@@ -1,6 +1,7 @@
 import express from "express";
 import { AGENT_ID, registrationPayload, startHeartbeat } from "./agent.js";
 import { requireAgentAuth } from "./auth.js";
+import { loadEnv, requireAgentToken } from "./env.js";
 import {
   KNOWN_APPS,
   LaunchApplicationSchema,
@@ -113,9 +114,8 @@ app.post("/jobs/dispatch", requireAgentAuth, async (req, res) => {
 
 const port = Number(process.env.AGENT_PORT ?? 3001);
 if (process.env.NODE_ENV !== "test") {
-  if (!process.env.AGENT_TOKEN) {
-    console.warn("[agent] AGENT_TOKEN unset — dispatch trusts local traffic. Set AGENT_TOKEN to enforce.");
-  }
+  loadEnv();
+  requireAgentToken();
   app.listen(port, () => console.log(`windows-agent on :${port}`));
   startHeartbeat();
 }

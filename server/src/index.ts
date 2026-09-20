@@ -2,7 +2,8 @@ import express from "express";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { warnIfAuthDisabled, requireAgentAuth } from "./auth.js";
+import { requireAgentAuth } from "./auth.js";
+import { loadEnv, requireAgentToken } from "./config.js";
 import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
 import { registerAgentActions } from "./actions/agent.js";
 import { getTask, setTaskStatus } from "./tasks/taskStore.js";
@@ -153,7 +154,8 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => res.status(404
 
 const port = Number(process.env.PORT ?? 3000);
 if (process.env.NODE_ENV !== "test") {
-  warnIfAuthDisabled("reach-server");
+  loadEnv();
+  requireAgentToken("reach-server");
   registerAgentActions();
   app.listen(port, () => console.log(`reach-server on :${port} (mcp: streamable-http stateless)`));
 }

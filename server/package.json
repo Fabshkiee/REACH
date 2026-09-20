@@ -8,7 +8,8 @@
     "dev": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json && node -e \"require('fs').cpSync('public','dist/public',{recursive:true})\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\""
+    "test": "tsx --test --test-timeout=30000 \"src/**/*.test.ts\"",
+    "doctor": "tsx src/doctor.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.637.0",
