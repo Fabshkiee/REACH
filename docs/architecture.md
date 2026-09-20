@@ -74,15 +74,17 @@ Demo spine: `docs/demo-script.md`.
 
 * **Built and verified:** Streamable HTTP MCP (`/mcp`, 2025-11-25), file-backed
   task/device stores, heartbeat mesh with re-register **and re-advertisement**,
-  Bearer channel auth, fail-fast task model, sim UI shell, Inspector + SDK-client
-  validation, policy engine + action framework + executor with audit trace,
-  approvals/input model with single-use expiring nonces, `decide_approval` tool,
-  `npm test` green (both workspaces), agent file/app primitives (search/read/
-  write/move/verify/open/launch) with sandbox + shell-free open, executor action
-  defs for all of them, Playwright MCP spike green (pinned 0.0.82, whitelist set).
-* **Planned in A-series:** planner loop (A3), browser adapter wiring + download
-  proof (P2), fail-closed boot, keyword-router deletion (A3), live Bedrock calls
-  (A3), sim approval/question cards (A4).
+  Bearer channel auth, fail-closed boot, `.env` + `doctor`, sim UI shell,
+  Inspector + SDK-client validation, policy engine + action framework + executor
+  with audit trace, approvals/input model with single-use expiring nonces,
+  `decide_approval` tool, `npm test` green (both workspaces), agent file/app
+  primitives (search/read/write/move/verify/open/launch) with sandbox +
+  shell-free open, executor action defs for all of them, Playwright MCP spike
+  green (pinned 0.0.82, whitelist set), **Bedrock planner loop live on Nova 2
+  Lite (ReAct, registry-generated tools, resume, uniform routing — keyword
+  router deleted, proven by structural test), per-plan token accounting**.
+* **Planned next:** browser adapter wiring + download proof (P2), sim
+  approval/question cards (A4), three-goal acceptance + film.
 * Anything in this doc without a "planned" mark describes intent shared by both
   layers only where the built code already supports it; when in doubt, the code
   wins and the doc gets fixed.

@@ -159,6 +159,30 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): read bytes with fs, parse via namespace `XLSX.read(buf, {type:"buffer"})` — stable across interop shapes.
 * Suggestion: n/a.
 
+## 2026-09-20 — Bedrock rejects dotted tool names on EVERY turn, not just definitions
+* Task: A3 live proof — first Bedrock call failed `-32602`-style validation on all 9 tools.
+* Steps: initial failure at `toolConfig.tools.N.toolSpec.name` (`[a-zA-Z0-9_-]+` only); mapped definitions to `files__read` form; second failure at `messages.2...toolUse.name` — history echoes re-validated per turn.
+* Expected vs actual: expected name rules to apply at registration; actual Bedrock validates names on every message leg, both directions.
+* Severity: Medium (would have shipped a planner that dies on step 2 of every run).
+* Workaround (kept): reversible wire mapping (`toBedrockToolName`/`fromBedrockToolName` against the offered set); unmappable names fall through to the loop's unknown-tool recovery. Registry keeps dotted names everywhere else.
+* Suggestion: n/a.
+
+## 2026-09-20 — 41-char secret key caused SignatureDoesNotMatch
+* Task: A3 live proof — first Bedrock call failed auth despite correct key ID.
+* Steps: `doctor` measured the stored secret at 41 chars (AWS secrets are always 40); user re-copied via the console copy button; proof proceeded.
+* Expected vs actual: expected paste fidelity; actual drag-selection grabbed one extra character.
+* Severity: Low (user-side, 2-minute fix) — but the failure mode (cryptic signing dump) is worth designing against.
+* Workaround (kept): always use the console copy button, never drag-select; Bedrock error dumps now truncated to the head line before reaching task evidence (a full canonical-string dump is camera noise).
+* Suggestion: n/a.
+
+## 2026-09-20 — Live planner cost: 3678 in / 91 out for a full run
+* Task: record real spend for the Builder story.
+* Steps: completed 2-turn run surfaced via new `usage` field (itself a fix — the field existed but was never returned by `get_task_status`, and call counting was wired but never incremented).
+* Expected vs actual: expected dollars of uncertainty; actual fractions of a cent per run at Nova pricing. Full verification session: single-digit cents.
+* Severity: Informational.
+* Workaround: none needed — per-plan token accounting now ships in every evidence payload.
+* Suggestion: n/a.
+
 ## Template for new entries
 * Task:
 * Steps:
