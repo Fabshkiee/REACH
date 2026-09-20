@@ -207,6 +207,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): always copy IDs from `server/data/tasks/` or the original `execute` response, never from memory. Filed as process rule, not code.
 * Suggestion: n/a — owned, not the system's fault.
 
+## 2026-09-20 — Agent root cage contradicted core policy (O: drive unreachable)
+* Task: user goal needed a file on `O:\Downloads`; loop correctly tried `files.read`, agent refused "path escapes allowed root".
+* Steps: the refusal was honest but wrong-layered — core policy already judges outside-profile reads as confirmable, yet the agent caged everything to homedir, making that verdict unexecutable. No error, just a capability gap shaped like a refusal.
+* Expected vs actual: expected layered defense (agent blocks secrets/system, policy judges risk); actual agent duplicated policy as a tighter cage.
+* Severity: High (silently shrank the reachable world; would have failed the same way for any second drive).
+* Workaround (kept): agent now enforces DENY patterns only (system roots, other users, secret material, traversal-resolved); risk calls stay with core policy + approval. Live re-run: read → draft → create+open, all verified.
+* Suggestion: layered controls must be tested against each other, not just alone — add a cross-layer test (core allows + agent allows) in A4.
+
 ## Template for new entries
 * Task:
 * Steps:
