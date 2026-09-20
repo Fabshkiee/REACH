@@ -29,9 +29,14 @@ async function registerOnce(): Promise<boolean> {
 }
 
 async function beatOnce(): Promise<void> {
+  // Every beat re-advertises capabilities: a heartbeat that only touches the
+  // timestamp would leave stale advertisements (new capabilities, new app map)
+  // on the core forever. Advertisement is idempotent — same content, same file.
+  const { capabilities, knownApps } = registrationPayload();
   let res = await fetch(`${CORE_URL}/devices/${AGENT_ID}/heartbeat`, {
     method: "POST",
     headers: authHeaders(),
+    body: JSON.stringify({ capabilities, knownApps }),
   });
   if (res.status === 404) {
     // Core restarted and lost us (or never saw us) — re-register, then beat.
@@ -39,6 +44,7 @@ async function beatOnce(): Promise<void> {
       res = await fetch(`${CORE_URL}/devices/${AGENT_ID}/heartbeat`, {
         method: "POST",
         headers: authHeaders(),
+        body: JSON.stringify({ capabilities, knownApps }),
       });
     }
   }

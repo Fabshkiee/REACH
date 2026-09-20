@@ -135,7 +135,10 @@ app.post("/devices/register", requireAgentAuth, (req, res) => {
 app.post("/devices/:id/heartbeat", requireAgentAuth, (req, res) => {
   const rawId = req.params.id;
   const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
-  const device = heartbeat(id);
+  // Optional re-advertisement: the store merges only well-formed arrays,
+  // so empty/old-style beats change nothing.
+  const { capabilities, knownApps } = (req.body ?? {}) as { capabilities?: unknown; knownApps?: unknown };
+  const device = heartbeat(id, { capabilities: capabilities as string[], knownApps: knownApps as string[] });
   if (!device) return res.status(404).json({ error: `unknown device ${id}: re-register` });
   res.json(device);
 });

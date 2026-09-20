@@ -13,9 +13,14 @@ export interface DeviceRegistration {
   lastHeartbeatAt?: string;
 }
 
+export interface Advertisement {
+  capabilities?: string[];
+  knownApps?: string[];
+}
+
 export interface DeviceStore {
   register(reg: Omit<DeviceRegistration, "lastHeartbeatAt">): DeviceRegistration;
-  heartbeat(deviceId: string): DeviceRegistration | undefined;
+  heartbeat(deviceId: string, ad?: Advertisement): DeviceRegistration | undefined;
   list(): DeviceRegistration[];
 }
 
@@ -40,11 +45,24 @@ class FileDeviceStore implements DeviceStore {
     return entry;
   }
 
-  heartbeat(deviceId: string): DeviceRegistration | undefined {
+  heartbeat(deviceId: string, ad: Advertisement = {}): DeviceRegistration | undefined {
     if (!isSafeId(deviceId)) return undefined;
     const raw = readJson<{ version?: number } & DeviceRegistration>(devicePath(deviceId));
     if (!raw || raw.version !== DEVICE_SCHEMA_VERSION) return undefined;
-    const updated: DeviceRegistration = { ...raw, lastHeartbeatAt: new Date().toISOString() };
+    // Merge re-advertised fields so capability/app changes propagate without
+    // a fresh registration. Only well-formed arrays are accepted.
+    const capabilities = Array.isArray(ad.capabilities)
+      ? ad.capabilities.filter((c): c is string => typeof c === "string").slice(0, 100)
+      : raw.capabilities;
+    const knownApps = Array.isArray(ad.knownApps)
+      ? ad.knownApps.filter((a): a is string => typeof a === "string").slice(0, 100)
+      : raw.knownApps;
+    const updated: DeviceRegistration = {
+      ...raw,
+      capabilities,
+      ...(knownApps !== undefined ? { knownApps } : {}),
+      lastHeartbeatAt: new Date().toISOString(),
+    };
     writeJsonAtomic(devicePath(deviceId), { version: DEVICE_SCHEMA_VERSION, ...updated });
     return updated;
   }
@@ -68,8 +86,8 @@ export function registerDevice(reg: Omit<DeviceRegistration, "lastHeartbeatAt">)
   return store.register(reg);
 }
 
-export function heartbeat(deviceId: string): DeviceRegistration | undefined {
-  return store.heartbeat(deviceId);
+export function heartbeat(deviceId: string, ad?: Advertisement): DeviceRegistration | undefined {
+  return store.heartbeat(deviceId, ad);
 }
 
 export function listDevices(): DeviceRegistration[] {
