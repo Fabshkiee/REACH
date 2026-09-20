@@ -2,10 +2,14 @@ import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 
 /**
- * Agent-side path guard. Mirrors the core policy's intent as defense in depth:
- * the agent never trusts the core's judgment alone — every file operation
- * re-validates here. Must stay inside the user's profile, outside secret and
- * system locations, with `..` resolved before judging.
+ * Agent-side path guard (defense in depth behind core policy).
+ *
+ * Design correction: this used to cage everything to the user profile, which
+ * made the core's "outside user space → confirm" verdict unexecutable — no
+ * confirmed action could ever run. The agent now enforces DENY patterns only
+ * (system locations, other users' data, secret material), exactly like the
+ * core. Ordinary locations on any drive — O:\Downloads included — pass here;
+ * risk judgment stays with core policy + user approval.
  */
 const SECRET_BASENAMES = new Set([
   "id_rsa",
@@ -33,7 +37,7 @@ export function userRoot(): string {
   return process.env.REACH_USER_ROOT ?? homedir();
 }
 
-/** Resolve `target` (absolute or relative to `base`) and confine it to `root`. */
+/** Resolve `target` (absolute wins, relative resolves against `base`). */
 export function resolveWithin(root: string, target: string, base = root): string {
   const abs = resolve(base, target);
   const r = lower(resolve(root));
@@ -43,6 +47,16 @@ export function resolveWithin(root: string, target: string, base = root): string
     throw new Error(`path escapes allowed root: ${target}`);
   }
   return abs;
+}
+
+function windowsDenyRoots(): string[] {
+  const roots: string[] = [];
+  const sys = process.env.SystemRoot ?? process.env.windir ?? "C:\\Windows";
+  roots.push(sys);
+  if (process.env.ProgramFiles) roots.push(process.env.ProgramFiles);
+  if (process.env["ProgramFiles(x86)"]) roots.push(process.env["ProgramFiles(x86)"]);
+  if (process.env.ProgramData) roots.push(process.env.ProgramData);
+  return roots.map(lower);
 }
 
 function secretHit(abs: string): string | undefined {
@@ -58,23 +72,30 @@ function secretHit(abs: string): string | undefined {
 }
 
 /**
- * Assert a path is operable: inside the user profile, not a secret location,
- * not another user's tree, not a system root. Throws with a clear reason.
+ * Assert a path is operable: resolved (traversal collapsed), outside system
+ * roots, outside other users' trees, and clear of secret material. Anything
+ * else — any drive, any user-owned folder — is allowed through; risk calls
+ * belong to core policy and user approval, not to this gate.
  */
 export function assertAllowedPath(input: string, base = userRoot()): string {
   if (!input || typeof input !== "string" || input.length > 2000 || input.includes("\0")) {
     throw new Error("invalid path: empty, non-string, or too long");
   }
-  const root = resolve(userRoot());
-  // resolve() lets absolute targets win; confinement below judges the result.
-  const abs = resolveWithin(root, input, base);
-  const hit = secretHit(abs);
-  if (hit) throw new Error(`refused: target involves ${hit}`);
-  const usersDir = lower(resolve(join(root, "..")));
-  const mine = lower(root);
+  const abs = resolve(base, input);
   const t = lower(abs);
+
+  for (const root of windowsDenyRoots()) {
+    const edge = root.endsWith("\\") ? root : root + "\\";
+    if (t === root || t.startsWith(edge)) throw new Error(`refused: system location "${root}"`);
+  }
+
+  const usersDir = lower(resolve(join(userRoot(), "..")));
+  const mine = lower(resolve(userRoot()));
   if (t.startsWith(usersDir + sep) && !(t === mine || t.startsWith(mine + sep))) {
     throw new Error("refused: another user's data");
   }
+
+  const hit = secretHit(abs);
+  if (hit) throw new Error(`refused: target involves ${hit}`);
   return abs;
 }

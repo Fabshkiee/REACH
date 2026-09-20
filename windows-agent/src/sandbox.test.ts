@@ -10,13 +10,32 @@ process.env.REACH_USER_ROOT = root;
 import { assertAllowedPath, resolveWithin } from "./sandbox.js";
 
 describe("agent sandbox", () => {
-  it("confines traversal to the root", () => {
+  it("confines resolveWithin to its root", () => {
     assert.throws(() => resolveWithin(root, "..\\Windows\\x.dll"), /escapes/);
     assert.ok(resolveWithin(root, "a\\b.txt").startsWith(root));
   });
 
-  it("allows ordinary in-root paths", () => {
+  it("allows ordinary paths on any drive (no root cage)", () => {
+    // The agent enforces DENY patterns; risk calls belong to core policy.
+    // O:\ style second drives and temp dirs pass here by design.
     assert.ok(assertAllowedPath(join(root, "Documents", "a.docx")).startsWith(root));
+    assert.equal(assertAllowedPath("O:\\Downloads\\notes.txt"), "O:\\Downloads\\notes.txt");
+  });
+
+  it("refuses system roots even with traversal spelling", () => {
+    assert.throws(() => assertAllowedPath("C:\\Windows\\System32\\x.dll"), /system location/);
+    // Traversal landing inside a system root must judge by destination, not spelling.
+    const realSystemRoot = process.env.SystemRoot;
+    process.env.SystemRoot = join(root, "vault", "Windows");
+    try {
+      assert.throws(
+        () => assertAllowedPath(join(root, "sub", "..", "vault", "Windows", "x.dll")),
+        /system location/,
+      );
+    } finally {
+      if (realSystemRoot === undefined) delete process.env.SystemRoot;
+      else process.env.SystemRoot = realSystemRoot;
+    }
   });
 
   it("refuses secrets, siblings, and junk", () => {
@@ -27,7 +46,7 @@ describe("agent sandbox", () => {
       () => assertAllowedPath(join(root, "AppData", "Local", "Google", "Chrome", "User Data", "x")),
       /credential/,
     );
-    assert.throws(() => assertAllowedPath(join(root, "..", "someone-else", "d.txt")), /another user|escapes/);
+    assert.throws(() => assertAllowedPath(join(root, "..", "someone-else", "d.txt")), /another user/);
     assert.throws(() => assertAllowedPath(""), /invalid path/);
   });
 });
