@@ -183,6 +183,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround: none needed — per-plan token accounting now ships in every evidence payload.
 * Suggestion: n/a.
 
+## 2026-09-20 — Router deletion orphaned doc creation (no planner path to .docx)
+* Task: user asked for a beaver document through the uniform loop.
+* Steps: realized `files.create_document` had no executor def — the v1 runner's capability died with it, so the planner could only write `.txt`. Added the def (write class, title/body schema, target from title) + test-list entry.
+* Expected vs actual: expected all v1 capabilities to survive the refactor; actual the refactor commit never mapped `create_document` into the registry.
+* Severity: Medium (would have read as a regression: "create a document" → `.txt` file).
+* Workaround (kept): 15-line def; live proof now ends in a real opened `.docx` with model-drafted content, verified by independent OOXML read.
+* Suggestion: refactor checklists should enumerate capability coverage before/after (added to this entry as the template).
+
 ## Template for new entries
 * Task:
 * Steps:
