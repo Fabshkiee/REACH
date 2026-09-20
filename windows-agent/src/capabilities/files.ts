@@ -18,7 +18,49 @@ const SKIP_DIRS = new Set([
   "system volume information",
   ".git",
   "onedrive",
+  // Package-manager graveyards: tens of thousands of files, never user docs.
+  "anaconda3",
+  "miniconda3",
+  ".anaconda",
+  // Machine-generated build/game-engine outputs. A real profile held ~90k
+  // files in project folders; without these skips the visit budget dies in
+  // cache trees before user locations are ever entered.
+  "dist",
+  "build",
+  ".next",
+  ".nuxt",
+  "__pycache__",
+  "venv",
+  ".venv",
+  "target",
+  "bin",
+  "obj",
+  "coverage",
+  ".turbo",
+  ".parcel-cache",
+  "library",
+  "temp",
+  "logs",
+  "builds",
+  "deriveddatacache",
+  "intermediate",
+  ".vs",
 ]);
+
+/** User-facing locations first — depth-first order would otherwise let giant
+ *  subtrees (conda pkgs, caches) exhaust the visit budget before Documents
+ *  is ever entered. */
+const PRIORITY_DIRS = ["desktop", "documents", "downloads"];
+
+function sortEntries<T extends { name: string; isDirectory: () => boolean }>(entries: T[]): T[] {
+  const rank = (e: T): number => {
+    if (!e.isDirectory()) return 3;
+    const n = e.name.toLowerCase();
+    const p = PRIORITY_DIRS.indexOf(n);
+    return p >= 0 ? p : 4;
+  };
+  return [...entries].sort((a, b) => rank(a) - rank(b));
+}
 
 export const SearchFilesSchema = z.object({
   query: z.string().min(1).max(200),
@@ -54,23 +96,68 @@ export interface SearchHit {
   modifiedAt: string;
 }
 
-async function walk(dir: string, out: string[], deadline: number, cap = 5000): Promise<void> {
+async function walk(
+  dir: string,
+  deadline: number,
+  state: { visited: number; stopped: boolean },
+  onFile: (abs: string) => boolean | Promise<boolean>,
+  visitCap = 100_000,
+  depth = 0,
+): Promise<void> {
   let entries;
   try {
-    entries = await readdir(dir, { withFileTypes: true });
+    entries = sortEntries(await readdir(dir, { withFileTypes: true }));
   } catch {
     return;
   }
+  // Near the top of the tree, visit small directories first: a game project
+  // with 7k cache files must not starve REACH (dozens of files) of budget.
+  // One extra readdir per directory, only at depth 0-1.
+  if (depth <= 1) entries = await smallestDirsFirst(dir, entries);
   for (const e of entries) {
-    if (Date.now() > deadline || out.length >= cap) return;
+    if (Date.now() > deadline || state.stopped || state.visited >= visitCap) return;
+    state.visited++;
     const full = join(dir, e.name);
     if (e.isDirectory()) {
       if (e.name.startsWith(".") || SKIP_DIRS.has(e.name.toLowerCase())) continue;
-      await walk(full, out, deadline, cap);
+      await walk(full, deadline, state, onFile, visitCap, depth + 1);
     } else if (e.isFile()) {
-      out.push(full);
+      const keepGoing = await onFile(full);
+      if (!keepGoing) {
+        state.stopped = true;
+        return;
+      }
     }
   }
+}
+
+async function smallestDirsFirst<T extends { name: string; isDirectory: () => boolean }>(
+  dir: string,
+  entries: T[],
+): Promise<T[]> {
+  // Priority dirs (Desktop/Documents/Downloads) keep their head start from
+  // sortEntries; everything else goes smallest-first so giant project folders
+  // can't starve user locations of visit budget.
+  const pri: T[] = [];
+  const rest: T[] = [];
+  for (const e of entries) {
+    if (e.isDirectory() && PRIORITY_DIRS.includes(e.name.toLowerCase())) pri.push(e);
+    else rest.push(e);
+  }
+  const files = rest.filter((e) => !e.isDirectory());
+  const dirs = rest.filter((e) => e.isDirectory());
+  const sized = await Promise.all(
+    dirs.map(async (d) => {
+      try {
+        const kids = await readdir(join(dir, d.name));
+        return { d, n: kids.length };
+      } catch {
+        return { d, n: Number.MAX_SAFE_INTEGER };
+      }
+    }),
+  );
+  sized.sort((a, b) => a.n - b.n);
+  return [...pri, ...files, ...sized.map((s) => s.d)];
 }
 
 const TEXT_EXTS = new Set([".txt", ".md", ".json", ".csv", ".log", ".xml", ".html", ".yaml", ".yml", ".ini", ".cfg"]);
@@ -158,42 +245,38 @@ function extractZipEntry(zip: Buffer, name: string): string | undefined {
   return undefined;
 }
 
-export async function searchFiles(input: z.input<typeof SearchFilesSchema>): Promise<{ hits: SearchHit[]; timedOut: boolean }> {
+export async function searchFiles(input: z.input<typeof SearchFilesSchema>): Promise<{ hits: SearchHit[]; timedOut: boolean; visited: number }> {
   const parsed = SearchFilesSchema.parse(input);
   const root = parsed.root ? assertAllowedPath(parsed.root) : userRoot();
   const deadline = Date.now() + SEARCH_TIMEOUT_MS;
-  const all: string[] = [];
-  await walk(root, all, deadline);
-  const timedOut = Date.now() > deadline;
   const q = parsed.query.toLowerCase();
   const hits: SearchHit[] = [];
-  for (const abs of all) {
-    if (hits.length >= parsed.limit) break;
+  const state = { visited: 0, stopped: false };
+  await walk(root, deadline, state, async (abs) => {
     const base = abs.split(/[\\/]/).pop()!.toLowerCase();
-    if (parsed.mode === "name") {
-      if (!base.includes(q)) continue;
-    } else {
-      if (base.includes(q)) {
-        // name match counts in content mode too
-      } else {
-        try {
-          const ext = extname(abs).toLowerCase();
-          if (!TEXT_EXTS.has(ext)) continue;
+    let match = base.includes(q);
+    if (!match && parsed.mode === "content") {
+      try {
+        const ext = extname(abs).toLowerCase();
+        if (TEXT_EXTS.has(ext)) {
           const { text } = await fileText(abs, 20_000);
-          if (!text.toLowerCase().includes(q)) continue;
-        } catch {
-          continue;
+          match = text.toLowerCase().includes(q);
         }
+      } catch {
+        match = false;
       }
     }
-    try {
-      const st = await stat(abs);
-      hits.push({ path: abs, size: st.size, modifiedAt: st.mtime.toISOString() });
-    } catch {
-      continue;
+    if (match) {
+      try {
+        const st = await stat(abs);
+        hits.push({ path: abs, size: st.size, modifiedAt: st.mtime.toISOString() });
+      } catch {
+        // vanished mid-walk; ignore
+      }
     }
-  }
-  return { hits, timedOut };
+    return hits.length < parsed.limit;
+  });
+  return { hits, timedOut: Date.now() > deadline, visited: state.visited };
 }
 
 export async function readFile(input: z.input<typeof ReadFileSchema>): Promise<{ path: string; kind: string; text: string; truncated: boolean }> {
