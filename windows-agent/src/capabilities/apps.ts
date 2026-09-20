@@ -1,4 +1,4 @@
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { z } from "zod";
 import { assertAllowedPath } from "../sandbox.js";
 import { verifyFile } from "./files.js";
@@ -32,20 +32,48 @@ export type LaunchApplicationInput = z.infer<typeof LaunchApplicationSchema>;
 
 /**
  * Open with the default handler WITHOUT a shell. PowerShell's Start-Process
- * calls ShellExecuteEx directly (no cmd.exe parsing); the target travels as a
- * process argument ($args[0]) inside a base64-encoded command, so no quoting
- * layer can be injected through — not PowerShell's, not cmd's.
+ * calls ShellExecuteEx directly (no cmd.exe parsing). The script is a static
+ * file (`Start-Process -LiteralPath $args[0]`) and the target travels as a
+ * process argument — the path never passes through any quoting layer, so no
+ * injection is possible at any level. (5.1 forbids extra argv with
+ * `-Command -`, hence `-File`.)
  */
 function startVerb(pathOrUri: string): Promise<void> {
-  const script = `Start-Process -LiteralPath $args[0]`;
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
   return new Promise((resolve, reject) => {
-    execFile(
-      "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded, pathOrUri],
-      { windowsHide: true, timeout: 15_000 },
-      (err) => (err ? reject(new Error(`open failed: ${err.message}`)) : resolve()),
-    );
+    const run = async () => {
+      const { mkdtemp, writeFile: wf, rm } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
+      const dir = await mkdtemp(join(tmpdir(), "reach-open-"));
+      const script = join(dir, "open.ps1");
+      try {
+        await wf(script, "Start-Process -LiteralPath $args[0]", "utf8");
+        const child = spawn(
+          "powershell.exe",
+          ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, pathOrUri],
+          { windowsHide: true, stdio: "ignore" },
+        );
+        await new Promise<void>((res, rej) => {
+          const timer = setTimeout(() => {
+            child.kill();
+            rej(new Error("open timed out after 15s"));
+          }, 15_000);
+          timer.unref?.();
+          child.once("error", (err) => {
+            clearTimeout(timer);
+            rej(new Error(`open failed to start: ${err.message}`));
+          });
+          child.once("exit", (code) => {
+            clearTimeout(timer);
+            if (code === 0) res();
+            else rej(new Error(`open failed: powershell exit ${code}`));
+          });
+        });
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    };
+    void run().then(resolve, reject);
   });
 }
 
