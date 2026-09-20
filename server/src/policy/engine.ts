@@ -88,11 +88,18 @@ const ALWAYS_CONFIRM: ReadonlySet<ActionClass> = new Set([
  * Risk × target × scope × intent. Pure function — no I/O, fully unit-testable.
  * Order: structural denies first, then class defaults, then clarity escalation.
  */
+const URI_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+const UNSAFE_SCHEMES = new Set(["file:", "javascript:", "data:", "vbscript:"]);
+
 export function classify(action: ProposedAction, ctx: PolicyContext = defaultPolicyContext()): PolicyDecision {
   const rawTarget = (action.target ?? "").trim();
-  // Resolve first (against userRoot) so `..\..` escapes are judged by where
-  // they LAND, not by how they're spelled. resolve() handles absolute targets.
-  const target = rawTarget ? normalizeTarget(resolve(ctx.userRoot, rawTarget)) : "";
+  // Windows drive paths ("C:\…") match the scheme pattern textually but are
+  // local paths — only treat longer schemes as URIs.
+  const isUri = URI_SCHEME.test(rawTarget) && !/^[a-zA-Z]:[\\/]/.test(rawTarget);
+  // Resolve paths first (against userRoot) so `..\..` escapes are judged by
+  // where they LAND, not by how they're spelled. URIs are never resolved —
+  // they are judged as remote targets, never as local paths.
+  const target = rawTarget && !isUri ? normalizeTarget(resolve(ctx.userRoot, rawTarget)) : normalizeTarget(rawTarget);
 
   const secret = target ? hitsSecretLocation(target) : undefined;
   if (secret) {
@@ -129,6 +136,14 @@ export function classify(action: ProposedAction, ctx: PolicyContext = defaultPol
           message: "Confirmation needed: this action names no target to judge.",
         };
       }
+      const scheme = isUri ? rawTarget.split(":")[0]!.toLowerCase() + ":" : "";
+      if (UNSAFE_SCHEMES.has(scheme)) {
+        return {
+          verdict: "deny",
+          reason: "deny.unsafe-scheme",
+          message: `Refused: scheme "${scheme}" can escape the browser sandbox.`,
+        };
+      }
       if (action.actionClass === "interact" && action.args["submit"] === true) {
         return {
           verdict: "confirm",
@@ -136,7 +151,25 @@ export function classify(action: ProposedAction, ctx: PolicyContext = defaultPol
           message: `Confirmation needed: interacting with "${action.target}" submits or changes data. Confirm the exact payload.`,
         };
       }
-      const home = isWithinRoot(ctx.userRoot, target) || isWithinRoot(ctx.workDir, target);
+      if (action.actionClass === "interact" && (scheme === "http:" || scheme === "https:")) {
+        const host = rawTarget.split("/")[2] ?? "";
+        const hostOnly = host.split("@").pop() ?? "";
+        const [hostname, port] = hostOnly.split(":");
+        const dotted = hostname.includes(".") && !/^\d+\.\d+\.\d+\.\d+$/.test(hostname);
+        const stdPort =
+          !port ||
+          (scheme === "https:" && port === "443") ||
+          (scheme === "http:" && port === "80");
+        if (dotted && stdPort && !rawTarget.includes("@")) {
+          return { verdict: "allow", reason: "allow.named-web-target", message: "Named web destination; navigation is reversible." };
+        }
+        return {
+          verdict: "confirm",
+          reason: "confirm.unusual-url-target",
+          message: `Confirmation needed: "${action.target}" is an unusual web target (IP, port, or credentials). Confirm before opening.`,
+        };
+      }
+      const home = !isUri && (isWithinRoot(ctx.userRoot, target) || isWithinRoot(ctx.workDir, target));
       if (!home) {
         return {
           verdict: "confirm",

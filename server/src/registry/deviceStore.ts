@@ -8,6 +8,8 @@ export interface DeviceRegistration {
   name: string;
   /** Capabilities this device is explicitly authorized to execute. Allowlist only. */
   capabilities: string[];
+  /** Known-safe launch names advertised by the agent (feeds policy context). */
+  knownApps?: string[];
   lastHeartbeatAt?: string;
 }
 

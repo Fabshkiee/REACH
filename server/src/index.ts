@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { warnIfAuthDisabled, requireAgentAuth } from "./auth.js";
 import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
+import { registerAgentActions } from "./actions/agent.js";
 import { getTask, setTaskStatus } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
 import { createMcpTransport } from "./mcp/transport.js";
@@ -111,11 +112,25 @@ app.get("/debug/devices", (_req, res) => res.json(listDevices()));
 // Device mesh: agents register + heartbeat here. Mutations require the shared
 // secret; the read-only status view stays public for dashboards/debugging.
 app.post("/devices/register", requireAgentAuth, (req, res) => {
-  const { id, name, capabilities } = req.body as { id?: unknown; name?: unknown; capabilities?: unknown };
+  const { id, name, capabilities, knownApps } = req.body as {
+    id?: unknown;
+    name?: unknown;
+    capabilities?: unknown;
+    knownApps?: unknown;
+  };
   if (typeof id !== "string" || !id || typeof name !== "string" || !Array.isArray(capabilities)) {
     return res.status(400).json({ error: "invalid registration: need {id, name, capabilities[]}" });
   }
-  res.json(registerDevice({ id, name, capabilities: capabilities.filter((c): c is string => typeof c === "string") }));
+  res.json(
+    registerDevice({
+      id,
+      name,
+      capabilities: capabilities.filter((c): c is string => typeof c === "string"),
+      ...(Array.isArray(knownApps)
+        ? { knownApps: knownApps.filter((a): a is string => typeof a === "string").slice(0, 100) }
+        : {}),
+    }),
+  );
 });
 app.post("/devices/:id/heartbeat", requireAgentAuth, (req, res) => {
   const rawId = req.params.id;
@@ -136,6 +151,7 @@ app.get("/.well-known/oauth-authorization-server", (_req, res) => res.status(404
 const port = Number(process.env.PORT ?? 3000);
 if (process.env.NODE_ENV !== "test") {
   warnIfAuthDisabled("reach-server");
+  registerAgentActions();
   app.listen(port, () => console.log(`reach-server on :${port} (mcp: streamable-http stateless)`));
 }
 

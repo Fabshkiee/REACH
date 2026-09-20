@@ -1,0 +1,151 @@
+import { z } from "zod";
+import { defineAction } from "../executor/registry.js";
+
+const AGENT_URL = process.env.AGENT_URL ?? "http://localhost:3001";
+const CALL_TIMEOUT_MS = Number(process.env.DISPATCH_TIMEOUT_MS ?? 60_000);
+
+function agentHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (process.env.AGENT_TOKEN) headers.authorization = `Bearer ${process.env.AGENT_TOKEN}`;
+  return headers;
+}
+
+/** Call one agent capability; agent-side guards re-validate everything. */
+async function callAgent(capability: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${AGENT_URL}/jobs/dispatch`, {
+      method: "POST",
+      headers: agentHeaders(),
+      body: JSON.stringify({ capability, args }),
+      signal: ctrl.signal,
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: string };
+    if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : `agent HTTP ${res.status}`);
+    return data;
+  } catch (err) {
+    if (ctrl.signal.aborted) throw new Error(`agent call timed out after ${CALL_TIMEOUT_MS}ms`);
+    throw err instanceof Error ? err : new Error("agent call failed");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const PathArg = z.string().min(1).max(2000);
+
+/**
+ * Executor action defs for the laptop agent's primitives. Schemas mirror the
+ * agent side (which re-validates — defense in depth); policy classifies by
+ * the `target` each def declares. Register once at boot.
+ */
+export function registerAgentActions(): void {
+  const defs = [
+    {
+      name: "files.search",
+      actionClass: "search" as const,
+      description: "Search filenames (and optionally contents) under user space.",
+      schema: z.object({ query: z.string().min(1).max(200), root: z.string().max(500).optional(), mode: z.enum(["name", "content"]).optional(), limit: z.number().int().min(1).max(50).optional() }),
+      timeoutMs: 60_000,
+      capability: "search_files",
+    },
+    {
+      name: "files.read",
+      actionClass: "read" as const,
+      description: "Read a text/docx/pdf/xlsx file as text (capped).",
+      schema: z.object({ path: PathArg, maxBytes: z.number().int().positive().max(2_097_152).optional() }),
+      timeoutMs: 30_000,
+      capability: "read_file",
+    },
+    {
+      name: "files.write",
+      actionClass: "write" as const,
+      description: "Write text to a file (overwrite only with overwrite:true).",
+      schema: z.object({ path: PathArg, content: z.string().max(2_097_152), overwrite: z.boolean().optional() }),
+      timeoutMs: 30_000,
+      capability: "write_file",
+    },
+    {
+      name: "files.move",
+      actionClass: "move" as const,
+      description: "Move/rename a file (overwrite only with overwrite:true).",
+      schema: z.object({ from: PathArg, to: PathArg, overwrite: z.boolean().optional() }),
+      timeoutMs: 30_000,
+      capability: "move_file",
+    },
+    {
+      name: "files.verify",
+      actionClass: "observe" as const,
+      description: "Verify a file exists (and optionally meets a minimum size).",
+      schema: z.object({ path: PathArg, minBytes: z.number().int().nonnegative().optional() }),
+      timeoutMs: 15_000,
+      capability: "verify_file",
+    },
+    {
+      name: "apps.open_document",
+      actionClass: "interact" as const,
+      description: "Open a document in its default app.",
+      schema: z.object({ path: PathArg }),
+      timeoutMs: 30_000,
+      capability: "open_document",
+    },
+    {
+      name: "apps.open_url",
+      actionClass: "interact" as const,
+      description: "Open an http(s) URL in the default browser.",
+      schema: z.object({ url: z.string().min(1).max(2000) }),
+      timeoutMs: 30_000,
+      capability: "open_url",
+    },
+    {
+      name: "apps.launch",
+      actionClass: "launch" as const,
+      description: "Launch a known-safe application by name.",
+      schema: z.object({ app: z.string().min(1).max(100) }),
+      timeoutMs: 30_000,
+      capability: "launch_application",
+    },
+  ] as const;
+
+  for (const d of defs) {
+    try {
+      defineAction({
+        name: d.name,
+        actionClass: d.actionClass,
+        description: d.description,
+        schema: d.schema,
+        timeoutMs: d.timeoutMs,
+        verify: (result) => {
+          const r = result as { ok?: unknown; error?: unknown };
+          if (r && typeof r === "object" && r.ok === true) return `${d.capability} ok`;
+          throw new Error(typeof r?.error === "string" ? r.error : `${d.capability} did not report ok`);
+        },
+        handler: async (args) => callAgent(d.capability, args),
+      });
+    } catch {
+      // Already registered (dev re-entry) — definitions are stable.
+    }
+  }
+}
+
+/** Executor-visible target helper (policy needs the target before dispatch). */
+export function targetForAction(name: string, args: Record<string, unknown>): string | undefined {
+  switch (name) {
+    case "files.search":
+      return typeof args["root"] === "string" && args["root"] ? args["root"] : undefined;
+    case "files.read":
+    case "files.verify":
+    case "apps.open_document":
+      return typeof args["path"] === "string" ? args["path"] : undefined;
+    case "files.write":
+      return typeof args["path"] === "string" ? args["path"] : undefined;
+    case "files.move":
+      return typeof args["to"] === "string" ? args["to"] : undefined;
+    case "apps.open_url":
+      return typeof args["url"] === "string" ? args["url"] : undefined;
+    case "apps.launch":
+      return typeof args["app"] === "string" ? args["app"] : undefined;
+    default:
+      return undefined;
+  }
+}
