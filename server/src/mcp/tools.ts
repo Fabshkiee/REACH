@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getApproval, resolveApproval } from "../approvals/store.js";
+import { resumeLoop, runPlannerLoop } from "../planner/loop.js";
 import { createTask, getTask, listRecentTasks, setTaskStatus } from "../tasks/taskStore.js";
-import { routeTask } from "../tasks/runner.js";
 
 const MEANINGLESS = /^(undefined|null|nan|none|n\/a)$/i;
 
@@ -30,13 +30,19 @@ export const DecideApprovalSchema = z.object({
 export type DecideApprovalInput = z.infer<typeof DecideApprovalSchema>;
 
 /**
- * Accept a goal, persist it as queued, and route in the background.
+ * Accept a goal, persist it as queued, and start the planner loop in the
+ * background. EVERY goal — no exceptions, no special cases — goes through the
+ * same observe-plan-act-verify engine.
  * ALWAYS returns a taskId immediately (<500ms) — never blocks on device work.
  */
 export function executeOnMyDevices(input: ExecuteOnMyDevicesInput): { taskId: string } {
   const parsed = ExecuteOnMyDevicesSchema.parse(input);
   const task = createTask(parsed.task);
-  routeTask(task.id, parsed.task);
+  void runPlannerLoop(task.id).catch((err) => {
+    setTaskStatus(task.id, "failed", {
+      error: `planner crashed: ${err instanceof Error ? err.message : err}`,
+    });
+  });
   return { taskId: task.id };
 }
 
@@ -83,6 +89,11 @@ export function decideApproval(input: DecideApprovalInput, decidedBy: string) {
   }
   if (parsed.decision === "approve") {
     setTaskStatus(resolved.taskId, "running", { pendingApproval: undefined });
+    void resumeLoop(resolved.taskId, `Approval granted for ${resolved.actionName}${resolved.target ? ` on "${resolved.target}"` : ""}. Continue with the plan.`).catch((err) => {
+      setTaskStatus(resolved.taskId, "failed", {
+        error: `planner resume crashed: ${err instanceof Error ? err.message : err}`,
+      });
+    });
     return { ok: true as const, taskId: resolved.taskId, resumed: true };
   }
   setTaskStatus(resolved.taskId, "failed", {

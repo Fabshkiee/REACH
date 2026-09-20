@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { requireAgentAuth } from "./auth.js";
 import { loadEnv, requireAgentToken } from "./config.js";
 import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
+import { resumeLoop } from "./planner/loop.js";
 import { registerAgentActions } from "./actions/agent.js";
 import { getTask, setTaskStatus } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
@@ -104,6 +105,11 @@ app.post("/tasks/:id/input", (req, res) => {
   }
   setTaskStatus(id, "running", {
     pendingInput: { ...task.pendingInput, answer: text.trim(), answeredAt: new Date().toISOString() },
+  });
+  void resumeLoop(id, `User answered "${task.pendingInput.question}": "${text.trim()}". Continue with the plan.`).catch((err) => {
+    setTaskStatus(id, "failed", {
+      error: `planner resume crashed: ${err instanceof Error ? err.message : err}`,
+    });
   });
   res.json({ ok: true, taskId: id, resumed: true });
 });
