@@ -33,10 +33,11 @@ export type LaunchApplicationInput = z.infer<typeof LaunchApplicationSchema>;
 /**
  * Open with the default handler WITHOUT a shell. PowerShell's Start-Process
  * calls ShellExecuteEx directly (no cmd.exe parsing). The script is a static
- * file (`Start-Process -LiteralPath $args[0]`) and the target travels as a
- * process argument — the path never passes through any quoting layer, so no
- * injection is possible at any level. (5.1 forbids extra argv with
- * `-Command -`, hence `-File`.)
+ * file (`Start-Process -FilePath $args[0]`) and the target travels as a
+ * process argument — argv elements are never shell-parsed, so no injection is
+ * possible at any level. (Note: Start-Process has no -LiteralPath parameter
+ * on any PowerShell version; -FilePath with a single argv element is exact.
+ * Brackets in generated titles are sanitized at creation for the same reason.)
  */
 function startVerb(pathOrUri: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -47,7 +48,7 @@ function startVerb(pathOrUri: string): Promise<void> {
       const dir = await mkdtemp(join(tmpdir(), "reach-open-"));
       const script = join(dir, "open.ps1");
       try {
-        await wf(script, "Start-Process -LiteralPath $args[0]", "utf8");
+        await wf(script, "Start-Process -FilePath $args[0]", "utf8");
         const child = spawn(
           "powershell.exe",
           ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, pathOrUri],

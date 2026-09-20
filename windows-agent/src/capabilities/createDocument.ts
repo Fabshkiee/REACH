@@ -25,7 +25,9 @@ const LETTER_HEIGHT_DXA = 15840;
 
 export function sanitizeTitle(title: string): string {
   const cleaned = title
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    // Brackets break Start-Process -FilePath wildcard expansion; the rest are
+    // illegal in Windows filenames or control characters.
+    .replace(/[<>:"/\\|?*[\]\u0000-\u001f]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
