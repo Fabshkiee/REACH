@@ -7,6 +7,7 @@ import { loadEnv, requireAgentToken } from "./config.js";
 import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
 import { resumeLoop } from "./planner/loop.js";
 import { registerAgentActions } from "./actions/agent.js";
+import { registerBrowserActions } from "./actions/browser.js";
 import { getTask, setTaskStatus } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
 import { createMcpTransport } from "./mcp/transport.js";
@@ -163,6 +164,7 @@ if (process.env.NODE_ENV !== "test") {
   loadEnv();
   requireAgentToken("reach-server");
   registerAgentActions();
+  registerBrowserActions();
   app.listen(port, () => console.log(`reach-server on :${port} (mcp: streamable-http stateless)`));
 }
 

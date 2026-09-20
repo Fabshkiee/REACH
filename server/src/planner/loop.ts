@@ -173,10 +173,12 @@ export async function runPlannerLoop(
       plan.push(`${label} → ok`);
       history.push({
         role: "user",
+        // 8k chars ≈ 2k tokens: enough for page snapshots, bounded for an
+        // 8-step loop against Nova's 1M context.
         toolResults: [
           {
             toolCallId: first.id,
-            content: `OK: ${JSON.stringify(proposed.data).slice(0, 2000)}${proposed.verified === false ? " (UNVERIFIED)" : " (verified)"}`,
+            content: `OK: ${JSON.stringify(proposed.data).slice(0, 8000)}${proposed.verified === false ? " (UNVERIFIED)" : " (verified)"}`,
           },
         ],
       });
