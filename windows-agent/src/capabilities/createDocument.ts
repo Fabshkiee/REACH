@@ -1,9 +1,10 @@
-import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Document, Footer, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import { z } from "zod";
+import { openWithDefaultApp } from "./apps.js";
+import { assertAllowedPath } from "../sandbox.js";
 
 export const CreateDocumentSchema = z.object({
   title: z.string().min(1).max(200),
@@ -69,7 +70,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   const safeTitle = sanitizeTitle(parsed.title);
   const dir = reachDocumentsDir();
   await mkdir(dir, { recursive: true });
-  const path = await resolveUniquePath(dir, safeTitle);
+  const path = assertAllowedPath(await resolveUniquePath(dir, safeTitle));
 
   const doc = new Document({
     creator: "REACH",
@@ -109,17 +110,8 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   const buffer = await Packer.toBuffer(doc);
   await writeFile(path, buffer);
 
-  // Best-effort open in the default app. Never fails the task — recorded instead.
-  let opened = true;
-  let openNote: string | undefined;
-  try {
-    await new Promise<void>((resolve, reject) => {
-      execFile("cmd", ["/c", "start", "", path], { windowsHide: true }, (err) => (err ? reject(err) : resolve()));
-    });
-  } catch (err) {
-    opened = false;
-    openNote = err instanceof Error ? err.message : "open failed";
-  }
+  // Best-effort open in the default app (shell-free). Never fails the task.
+  const { opened, openNote } = await openWithDefaultApp(path);
 
   return { path, opened, openNote };
 }

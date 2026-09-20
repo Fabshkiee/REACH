@@ -1,11 +1,16 @@
-import { ALLOWED_CAPABILITIES } from "./capabilities/index.js";
+import { ALLOWED_CAPABILITIES, KNOWN_APPS } from "./capabilities/index.js";
 
 export const AGENT_ID = process.env.AGENT_ID ?? "windows-laptop";
 export const CORE_URL = process.env.CORE_URL ?? "http://localhost:3000";
 export const HEARTBEAT_INTERVAL_MS = Number(process.env.HEARTBEAT_INTERVAL_MS ?? 30_000);
 
 export function registrationPayload() {
-  return { id: AGENT_ID, name: "Windows Laptop Agent", capabilities: [...ALLOWED_CAPABILITIES] };
+  return {
+    id: AGENT_ID,
+    name: "Windows Laptop Agent",
+    capabilities: [...ALLOWED_CAPABILITIES],
+    knownApps: Object.keys(KNOWN_APPS),
+  };
 }
 
 function authHeaders(): Record<string, string> {
