@@ -191,6 +191,22 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): 15-line def; live proof now ends in a real opened `.docx` with model-drafted content, verified by independent OOXML read.
 * Suggestion: refactor checklists should enumerate capability coverage before/after (added to this entry as the template).
 
+## 2026-09-20 — Search found nothing on a machine holding the file (recall starvation)
+* Task: "open the Beavers document" → planner searched profile-wide → zero hits → asked user.
+* Steps: reproduced locally; walk was correct code-wise but collected-then-filtered with a 5k cap — a 90k-file "Coding Projects" folder (node_modules etc.) exhausted the budget before Documents was entered. Fixed in layers: filter-during-walk, priority dirs first, smallest-first ordering near the top, build-output skips (node_modules/dist/Library/Temp/DerivedDataCache/...). Verified: Beavers found.
+* Expected vs actual: expected search to just work; actual default DFS order starves user locations on real dev machines.
+* Severity: High (core primitive silently blind).
+* Workaround (kept): ordering + skips + regression test (3000-file junkheap vs Desktop needle, limit:1 proves early find by visit count).
+* Suggestion: n/a.
+
+## 2026-09-20 — I hallucinated a task ID from status output
+* Task: answer the pending `awaiting_input` question.
+* Steps: called `/tasks/task_mua4hhfq_sll7/input` → "unknown task". The ID never existed — `get_task_status` output carries no ID field, and I reconstructed one from memory instead of the data dir. Real ID (`task_mua4he2q_t5eyca`, from `server/data/tasks/` listing) worked first try.
+* Expected vs actual: expected the ID I "remembered"; actual it was confabulated.
+* Severity: Medium (my error, 5-minute detour; also a UX note: status responses should include the task ID).
+* Workaround (kept): always copy IDs from `server/data/tasks/` or the original `execute` response, never from memory. Filed as process rule, not code.
+* Suggestion: n/a — owned, not the system's fault.
+
 ## Template for new entries
 * Task:
 * Steps:

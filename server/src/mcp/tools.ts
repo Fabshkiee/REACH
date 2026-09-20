@@ -50,7 +50,7 @@ export function getTaskStatus(input: GetTaskStatusInput) {
   const parsed = GetTaskStatusSchema.parse(input);
   const task = getTask(parsed.taskId);
   if (!task) return { status: "failed" as const, error: `unknown task ${parsed.taskId}` };
-  const out: Record<string, unknown> = { status: task.status };
+  const out: Record<string, unknown> = { status: task.status, id: task.id };
   if (task.plan) out.plan = task.plan;
   if (task.trace) out.trace = task.trace;
   if (task.usage) out.usage = task.usage;
