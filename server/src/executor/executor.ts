@@ -65,9 +65,15 @@ export async function proposeAction(
   taskId: string,
   raw: unknown,
   policyCtx: PolicyContext = defaultPolicyContext(),
+  opts: { softFail?: boolean } = {},
 ): Promise<ProposeResult> {
   const task = getTask(taskId);
   if (!task) return { outcome: "rejected", taskId, error: `unknown task ${taskId}` };
+  // Soft failures (planner-driven): audit everything but leave the task alone —
+  // the loop decides recovery. Hard failures (standalone/scripted use) fail fast.
+  const fail = (patch: { error: string }): void => {
+    if (!opts.softFail) setTaskStatus(taskId, "failed", patch);
+  };
 
   let action: ProposedAction;
   try {
@@ -82,7 +88,7 @@ export async function proposeAction(
     record.ok = false;
     record.resultSummary = err instanceof Error ? err.message : "malformed action";
     audit(taskId, record);
-    setTaskStatus(taskId, "failed", { error: `malformed action: ${record.resultSummary}` });
+    fail({ error: `malformed action: ${record.resultSummary}` });
     return { outcome: "rejected", taskId, error: record.resultSummary };
   }
 
@@ -100,7 +106,7 @@ export async function proposeAction(
       });
       return { outcome: "paused", taskId, actionId: action.id };
     } catch (err) {
-      setTaskStatus(taskId, "failed", { error: err instanceof Error ? err.message : "bad ask_user" });
+      fail({ error: err instanceof Error ? err.message : "bad ask_user" });
       return { outcome: "rejected", taskId, actionId: action.id, error: err instanceof Error ? err.message : "bad ask_user" };
     }
   }
@@ -112,7 +118,7 @@ export async function proposeAction(
     record.ok = false;
     record.resultSummary = `no registered capability named "${action.name}"`;
     audit(taskId, record);
-    setTaskStatus(taskId, "failed", { error: record.resultSummary });
+    fail({ error: record.resultSummary });
     return { outcome: "rejected", taskId, actionId: action.id, error: record.resultSummary };
   }
   if (def.actionClass !== action.actionClass) {
@@ -121,7 +127,7 @@ export async function proposeAction(
     record.ok = false;
     record.resultSummary = `"${action.name}" is class ${def.actionClass}, proposed as ${action.actionClass}`;
     audit(taskId, record);
-    setTaskStatus(taskId, "failed", { error: record.resultSummary });
+    fail({ error: record.resultSummary });
     return { outcome: "rejected", taskId, actionId: action.id, error: record.resultSummary };
   }
 
@@ -134,7 +140,7 @@ export async function proposeAction(
     record.ok = false;
     record.resultSummary = err instanceof Error ? err.message.slice(0, 300) : "argument validation failed";
     audit(taskId, record);
-    setTaskStatus(taskId, "failed", { error: `invalid args for ${action.name}: ${record.resultSummary}` });
+    fail({ error: `invalid args for ${action.name}: ${record.resultSummary}` });
     return { outcome: "rejected", taskId, actionId: action.id, error: record.resultSummary };
   }
 
@@ -145,7 +151,7 @@ export async function proposeAction(
     record.ok = false;
     record.resultSummary = decision.message;
     audit(taskId, record);
-    setTaskStatus(taskId, "failed", { error: decision.message });
+    fail({ error: decision.message });
     return { outcome: "denied", taskId, actionId: action.id, error: decision.message };
   }
 
@@ -212,7 +218,7 @@ export async function proposeAction(
         record.verified = false;
         record.resultSummary = `verification failed: ${err instanceof Error ? err.message : err}`;
         audit(taskId, record);
-        setTaskStatus(taskId, "failed", { error: record.resultSummary });
+        fail({ error: record.resultSummary });
         return { outcome: "denied", taskId, actionId: action.id, error: record.resultSummary };
       }
     }
@@ -233,7 +239,7 @@ export async function proposeAction(
         ? err.message
         : "handler threw";
     audit(taskId, record);
-    setTaskStatus(taskId, "failed", { error: `${action.name} failed: ${record.resultSummary}` });
+    fail({ error: `${action.name} failed: ${record.resultSummary}` });
     return { outcome: "denied", taskId, actionId: action.id, error: record.resultSummary };
   }
 }
