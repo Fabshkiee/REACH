@@ -135,6 +135,30 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): race handler against a rejecting timeout gate (`Promise.race`), abort + reject together. Also added `--test-timeout=30000` to the test script so any future hang fails fast instead of hanging CI.
 * Suggestion: n/a (product + harness fix in one).
 
+## 2026-09-20 — Heartbeat never re-advertised: planner saw yesterday's capabilities
+* Task: A2 verify — boot with 9 advertised capabilities, read back the device record.
+* Steps: `GET /devices` showed the previous session's 4-cap record with a stale timestamp, even though the agent logged "heartbeat steady".
+* Expected vs actual: expected fresh advertisement; actual heartbeat only touched the timestamp, so capability/app changes never propagated — planner would reason over a stale world.
+* Severity: High (silent staleness in the exact data planning depends on).
+* Workaround (kept): every beat carries `{capabilities, knownApps}`; server merges well-formed arrays idempotently. Re-verified: 9 caps + app map live after one beat.
+* Suggestion: n/a (protocol fix — heartbeat is now advertise-or-nothing).
+
+## 2026-09-20 — Shell-free open took three tries (PowerShell 5.1 argv rules)
+* Task: replace `cmd /c start` with injection-proof opening.
+* Steps: (1) base64 `-EncodedCommand` + trailing path arg → rejected ("no other arguments permitted"); (2) `-Command -` with stdin script → same rejection on 5.1; (3) static `-File` script + path as `$args[0]` → `opened: true`.
+* Expected vs actual: expected any argv-passing form to work; actual 5.1 is strict about `-Command` companions.
+* Severity: Low (dev-only iteration, final form has zero quoting layers by construction).
+* Workaround (kept): temp-dir static script (`Start-Process -LiteralPath $args[0]`), `-ExecutionPolicy Bypass`, argv target, dir removed in `finally`.
+* Suggestion: n/a.
+
+## 2026-09-20 — xlsx ESM wrapper hides readFile off-namespace
+* Task: read `.xlsx` in agent file primitive.
+* Steps: `import * as XLSX` → `XLSX.readFile is not a function`, while `XLSX.writeFile` worked from the same style import.
+* Expected vs actual: expected uniform namespace; actual node-only fns live on the default export.
+* Severity: Low.
+* Workaround (kept): read bytes with fs, parse via namespace `XLSX.read(buf, {type:"buffer"})` — stable across interop shapes.
+* Suggestion: n/a.
+
 ## Template for new entries
 * Task:
 * Steps:

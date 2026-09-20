@@ -3,7 +3,7 @@
 > Anti-hallucination rule: nothing below is claimed unless fetched from source
 > in-session. Items marked UNVERIFIED are study tasks, not facts.
 
-## Microsoft Playwright MCP — VERIFIED (README fetched 2026-09-19)
+## Microsoft Playwright MCP — VERIFIED (README + LICENSE + live spike, 2026-09-19/20)
 
 * Accessibility snapshots with structured element refs; no screenshots needed.
 * Every tool carries a `Read-only: true/false` flag → adopted as `readOnly`
@@ -17,7 +17,15 @@
   and `browser_run_code_unsafe` (RCE-equivalent) exist → our policy must sit
   above it: those tools are never exposed to the planner (structural ban).
 * Token-efficiency note → snapshot size/depth caps for planner context (A3).
-* License: verify Apache-2.0 (or current) from source before consuming in A2.
+* License: **Apache-2.0, Microsoft Corporation — verified from source LICENSE.**
+  Pin: `@playwright/mcp@0.0.82`. Attribution kept here + README credits at consume time.
+* **Live spike (2026-09-20, headless Chromium): 25 tools over HTTP, readOnly
+  hints present, navigate + 465-byte snapshot verified.** Planner-visible
+  whitelist: navigate, snapshot, find, click, type, select_option, press_key,
+  wait_for, tabs. Never exposed: evaluate, run_code_unsafe, route/unroute,
+  file drop/upload, network config, screenshots (text planner can't use them).
+* Open item for P2: download-to-`outputDir` behavior with a real file; wire
+  `outputDir` into the sandbox and prove it before the Canva flow films.
 
 ## lastmile-ai/mcp-agent — VERIFIED (README fetched 2026-09-19)
 
