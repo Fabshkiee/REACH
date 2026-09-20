@@ -85,8 +85,8 @@ export async function runPlannerLoop(
   const plan: string[] = [...(task.plan ?? [])];
   let inTokens = task.usage?.inputTokens ?? 0;
   let outTokens = task.usage?.outputTokens ?? 0;
-  const calls = task.usage?.calls ?? 0;
-  const saveUsage = () => setTaskStatus(taskId, getTask(taskId)?.status ?? "running", { usage: { inputTokens: inTokens, outputTokens: outTokens, calls } });
+  let callCount = task.usage?.calls ?? 0;
+  const saveUsage = () => setTaskStatus(taskId, getTask(taskId)?.status ?? "running", { usage: { inputTokens: inTokens, outputTokens: outTokens, calls: callCount } });
 
   setTaskStatus(taskId, "running", { plan });
   const stepBase = plan.length;
@@ -98,6 +98,7 @@ export async function runPlannerLoop(
       turn = res.turn;
       inTokens += res.usage.inputTokens;
       outTokens += res.usage.outputTokens;
+      callCount += 1;
     } catch (err) {
       setTaskStatus(taskId, "failed", {
         error: `planner backend failed at step ${stepBase + step}: ${err instanceof Error ? err.message : err}`,

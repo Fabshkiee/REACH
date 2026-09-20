@@ -53,6 +53,7 @@ export function getTaskStatus(input: GetTaskStatusInput) {
   const out: Record<string, unknown> = { status: task.status };
   if (task.plan) out.plan = task.plan;
   if (task.trace) out.trace = task.trace;
+  if (task.usage) out.usage = task.usage;
   if (task.evidence) out.evidence = task.evidence;
   if (task.error) out.error = task.error;
   if (task.status === "awaiting_approval" && task.pendingApproval) {
