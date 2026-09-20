@@ -66,6 +66,15 @@ export function registerAgentActions(): void {
       capability: "write_file",
     },
     {
+      name: "files.create_document",
+      actionClass: "write" as const,
+      description:
+        "Create and open a real .docx Word document on the laptop. Draft the body text yourself (plain paragraphs, one per line). The file lands in the Documents/REACH folder and opens automatically.",
+      schema: z.object({ title: z.string().min(1).max(120), body: z.string().max(20000) }),
+      timeoutMs: 60_000,
+      capability: "create_document",
+    },
+    {
       name: "files.move",
       actionClass: "move" as const,
       description: "Move/rename a file (overwrite only with overwrite:true).",
@@ -140,6 +149,11 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
       return typeof args["path"] === "string" ? args["path"] : undefined;
     case "files.write":
       return typeof args["path"] === "string" ? args["path"] : undefined;
+    case "files.create_document":
+      return typeof args["title"] === "string" ? args["title"] : undefined;
+    case "files.create_document":
+      // Saved under Documents/REACH by the agent; judge the title as a relative path.
+      return typeof args["title"] === "string" ? args["title"] : undefined;
     case "files.move":
       return typeof args["to"] === "string" ? args["to"] : undefined;
     case "apps.open_url":

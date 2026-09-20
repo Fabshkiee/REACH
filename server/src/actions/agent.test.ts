@@ -12,6 +12,7 @@ describe("agent action defs", () => {
       "files.search",
       "files.read",
       "files.write",
+      "files.create_document",
       "files.move",
       "files.verify",
       "apps.open_document",
