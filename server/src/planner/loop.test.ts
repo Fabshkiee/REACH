@@ -113,7 +113,9 @@ describe("planner loop", () => {
     const t = createTask("scripted clarify goal");
     await runPlannerLoop(t.id, { backend: mock });
     assert.equal(getTask(t.id)?.status, "awaiting_input");
-    setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ text: "Answered and done." }]));
+    // Resume with a mock that ACTS before declaring done: a text-only finish
+    // with zero executed actions is (correctly) a failure, not a completion.
+    setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ toolCalls: [{ name: "test.step", args: {} }] }, { text: "Answered and done." }]));
     await resumeLoop(t.id, `User answered "Which file?": "the invoice"`);
     assert.equal(await pollDone(t.id), "completed");
   });
@@ -122,6 +124,21 @@ describe("planner loop", () => {
     const mock = new ScriptedPlannerBackend([{ text: "CANNOT: no capability matches." }]);
     const t = createTask("fsdf unplannable gibberish");
     await runPlannerLoop(t.id, { backend: mock });
+    assert.equal(await pollDone(t.id), "failed");
+    assert.match(getTask(t.id)?.error ?? "", /could not ground/);
+  });
+
+  it("text-only finish without executed work fails (no narrated success)", async () => {
+    // A pause record alone is not grounding: the model must DO something
+    // before declaring done, or the finish is a hallucinated success.
+    const mock = new ScriptedPlannerBackend([
+      { toolCalls: [{ name: "reach.ask_user", args: { question: "Q?" } }] },
+      { text: "All done!" },
+    ]);
+    const t = createTask("scripted narration trap");
+    await runPlannerLoop(t.id, { backend: mock });
+    setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ text: "All done!" }]));
+    await resumeLoop(t.id, `User answered "Q?": "a"`);
     assert.equal(await pollDone(t.id), "failed");
     assert.match(getTask(t.id)?.error ?? "", /could not ground/);
   });

@@ -90,6 +90,16 @@ export async function runPlannerLoop(
 
   setTaskStatus(taskId, "running", { plan });
   const stepBase = plan.length;
+  // Did real work happen? Read from the trace at decision time (not a local
+  // flag) so approve-executions and resumed work count: executed = ok record
+  // that is neither a pause marker nor a question.
+  const executedAnything = () =>
+    (getTask(taskId)?.trace ?? []).some(
+      (r) =>
+        r.ok === true &&
+        r.actionClass !== "ask" &&
+        !String(r.resultSummary ?? "").startsWith("paused for approval"),
+    );
 
   for (let step = 1; step <= MAX_STEPS; step++) {
     let turn;
@@ -111,8 +121,7 @@ export async function runPlannerLoop(
     // Text-only turn: the model declares the outcome.
     if (turn.toolCalls.length === 0) {
       const text = turn.text.trim();
-      const acted = (getTask(taskId)?.trace?.length ?? 0) > 0;
-      if (!acted) {
+      if (!executedAnything()) {
         // No grounding whatsoever — fail fast with the model's own reason,
         // never a hallucinated success. Preserves v1 fail-fast honesty.
         setTaskStatus(taskId, "failed", {
@@ -167,7 +176,6 @@ export async function runPlannerLoop(
       policyCtx,
       { softFail: true },
     );
-
     const label = `step ${stepBase + step}: ${first.name}${proposed.actionId ? ` (${proposed.actionId})` : ""}`;
     if (proposed.outcome === "ran") {
       plan.push(`${label} → ok`);
