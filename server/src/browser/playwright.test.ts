@@ -1,10 +1,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { PLAYWRIGHT_MCP_VERSION, assertToolAllowed } from "./playwright.js";
 
 describe("playwright consumer guardrails", () => {
   it("pins a known version", () => {
     assert.match(PLAYWRIGHT_MCP_VERSION, /^\d+\.\d+\.\d+$/);
+  });
+
+  it("installed dependency matches the pin (no npx drift)", () => {
+    const req = createRequire(import.meta.url);
+    const pkg = req("@playwright/mcp/package.json") as { version: string; license: string };
+    assert.equal(pkg.version, PLAYWRIGHT_MCP_VERSION);
+    assert.equal(pkg.license, "Apache-2.0");
   });
 
   it("allows exactly the planner-visible set", () => {
