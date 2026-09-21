@@ -78,13 +78,16 @@ Demo spine: `docs/demo-script.md`.
   Inspector + SDK-client validation, policy engine + action framework + executor
   with audit trace, approvals/input model with single-use expiring nonces,
   `decide_approval` tool, `npm test` green (both workspaces), agent file/app
-  primitives (search/read/write/move/verify/open/launch) with sandbox +
+  primitives (search/read/write/move/verify/delete/open/launch) with sandbox +
   shell-free open, executor action defs for all of them, browser adapter live
   (navigate/observe/download proven end-to-end; whitelist enforced; Canva
   rehearsal pending your one-time login), **Bedrock planner loop live on Nova 2
   Lite (ReAct, registry-generated tools, resume, uniform routing — keyword
-  router deleted, proven by structural test), per-plan token accounting**.
-* **Planned next:** sim approval/question cards (A4), three-goal acceptance + film.
+  router deleted, proven by structural test), approve-executes semantics,
+  narrated-only finishes fail, per-plan token accounting**.
+* **Planned next:** sim approval/question cards (built, needs your browser
+  click-test), three-goal acceptance (2 of 3 green live; browser goal needs
+  Canva login) + film.
 * Anything in this doc without a "planned" mark describes intent shared by both
   layers only where the built code already supports it; when in doubt, the code
   wins and the doc gets fixed.

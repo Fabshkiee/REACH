@@ -223,6 +223,22 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): probe hostname `localhost`; drain child pipes with stderr tail; single-flight boots; kill-on-failed-boot. Lesson recorded: correlate across single-variable trials, and distrust any theory with fewer than three varied data points — the stdio story fit four trials and was still wrong.
 * Suggestion: n/a.
 
+## 2026-09-21 — Approving an action re-paused for the same approval
+* Task: A4 acceptance — delete goal paused, approved via API, expected execution.
+* Steps: approve returned ok, but the resumed loop re-proposed `files.delete`, policy paused again with a NEW approval ID. Approving felt like a snooze button.
+* Expected vs actual: expected approval-means-execute; actual resume re-planned from scratch, discarding the granted decision.
+* Severity: High (the approval beat is a filmed centerpiece; a double-ask on camera kills it).
+* Workaround (kept): `decideApproval` now executes the approved action immediately via `proposeAction(..., {preApproved})` — denials still stand, schemas still validate — then resumes the loop with the outcome. Live proof: search → pause → approve → deleted + completed, single approval. `decide_approval` went async; both HTTP and MCP call sites updated.
+* Suggestion: n/a.
+
+## 2026-09-21 — "Completed" with CANNOT note hid a refusal as success
+* Task: A4 negatives — system-file read refused at policy, model wrote CANNOT summary, task marked completed.
+* Steps: text-only finish counted ANY trace record as grounding, including the refusal itself. A narrated failure read as success in history, video, and judging evidence.
+* Expected vs actual: expected failed-with-reason; actual completed-with-CANNOT-note.
+* Severity: Medium (evidence honesty — the exact thing judges score).
+* Workaround (kept): completion now requires at least one executed (ok, non-pause, non-question) record; otherwise the model's own text becomes a `failed` error. Pinned by a "narration trap" test (ask → answer → text-only "done" → failed).
+* Suggestion: n/a.
+
 ## Template for new entries
 * Task:
 * Steps:
