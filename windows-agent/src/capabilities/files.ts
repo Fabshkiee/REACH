@@ -90,6 +90,11 @@ export const MoveFileSchema = z.object({
 });
 export type MoveFileInput = z.infer<typeof MoveFileSchema>;
 
+export const DeleteFileSchema = z.object({
+  path: z.string().min(1).max(2000),
+});
+export type DeleteFileInput = z.infer<typeof DeleteFileSchema>;
+
 export interface SearchHit {
   path: string;
   size: number;
@@ -322,6 +327,21 @@ export async function moveFile(input: z.input<typeof MoveFileSchema>): Promise<{
   await mkdir(dirname(to), { recursive: true });
   await rename(from, to);
   return { from, to };
+}
+
+/**
+ * Delete a single file. Directories are never deleted. Always gated by the
+ * confirm tier upstream — reaching this function means the user approved.
+ */
+export async function deleteFile(input: z.input<typeof DeleteFileSchema>): Promise<{ path: string; deleted: boolean }> {
+  const parsed = DeleteFileSchema.parse(input);
+  const abs = assertAllowedPath(parsed.path);
+  const st = await stat(abs).catch(() => undefined);
+  if (!st) throw new Error(`no such file: ${abs}`);
+  if (!st.isFile()) throw new Error(`refusing to delete non-file: ${abs}`);
+  const { unlink } = await import("node:fs/promises");
+  await unlink(abs);
+  return { path: abs, deleted: true };
 }
 
 export async function verifyFile(input: { path: string; minBytes?: number }): Promise<{ path: string; size: number; modifiedAt: string }> {

@@ -14,11 +14,13 @@ import {
 import {
   ALLOWED_CAPABILITIES,
   CreateDocumentSchema,
+  DeleteFileSchema,
   MoveFileSchema,
   ReadFileSchema,
   SearchFilesSchema,
   WriteFileSchema,
   createDocument,
+  deleteFile,
   isAllowed,
   moveFile,
   readFile,
@@ -64,6 +66,7 @@ const DISPATCH: Record<string, DispatchEntry> = {
   read_file: { schema: ReadFileSchema, run: async (a) => ({ ...(await readFile(a as never)) }) },
   write_file: { schema: WriteFileSchema, run: async (a) => ({ ...(await writeFile(a as never)) }) },
   move_file: { schema: MoveFileSchema, run: async (a) => ({ ...(await moveFile(a as never)) }) },
+  delete_file: { schema: DeleteFileSchema, run: async (a) => ({ ...(await deleteFile(a as never)) }) },
   verify_file: {
     schema: ReadFileSchema.pick({ path: true }),
     run: async (a) => ({ ...(await verifyFile(a as { path: string })) }),

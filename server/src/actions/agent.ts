@@ -83,6 +83,14 @@ export function registerAgentActions(): void {
       capability: "move_file",
     },
     {
+      name: "files.delete",
+      actionClass: "delete" as const,
+      description: "Delete a single file. Always requires user approval (confirm tier).",
+      schema: z.object({ path: PathArg }),
+      timeoutMs: 30_000,
+      capability: "delete_file",
+    },
+    {
       name: "files.verify",
       actionClass: "observe" as const,
       description: "Verify a file exists (and optionally meets a minimum size).",
@@ -162,6 +170,8 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
       return typeof args["title"] === "string" ? args["title"] : undefined;
     case "files.move":
       return typeof args["to"] === "string" ? args["to"] : undefined;
+    case "files.delete":
+      return typeof args["path"] === "string" ? args["path"] : undefined;
     case "apps.open_url":
       return typeof args["url"] === "string" ? args["url"] : undefined;
     case "apps.launch":

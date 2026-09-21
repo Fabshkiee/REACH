@@ -30,6 +30,15 @@ describe("agent file primitives", () => {
     await assert.rejects(readFile({ path: "m\\old.txt" }), /ENOENT|no such/i);
   });
 
+  it("delete removes files, refuses directories and missing paths", async () => {
+    const { deleteFile } = await import("./files.js");
+    await agentWrite({ path: "del\\gone.txt", content: "bye", overwrite: false });
+    const r = await deleteFile({ path: "del\\gone.txt" });
+    assert.equal(r.deleted, true);
+    await assert.rejects(deleteFile({ path: "del\\gone.txt" }), /no such file/);
+    await assert.rejects(deleteFile({ path: "del" }), /non-file/);
+  });
+
   it("verify reports size, rejects missing", async () => {
     const v = await verifyFile({ path: "notes\\a.txt", minBytes: 1 });
     assert.ok(v.size >= 1);
