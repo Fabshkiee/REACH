@@ -45,7 +45,7 @@ export function createMcpServer(): McpServer {
       inputSchema: DecideApprovalSchema.shape,
     },
     async (args) => {
-      const out = decideApproval(args as { approvalId: string; decision: "approve" | "deny" }, "mcp:decide_approval");
+      const out = await decideApproval(args as { approvalId: string; decision: "approve" | "deny" }, "mcp:decide_approval");
       return { content: [{ type: "text", text: JSON.stringify(out) }] };
     },
   );

@@ -166,7 +166,7 @@ describe("executor", () => {
     // Resume with a mock planner that declares the resumed work done.
     setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ text: "Resumed and finished." }]));
     try {
-      const ok = decideApproval({ approvalId: p1.approvalId!, decision: "approve" }, "test");
+      const ok = await decideApproval({ approvalId: p1.approvalId!, decision: "approve" }, "test");
       assert.equal(ok.ok, true);
       const start = Date.now();
       for (;;) {
@@ -182,7 +182,7 @@ describe("executor", () => {
 
     const t2 = task();
     const p2 = await proposeAction(t2.id, { actionClass: "delete", name: "test.nuke", target: "old.txt", args: {} });
-    decideApproval({ approvalId: p2.approvalId!, decision: "deny" }, "test");
+    void decideApproval({ approvalId: p2.approvalId!, decision: "deny" }, "test");
     const after = getTask(t2.id)!;
     assert.equal(after.status, "failed");
     assert.match(after.error ?? "", /not approved/);

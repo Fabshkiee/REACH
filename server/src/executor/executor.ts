@@ -6,7 +6,7 @@ import { parseProposedAction, type ProposedAction } from "../policy/types.js";
 import { dataDir } from "../store/jsonFile.js";
 import { appendActionRecord, getTask, setTaskStatus } from "../tasks/taskStore.js";
 import type { ActionRecord } from "../tasks/types.js";
-import { getActionDef } from "./registry.js";
+import { getActionDef, type ActionDefinition } from "./registry.js";
 import type { PolicyContext } from "../policy/types.js";
 
 export type ProposeOutcome = "ran" | "paused" | "denied" | "rejected";
@@ -65,7 +65,7 @@ export async function proposeAction(
   taskId: string,
   raw: unknown,
   policyCtx: PolicyContext = defaultPolicyContext(),
-  opts: { softFail?: boolean } = {},
+  opts: { softFail?: boolean; preApproved?: string } = {},
 ): Promise<ProposeResult> {
   const task = getTask(taskId);
   if (!task) return { outcome: "rejected", taskId, error: `unknown task ${taskId}` };
@@ -156,6 +156,16 @@ export async function proposeAction(
   }
 
   if (decision.verdict === "confirm") {
+    // Pre-approved (user already said yes to exactly this action): run it now
+    // instead of pausing again — otherwise every approval loops back into a
+    // fresh confirmation. Denials still stand: approval never overrides deny.
+    if (opts.preApproved) {
+      const record = baseRecord(action, "confirm", decision.reason);
+      record.approvalId = opts.preApproved;
+      record.resultSummary = `user-approved ${opts.preApproved}: proceeding`;
+      audit(taskId, record);
+      return runAllowed(taskId, action, args, def, policyCtx, record, (patch) => fail(patch));
+    }
     const approval = createApproval({
       taskId,
       actionName: action.name,
@@ -189,6 +199,18 @@ export async function proposeAction(
   // Allowed: run with timeout, verify, audit.
   setTaskStatus(taskId, "running");
   const record = baseRecord(action, "allow", decision.reason);
+  return runAllowed(taskId, action, args, def, policyCtx, record, (patch) => fail(patch));
+}
+
+async function runAllowed(
+  taskId: string,
+  action: ProposedAction,
+  args: Record<string, unknown>,
+  def: ActionDefinition,
+  policyCtx: PolicyContext,
+  record: ActionRecord,
+  fail: (patch: { error: string }) => void,
+): Promise<ProposeResult> {
   const ctrl = new AbortController();
   const timeout = Math.min(action.timeoutMs, def.timeoutMs);
   let timer: ReturnType<typeof setTimeout> | undefined;

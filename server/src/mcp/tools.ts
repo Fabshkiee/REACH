@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { getApproval, resolveApproval } from "../approvals/store.js";
+import { proposeAction } from "../executor/executor.js";
+import { defaultPolicyContext } from "../policy/engine.js";
+import type { ActionClass } from "../policy/types.js";
 import { resumeLoop, runPlannerLoop } from "../planner/loop.js";
 import { createTask, getTask, listRecentTasks, setTaskStatus } from "../tasks/taskStore.js";
 
@@ -94,15 +97,41 @@ export function getTaskStatus(input: GetTaskStatusInput) {
  * the quoted action. `decidedBy` records the trusted channel — the planner
  * can never be the decider (no code path accepts planner identity here).
  */
-export function decideApproval(input: DecideApprovalInput, decidedBy: string) {
+export async function decideApproval(input: DecideApprovalInput, decidedBy: string) {
   const parsed = DecideApprovalSchema.parse(input);
   const resolved = resolveApproval(parsed.approvalId, parsed.decision, decidedBy);
   if (!resolved) {
     return { ok: false as const, error: `approval ${parsed.approvalId} is unknown, expired, or already resolved` };
   }
   if (parsed.decision === "approve") {
+    // Approval means EXECUTE, not "ask me again": run the approved action now
+    // through the executor (which still enforces schema + deny rules), then
+    // resume the loop with the outcome. The old flow re-proposed and re-paused.
+    let execNote: string;
+    try {
+      const exec = await proposeAction(
+        resolved.taskId,
+        {
+          actionClass: resolved.actionClass as ActionClass,
+          name: resolved.actionName,
+          args: resolved.args,
+          target: resolved.target,
+          timeoutMs: 60_000,
+        },
+        defaultPolicyContext(),
+        { preApproved: resolved.id },
+      );
+      execNote =
+        exec.outcome === "ran"
+          ? `Approved action ${resolved.actionName} executed and verified.`
+          : `Approved action ${resolved.actionName} did not complete: ${exec.error ?? exec.outcome}.`;
+    } catch (err) {
+      execNote = `Approved action ${resolved.actionName} crashed on execution: ${err instanceof Error ? err.message : err}.`;
+      setTaskStatus(resolved.taskId, "failed", { pendingApproval: undefined, error: execNote });
+      return { ok: true as const, taskId: resolved.taskId, resumed: false };
+    }
     setTaskStatus(resolved.taskId, "running", { pendingApproval: undefined });
-    void resumeLoop(resolved.taskId, `Approval granted for ${resolved.actionName}${resolved.target ? ` on "${resolved.target}"` : ""}. Continue with the plan.`).catch((err) => {
+    void resumeLoop(resolved.taskId, execNote).catch((err) => {
       setTaskStatus(resolved.taskId, "failed", {
         error: `planner resume crashed: ${err instanceof Error ? err.message : err}`,
       });

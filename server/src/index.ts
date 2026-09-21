@@ -85,12 +85,12 @@ app.get("/tools/tasks", (req, res) => {
 app.post("/approvals/:id/approve", (req, res) => {
   const rawId = req.params.id;
   const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
-  res.json(decideApproval({ approvalId: id, decision: "approve" }, "http:sim-ui"));
+  void decideApproval({ approvalId: id, decision: "approve" }, "http:sim-ui").then((out) => res.json(out));
 });
 app.post("/approvals/:id/deny", (req, res) => {
   const rawId = req.params.id;
   const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
-  res.json(decideApproval({ approvalId: id, decision: "deny" }, "http:sim-ui"));
+  void decideApproval({ approvalId: id, decision: "deny" }, "http:sim-ui").then((out) => res.json(out));
 });
 app.post("/tasks/:id/input", (req, res) => {
   const rawId = req.params.id;

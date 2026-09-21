@@ -33,9 +33,8 @@ function testDefs() {
     description: "scripted consequential",
     schema: z.object({}),
     timeoutMs: 5000,
-    handler: async () => {
-      throw new Error("must never run without approval");
-    },
+    verify: () => "doomed executed",
+    handler: async () => ({ deleted: "old.txt" }),
   });
 }
 
@@ -102,7 +101,7 @@ describe("planner loop", () => {
       () =>
         new ScriptedPlannerBackend([{ text: "Approved work finished." }]),
     );
-    const res = decideApproval({ approvalId, decision: "approve" }, "test");
+    const res = await decideApproval({ approvalId, decision: "approve" }, "test");
     assert.equal(res.ok, true);
     assert.equal(await pollDone(t.id), "completed");
   });
