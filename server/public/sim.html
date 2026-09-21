@@ -157,6 +157,8 @@
   .cardhead.ok .dot { background: var(--accent); }
   .cardhead.fail { color: var(--danger); }
   .cardhead.fail .dot { background: var(--danger); }
+  .cardhead.pending { color: var(--accent-text); }
+  .cardhead.pending .dot { background: var(--accent); animation: pulse 1.2s ease-out infinite; }
   .cardhead time { margin-left: auto; font-weight: 400; color: var(--muted); }
   .card .row { display: flex; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
   .card .k { flex: none; width: 88px; color: var(--muted); }
@@ -460,15 +462,164 @@
         return { status: "error", error: "Lost contact with the core mid-task. Is the server still running?" };
       }
       if (t.status === "completed" || t.status === "failed") return t;
+      if (t.status === "awaiting_approval" && t.pendingApproval) return t;
+      if (t.status === "awaiting_input" && t.pendingInput) return t;
     }
     return { status: "error", error: "The laptop is taking too long — over 90 seconds. Check the agent, then try again." };
+  }
+
+  function expiryLine(expiresAt) {
+    const el = document.createElement("div");
+    el.className = "meta";
+    el.style.marginTop = "8px";
+    const tick = () => {
+      const s = Math.max(0, Math.round((Date.parse(expiresAt) - Date.now()) / 1000));
+      el.textContent = s > 0 ? "Expires in " + (s >= 60 ? Math.floor(s / 60) + "m " + (s % 60) + "s" : s + "s") : "Expired";
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return { el, stop: () => clearInterval(iv) };
+  }
+
+  /** Approval card. Resolves when the user decides; caller re-polls after. */
+  function addApprovalCard(task) {
+    return new Promise((resolve) => {
+      const pa = task.pendingApproval;
+      const card = document.createElement("div");
+      card.className = "card";
+      const head = document.createElement("div");
+      head.className = "cardhead pending";
+      head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Needs your approval</span>';
+      const time = document.createElement("time");
+      time.textContent = clock();
+      head.appendChild(time);
+      const p = document.createElement("div");
+      p.className = "reason";
+      p.textContent = pa.consequence;
+      p.tabIndex = -1;
+      card.append(head, p);
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = "Action: " + pa.actionName + (pa.target ? " → " + pa.target : "");
+      card.appendChild(meta);
+      const exp = expiryLine(pa.expiresAt);
+      card.appendChild(exp.el);
+      const row = document.createElement("div");
+      row.className = "actions";
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "btn";
+      approve.textContent = "Approve";
+      const deny = document.createElement("button");
+      deny.type = "button";
+      deny.className = "btn";
+      deny.textContent = "Deny";
+      const finish = (decision) => {
+        approve.disabled = true;
+        deny.disabled = true;
+        clearInterval(expiryWatch);
+        exp.stop();
+        fetch("/approvals/" + encodeURIComponent(pa.id) + "/" + decision, { method: "POST" })
+          .then((r) => r.json())
+          .then(() => resolve())
+          .catch(() => resolve());
+      };
+      approve.onclick = () => finish("approve");
+      deny.onclick = () => finish("deny");
+      const expiryWatch = setInterval(() => {
+        if (Date.parse(pa.expiresAt) <= Date.now()) {
+          clearInterval(expiryWatch);
+          approve.disabled = true;
+          deny.disabled = true;
+          exp.stop();
+          resolve();
+        }
+      }, 1000);
+      row.append(approve, deny);
+      card.appendChild(row);
+      thread.appendChild(card);
+      prune();
+      p.focus({ preventScroll: false });
+      announce("Approval needed: " + pa.consequence);
+    });
+  }
+
+  /** Question card. Resolves after the user answers; caller re-polls after. */
+  function addQuestionCard(task) {
+    return new Promise((resolve) => {
+      const pi = task.pendingInput;
+      const card = document.createElement("div");
+      card.className = "card";
+      const head = document.createElement("div");
+      head.className = "cardhead pending";
+      head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Question for you</span>';
+      const time = document.createElement("time");
+      time.textContent = clock();
+      head.appendChild(time);
+      const p = document.createElement("div");
+      p.className = "reason";
+      p.textContent = pi.question;
+      p.tabIndex = -1;
+      card.append(head, p);
+      const row = document.createElement("div");
+      row.className = "actions";
+      if (pi.options) {
+        for (const opt of pi.options) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "btn";
+          b.textContent = opt;
+          b.onclick = () => answer(opt);
+          row.appendChild(b);
+        }
+      }
+      const form = document.createElement("form");
+      form.className = "pill";
+      form.style.marginTop = "10px";
+      const inp = document.createElement("input");
+      inp.type = "text";
+      inp.placeholder = "Type your answer";
+      inp.maxLength = 2000;
+      inp.setAttribute("aria-label", "Answer");
+      const go = document.createElement("button");
+      go.type = "submit";
+      go.className = "send iconbtn";
+      go.setAttribute("aria-label", "Send answer");
+      go.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+      form.append(inp, go);
+      card.appendChild(row);
+      card.appendChild(form);
+      thread.appendChild(card);
+      prune();
+      p.focus({ preventScroll: false });
+      announce("Question: " + pi.question);
+      let done = false;
+      async function answer(text) {
+        if (done || !text.trim()) return;
+        done = true;
+        [...row.children].forEach((b) => { b.disabled = true; });
+        go.disabled = true;
+        try {
+          await fetch("/tasks/" + encodeURIComponent(task.id) + "/input", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ text: text.trim() }),
+          });
+        } catch { /* poll will surface terminal state either way */ }
+        resolve();
+      }
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        void answer(inp.value);
+      });
+    });
   }
 
   async function runTask(goal) {
     showThread();
     addUser(goal);
     setBusy(true);
-    const work = addWorking();
+    let work = addWorking();
     let outcome;
     try {
       const res = await fetch("/tools/execute_on_my_devices", {
@@ -478,13 +629,35 @@
       });
       if (!res.ok) throw new Error("core refused the goal (HTTP " + res.status + ")");
       const { taskId } = await res.json();
-      outcome = await poll(taskId);
+      for (;;) {
+        outcome = await poll(taskId);
+        if (outcome.status === "awaiting_approval" && outcome.pendingApproval) {
+          work.stop();
+          work.el.remove();
+          setBusy(false);
+          await addApprovalCard(outcome);
+          setBusy(true);
+          work = addWorking();
+          continue;
+        }
+        if (outcome.status === "awaiting_input" && outcome.pendingInput) {
+          work.stop();
+          work.el.remove();
+          setBusy(false);
+          await addQuestionCard(outcome);
+          setBusy(true);
+          work = addWorking();
+          continue;
+        }
+        break;
+      }
     } catch (err) {
       outcome = { status: "error", error: err instanceof Error ? err.message : "Could not reach the core." };
     }
     work.stop();
-    work.el.remove();
+    if (work.el.isConnected) work.el.remove();
     setBusy(false);
+    outcome.goal = goal;
     if (outcome.status === "completed") addDoneCard(outcome);
     else addFailCard(outcome.error || "Unknown error.", goal);
     refreshRecent();

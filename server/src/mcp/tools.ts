@@ -50,6 +50,18 @@ export function getTaskStatus(input: GetTaskStatusInput) {
   const parsed = GetTaskStatusSchema.parse(input);
   const task = getTask(parsed.taskId);
   if (!task) return { status: "failed" as const, error: `unknown task ${parsed.taskId}` };
+  // Lazy expiry: an approval that died while paused fails the task with the
+  // reason inline — otherwise clients would poll a dead pause forever.
+  if (task.status === "awaiting_approval") {
+    const expired = !task.pendingApproval || Date.parse(task.pendingApproval.expiresAt) <= Date.now();
+    if (expired) {
+      setTaskStatus(parsed.taskId, "failed", {
+        pendingApproval: undefined,
+        error: "approval expired before a decision — resend the goal to try again",
+      });
+      return { status: "failed" as const, error: "approval expired before a decision — resend the goal to try again" };
+    }
+  }
   const out: Record<string, unknown> = { status: task.status, id: task.id };
   if (task.plan) out.plan = task.plan;
   if (task.trace) out.trace = task.trace;
