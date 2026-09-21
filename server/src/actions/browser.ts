@@ -1,7 +1,19 @@
 import { z } from "zod";
 import { defineAction } from "../executor/registry.js";
+import type { ActionClass } from "../policy/types.js";
 import { join } from "node:path";
 import { assertToolAllowed, browserOutputDir, playwrightMcp } from "../browser/playwright.js";
+
+interface BrowserDef {
+  name: string;
+  actionClass: ActionClass;
+  description: string;
+  schema: z.ZodTypeAny;
+  timeoutMs: number;
+  call: (a: Record<string, unknown>) => Promise<unknown>;
+  targetOf: (a: Record<string, unknown>) => string | undefined;
+  verify?: (result: unknown) => string | false;
+}
 
 const UrlArg = z.string().min(1).max(2000);
 const PageUrl = z.string().min(1).max(2000).describe("Current page URL (from the last snapshot). Binds this action to a page.");
@@ -26,7 +38,7 @@ function assertMcpOk(result: unknown, tool: string): string {
  * existing submit rule; nothing browser-specific was added to policy.
  */
 export function registerBrowserActions(): void {
-  const defs = [
+  const defs: BrowserDef[] = [
     {
       name: "browser.goto",
       actionClass: "interact" as const,
@@ -115,8 +127,16 @@ export function registerBrowserActions(): void {
       timeoutMs: 120_000,
       call: (a: Record<string, unknown>) => collectDownload(a),
       targetOf: () => browserOutputDir(),
+      verify: (result) => {
+        const r = result as { path?: unknown; size?: unknown };
+        if (!r || typeof r !== "object" || typeof r.path !== "string" || !r.path) {
+          throw new Error("browser.fetch_download returned no path");
+        }
+        if (typeof r.size !== "number" || r.size <= 0) throw new Error("browser.fetch_download found an empty file");
+        return `downloaded ${r.path} (${r.size} bytes)`;
+      },
     },
-  ] as const;
+  ];
 
   for (const d of defs) {
     try {
@@ -127,7 +147,7 @@ export function registerBrowserActions(): void {
         schema: d.schema,
         timeoutMs: d.timeoutMs,
         targetOf: d.targetOf,
-        verify: (result) => assertMcpOk(result, d.name),
+        verify: d.verify ?? ((result) => assertMcpOk(result, d.name)),
         handler: async (args) => d.call(args),
       });
     } catch {

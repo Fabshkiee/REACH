@@ -1,10 +1,19 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { defaultPolicyContext } from "../policy/engine.js";
 import { dataDir } from "../store/jsonFile.js";
+
+/** Resolved CLI entry of the pinned dependency — spawned with node directly. */
+function playwrightMcpCli(): string {
+  const req = createRequire(import.meta.url);
+  const pkgPath = req.resolve("@playwright/mcp/package.json");
+  return join(dirname(pkgPath), "cli.js");
+}
 
 export const PLAYWRIGHT_MCP_VERSION = "0.0.82";
 export const PLAYWRIGHT_MCP_PORT = Number(process.env.PLAYWRIGHT_MCP_PORT ?? 8931);
@@ -58,12 +67,14 @@ function serverUrl(port: number): string {
   return `http://localhost:${port}/mcp`;
 }
 
-async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
+async function waitForPort(port: number, timeoutMs = 180_000): Promise<void> {
+  // NOTE: hostname "localhost", not 127.0.0.1 — the upstream server binds
+  // IPv6 loopback (::1) on Windows, and a literal IPv4 probe never connects.
   const { connect } = await import("node:net");
   const start = Date.now();
   for (;;) {
     const open = await new Promise<boolean>((resolve) => {
-      const s = connect({ host: "127.0.0.1", port, timeout: 2000 });
+      const s = connect({ host: "localhost", port, timeout: 2000 });
       s.once("connect", () => {
         s.end();
         resolve(true);
@@ -88,15 +99,28 @@ async function waitForPort(port: number, timeoutMs = 60_000): Promise<void> {
 class PlaywrightMcp {
   private proc: ChildProcess | undefined;
   private client: Client | undefined;
+  private starting: Promise<Client> | undefined;
   private readonly port = PLAYWRIGHT_MCP_PORT;
 
+  /** Boot budget lives here, not in call timeouts: first use is slow (browser
+   *  launch), steady-state calls are fast. Concurrent callers share one boot. */
   async ensure(): Promise<Client> {
     if (this.client) return this.client;
+    if (!this.starting) {
+      this.starting = this.boot().finally(() => {
+        this.starting = undefined;
+      });
+    }
+    return this.starting;
+  }
+
+  private async boot(): Promise<Client> {
     mkdirSync(browserProfileDir(), { recursive: true });
     mkdirSync(browserOutputDir(), { recursive: true });
+    // Spawned with node directly (never cmd/npx shims): no shell exists in
+    // this path at all. All argv are operator-controlled constants/paths.
     const args = [
-      "-y",
-      `@playwright/mcp@${PLAYWRIGHT_MCP_VERSION}`,
+      playwrightMcpCli(),
       "--port",
       String(this.port),
       "--user-data-dir",
@@ -105,9 +129,13 @@ class PlaywrightMcp {
       browserOutputDir(),
     ];
     if (process.env.PLAYWRIGHT_HEADED !== "1") args.push("--headless");
-    this.proc = spawn(process.platform === "win32" ? "npx.cmd" : "npx", args, {
-      windowsHide: true,
-      stdio: "ignore",
+    this.proc = spawn(process.execPath, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    // Drain both streams: undrained pipes would backpressure a long-lived
+    // server, and the stderr tail turns silent boot failures into messages.
+    let stderrTail = "";
+    this.proc.stdout?.on("data", () => {});
+    this.proc.stderr?.on("data", (d) => {
+      stderrTail = (stderrTail + String(d)).slice(-2000);
     });
     this.proc.once("error", (err) => {
       console.error(`[browser] playwright-mcp spawn failed: ${err.message}`);
@@ -115,11 +143,18 @@ class PlaywrightMcp {
       this.client = undefined;
     });
     this.proc.unref?.();
-    await waitForPort(this.port);
-    const client = new Client({ name: "reach-browser", version: "0.1.0" });
-    await client.connect(new StreamableHTTPClientTransport(new URL(serverUrl(this.port))));
-    this.client = client;
-    return client;
+    try {
+      await waitForPort(this.port);
+      const client = new Client({ name: "reach-browser", version: "0.1.0" });
+      await client.connect(new StreamableHTTPClientTransport(new URL(serverUrl(this.port))));
+      this.client = client;
+      return client;
+    } catch (err) {
+      this.proc?.kill();
+      this.proc = undefined;
+      const tail = stderrTail.trim() ? ` server said: ${stderrTail.trim().split("\n").pop()}` : "";
+      throw new Error(`${err instanceof Error ? err.message : err}.${tail}`);
+    }
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {

@@ -102,14 +102,15 @@ describe("policy engine", () => {
     );
     assert.equal(ok.verdict, "allow");
     assert.match(ok.reason, /named-web/);
-    assert.equal(
-      classify(action({ actionClass: "interact", target: "http://192.168.1.10:8080/x", args: {} }), ctx).verdict,
-      "confirm",
-    );
-    assert.equal(
-      classify(action({ actionClass: "interact", target: "https://user:pass@example.com/", args: {} }), ctx).verdict,
-      "confirm",
-    );
+    for (const unusual of [
+      "http://192.168.1.10:8080/x",
+      "https://user:pass@example.com/",
+      "http://localhost:8931/mcp",
+      "http://localhost:3000/health",
+    ]) {
+      const d = classify(action({ actionClass: "interact", target: unusual, args: {} }), ctx);
+      assert.equal(d.verdict, "confirm", unusual);
+    }
     for (const bad of ["file:///C:/x", "javascript:alert(1)", "data:text/plain,hi"]) {
       const d = classify(action({ actionClass: "interact", target: bad, args: {} }), ctx);
       assert.equal(d.verdict, "deny", bad);
