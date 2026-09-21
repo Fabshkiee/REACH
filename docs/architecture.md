@@ -79,12 +79,12 @@ Demo spine: `docs/demo-script.md`.
   with audit trace, approvals/input model with single-use expiring nonces,
   `decide_approval` tool, `npm test` green (both workspaces), agent file/app
   primitives (search/read/write/move/verify/open/launch) with sandbox +
-  shell-free open, executor action defs for all of them, Playwright MCP spike
-  green (pinned 0.0.82, whitelist set), **Bedrock planner loop live on Nova 2
+  shell-free open, executor action defs for all of them, browser adapter live
+  (navigate/observe/download proven end-to-end; whitelist enforced; Canva
+  rehearsal pending your one-time login), **Bedrock planner loop live on Nova 2
   Lite (ReAct, registry-generated tools, resume, uniform routing — keyword
   router deleted, proven by structural test), per-plan token accounting**.
-* **Planned next:** browser adapter wiring + download proof (P2), sim
-  approval/question cards (A4), three-goal acceptance + film.
+* **Planned next:** sim approval/question cards (A4), three-goal acceptance + film.
 * Anything in this doc without a "planned" mark describes intent shared by both
   layers only where the built code already supports it; when in doubt, the code
   wins and the doc gets fixed.

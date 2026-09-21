@@ -24,8 +24,24 @@
   whitelist: navigate, snapshot, find, click, type, select_option, press_key,
   wait_for, tabs. Never exposed: evaluate, run_code_unsafe, route/unroute,
   file drop/upload, network config, screenshots (text planner can't use them).
-* Open item for P2: download-to-`outputDir` behavior with a real file; wire
-  `outputDir` into the sandbox and prove it before the Canva flow films.
+* **Download proof (2026-09-21, hermetic local server):** `outputDir` wired to
+  `~/Documents/REACH/browser-downloads`; navigate → download event →
+  `fetch_download` collected a 2048-byte file **byte-identical** to the served
+  payload (settle-check + size verify). External download test skipped: this
+  sandbox's DNS does not resolve the test host — environment limit, not product
+  behavior.
+* **Connection lessons (2026-09-21, all verified by bisection):**
+  `npx.cmd` cannot be spawned without a shell on Windows (EINVAL) — the pinned
+  npm dependency is spawned via `process.execPath` instead, so no shell exists
+  in the path at all. The upstream server binds IPv6 loopback (`::1`) — probes
+  must use hostname `localhost`, never literal `127.0.0.1`. Child pipes are
+  drained (backpressure would hang a long-lived server) with an stderr tail
+  surfaced on boot failure. Concurrent boots share one promise; failed boots
+  kill the orphan (a leaked holder once shadowed every later attempt).
+* **Canva rehearsal (needs you, once):** run with `PLAYWRIGHT_HEADED=1`,
+  sign into Canva in the opened browser, close it — the persistent profile
+  (`server/data/browser-profile/`, gitignored) keeps the session. Never store
+  or transmit those credentials; the profile never leaves the laptop.
 
 ## lastmile-ai/mcp-agent — VERIFIED (README fetched 2026-09-19)
 

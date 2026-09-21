@@ -215,6 +215,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): agent now enforces DENY patterns only (system roots, other users, secret material, traversal-resolved); risk calls stay with core policy + approval. Live re-run: read → draft → create+open, all verified.
 * Suggestion: layered controls must be tested against each other, not just alone — add a cross-layer test (core allows + agent allows) in A4.
 
+## 2026-09-21 — Browser calls timed out; four wrong theories before IPv6
+* Task: P2 live proof — every browser def timed out at exactly its call timeout.
+* Steps: blamed shared transport, then stdio handling (`ignore` vs pipe correlated 4/4 in early trials), then orphans, then warm-up — each "fix" changed nothing. Instrumented stage-by-stage: spawn succeeded, port never opened. `netstat` finally showed the server on `[::1]:8931` — IPv6-only bind; the probe used literal `127.0.0.1` and could never connect.
+* Expected vs actual: expected localhost ≡ 127.0.0.1; actual the upstream binds `::1` and only hostname-form probes connect.
+* Severity: High (blocked the entire browser track; also burned an hour on a spurious stdio correlation).
+* Workaround (kept): probe hostname `localhost`; drain child pipes with stderr tail; single-flight boots; kill-on-failed-boot. Lesson recorded: correlate across single-variable trials, and distrust any theory with fewer than three varied data points — the stdio story fit four trials and was still wrong.
+* Suggestion: n/a.
+
 ## Template for new entries
 * Task:
 * Steps:
