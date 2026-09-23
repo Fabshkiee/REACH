@@ -25,8 +25,17 @@ can't be inferred or a real boundary is crossed.
 ## Channel security
 
 * Core ↔ agent: Bearer token (`AGENT_TOKEN`, same value both sides).
-  *(planned: fail-closed boot — refuse to start unset. Today: warn-and-trust-localhost.)*
-* Services bind `127.0.0.1` by default; remote access only via explicit tunnel (Phase 4).
+  Boot is fail-closed (both refuse to start without it, test exempt) AND the
+  middleware is fail-closed (unconfigured token refuses instead of trusting).
+* Services bind `127.0.0.1` explicitly (`server/src/index.ts`,
+  `windows-agent/src/index.ts`); remote access only via explicit tunnel. Never
+  widen the bind without route-auth review: `/tools/*`, `/approvals/*`,
+  `/tasks/*/input`, and device pause/revoke are same-origin user-channel routes.
+* Devices: user pause stops dispatch (heartbeat continues, pause survives
+  heartbeats and re-registration); resume re-enables; revoke deletes the record
+  (a still-running agent re-registers — pause is the control that holds while
+  the agent is alive). Stale heartbeats (>90s) and paused devices read as
+  unavailable everywhere; empty capability graph is empty (no phantom laptop).
 * No secrets in the repo (`.env` gitignored, `.env.example` only); `npm audit` clean at every commit.
 
 ## Guarantees / assumptions / non-goals

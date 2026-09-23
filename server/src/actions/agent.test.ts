@@ -16,6 +16,7 @@ describe("agent action defs", () => {
       "files.move",
       "files.delete",
       "files.verify",
+      "files.list",
       "apps.open_document",
       "apps.open_url",
       "apps.launch",

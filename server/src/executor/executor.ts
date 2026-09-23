@@ -1,10 +1,10 @@
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
-import { createApproval } from "../approvals/store.js";
+import { createApproval, getApproval } from "../approvals/store.js";
 import { classify, defaultPolicyContext } from "../policy/engine.js";
 import { parseProposedAction, type ProposedAction } from "../policy/types.js";
 import { dataDir } from "../store/jsonFile.js";
-import { appendActionRecord, getTask, setTaskStatus } from "../tasks/taskStore.js";
+import { appendActionRecord, appendTaskEvent, getTask, setTaskStatus } from "../tasks/taskStore.js";
 import type { ActionRecord } from "../tasks/types.js";
 import { getActionDef, type ActionDefinition } from "./registry.js";
 import type { PolicyContext } from "../policy/types.js";
@@ -21,8 +21,55 @@ export interface ProposeResult {
   error?: string;
 }
 
+function bound(s: string, max = 300): string {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
 function audit(taskId: string, record: ActionRecord): void {
   appendActionRecord(taskId, record);
+  // User-visible trail: one event per audited record, derived in one place so
+  // no executor path can act without appearing in the sim timeline.
+  const what = `${record.name}${record.target ? ` on "${bound(record.target, 120)}"` : ""}`;
+  if (record.actionClass === "ask" && record.ok === true) {
+    appendTaskEvent(taskId, {
+      kind: "clarification_requested",
+      actionId: record.actionId,
+      capabilityId: record.name,
+      status: "awaiting_input",
+      summary: bound(`Question asked: ${(record.resultSummary ?? "").replace(/^asked: /, "")}`, 300),
+    });
+  } else if (record.approvalId && (record.resultSummary ?? "").startsWith("paused for approval")) {
+    appendTaskEvent(taskId, {
+      kind: "approval_requested",
+      actionId: record.actionId,
+      capabilityId: record.name,
+      target: record.target,
+      status: "awaiting_approval",
+      summary: bound(`Approval needed: ${(record.resultSummary ?? "").replace(/^paused for approval \S+: /, "")}`, 300),
+    });
+  } else if (record.ok === false) {
+    appendTaskEvent(taskId, {
+      kind: "action_finished",
+      actionId: record.actionId,
+      capabilityId: record.name,
+      target: record.target,
+      status: "failed",
+      summary: bound(`Failed: ${what} — ${record.resultSummary ?? record.policyReason}`, 300),
+    });
+  } else {
+    appendTaskEvent(taskId, {
+      kind: "action_finished",
+      actionId: record.actionId,
+      capabilityId: record.name,
+      target: record.target,
+      status: record.verified === false ? "unverified" : "succeeded",
+      summary: bound(
+        `${what} ok${record.verified === false ? " (unverified)" : " (verified)"}${record.resultSummary ? `: ${record.resultSummary}` : ""}`,
+        300,
+      ),
+      evidenceActionIds: [record.actionId],
+    });
+  }
   try {
     appendFileSync(join(dataDir(), "audit.jsonl"), JSON.stringify({ taskId, ...record }) + "\n");
   } catch (err) {
@@ -69,6 +116,13 @@ export async function proposeAction(
 ): Promise<ProposeResult> {
   const task = getTask(taskId);
   if (!task) return { outcome: "rejected", taskId, error: `unknown task ${taskId}` };
+  // Never act on ended tasks: approvals resolve through the approval-decision
+  // path (which peeks at task state first) and the loop never proposes after
+  // terminal — this is the backstop so a stray proposal cannot resurrect
+  // completed/failed/cancelled work.
+  if (task.status === "completed" || task.status === "failed" || task.status === "cancelled") {
+    return { outcome: "rejected", taskId, error: `task is already ${task.status} — no further actions` };
+  }
   // Soft failures (planner-driven): audit everything but leave the task alone —
   // the loop decides recovery. Hard failures (standalone/scripted use) fail fast.
   const fail = (patch: { error: string }): void => {
@@ -166,6 +220,21 @@ export async function proposeAction(
       audit(taskId, record);
       return runAllowed(taskId, action, args, def, policyCtx, record, (patch) => fail(patch));
     }
+    // Single live pause per task: a second confirm-class proposal while an
+    // approval is still pending is denied, never silently overwrites the
+    // pending approval (which would orphan a resolvable approval id).
+    const livePause = task.status === "awaiting_approval" && task.pendingApproval
+      ? getApproval(task.pendingApproval.id)
+      : undefined;
+    if (livePause?.status === "pending") {
+      const record = baseRecord(action, "confirm", "confirm.superseded");
+      record.endedAt = new Date().toISOString();
+      record.ok = false;
+      record.resultSummary = `policy would confirm, but approval ${livePause.id} (${livePause.actionName}) is still pending — resolve it first`;
+      audit(taskId, record);
+      fail({ error: record.resultSummary });
+      return { outcome: "denied", taskId, actionId: action.id, error: record.resultSummary };
+    }
     const approval = createApproval({
       taskId,
       actionName: action.name,
@@ -214,12 +283,16 @@ async function runAllowed(
   const ctrl = new AbortController();
   const timeout = Math.min(action.timeoutMs, def.timeoutMs);
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // NOTE: intentionally NOT unref'd. An unref'd timer lets the event loop drain
+  // while a hung handler is still pending — the timeout then never fires and the
+  // task hangs forever (verified 2026-09-24: executor suite aborted mid-file on
+  // Windows/tsx with "event loop has already resolved"). The timer is always
+  // cleared when the race settles, so it never holds the process open past that.
   const timeoutGate = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       ctrl.abort();
       reject(new Error(`timed out after ${timeout}ms`));
     }, timeout);
-    timer.unref?.();
   });
   try {
     const data = await Promise.race([

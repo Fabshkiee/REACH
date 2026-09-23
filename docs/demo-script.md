@@ -1,6 +1,9 @@
 # Demo Script (<3min — judges may stop at 3:00)
 
-> Current truth (v2). v1 history: `docs/v1-retired.md`.
+> **Parked for rewrite to local DOCX hero (Slice 0 decision 2026-09-24).** Current truth (v2) below
+> is the old 3-proof cut; v1 hero is find → create local DOCX → verify, plus read-only
+> browser + CANNOT/approval beats, sim locked (simulated — not live Alexa+).
+> v1 history: `docs/v1-retired.md`.
 
 Target feel: product demo, not lecture. Film real artifacts on one engine; no mocks,
 no special cases. Prep first: "Film prep" section below.

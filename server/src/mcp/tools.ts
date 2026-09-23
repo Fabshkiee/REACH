@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { getApproval, resolveApproval } from "../approvals/store.js";
 import { proposeAction } from "../executor/executor.js";
+import { getActionDef } from "../executor/registry.js";
 import { defaultPolicyContext } from "../policy/engine.js";
+import { policyContextForAvailable } from "../policy/context.js";
 import type { ActionClass } from "../policy/types.js";
 import { resumeLoop, runPlannerLoop } from "../planner/loop.js";
-import { createTask, getTask, listRecentTasks, setTaskStatus } from "../tasks/taskStore.js";
+import { createTask, getTask, listRecentTasks, setTaskStatus, cancelTask, appendTaskEvent } from "../tasks/taskStore.js";
 
 const MEANINGLESS = /^(undefined|null|nan|none|n\/a)$/i;
 
@@ -43,6 +45,7 @@ export function executeOnMyDevices(input: ExecuteOnMyDevicesInput): { taskId: st
   const task = createTask(parsed.task);
   void runPlannerLoop(task.id).catch((err) => {
     setTaskStatus(task.id, "failed", {
+      outcome: { kind: "failed", reason: `planner crashed: ${err instanceof Error ? err.message : err}`, evidenceActionIds: [] },
       error: `planner crashed: ${err instanceof Error ? err.message : err}`,
     });
   });
@@ -70,7 +73,10 @@ export function getTaskStatus(input: GetTaskStatusInput) {
   if (task.trace) out.trace = task.trace;
   if (task.usage) out.usage = task.usage;
   if (task.evidence) out.evidence = task.evidence;
+  if (task.outcome) out.outcome = task.outcome;
   if (task.error) out.error = task.error;
+  // User-visible event trail (last 100; full trail persists in the store).
+  if (task.events) out.events = task.events.slice(-100);
   if (task.status === "awaiting_approval" && task.pendingApproval) {
     out.pendingApproval = {
       id: task.pendingApproval.id,
@@ -78,6 +84,10 @@ export function getTaskStatus(input: GetTaskStatusInput) {
       actionClass: task.pendingApproval.actionClass,
       target: task.pendingApproval.target,
       consequence: task.pendingApproval.consequence,
+      // Full-detail approval (finished v1): the exact validated args the
+      // approver is consenting to — never a consequence sentence alone.
+      args: task.pendingApproval.args,
+      createdAt: task.pendingApproval.createdAt,
       expiresAt: task.pendingApproval.expiresAt,
     };
   }
@@ -99,6 +109,15 @@ export function getTaskStatus(input: GetTaskStatusInput) {
  */
 export async function decideApproval(input: DecideApprovalInput, decidedBy: string) {
   const parsed = DecideApprovalSchema.parse(input);
+  // Never consume an approval for a task that already ended (e.g. cancelled
+  // while paused): peeking first keeps the resolve single-use accounting exact.
+  const peeked = peekApproval(parsed.approvalId);
+  if (peeked) {
+    const approveTask = getTask(peeked.taskId);
+    if (approveTask && (approveTask.status === "completed" || approveTask.status === "failed" || approveTask.status === "cancelled")) {
+      return { ok: false as const, error: `task ${peeked.taskId} is already ${approveTask.status} — approval not consumed` };
+    }
+  }
   const resolved = resolveApproval(parsed.approvalId, parsed.decision, decidedBy);
   if (!resolved) {
     return { ok: false as const, error: `approval ${parsed.approvalId} is unknown, expired, or already resolved` };
@@ -107,8 +126,11 @@ export async function decideApproval(input: DecideApprovalInput, decidedBy: stri
     // Approval means EXECUTE, not "ask me again": run the approved action now
     // through the executor (which still enforces schema + deny rules), then
     // resume the loop with the outcome. The old flow re-proposed and re-paused.
+    // Quoted policy is honored: same available-device context the loop used,
+    // and the action's own timeout — not a hardcoded substitute.
     let execNote: string;
     try {
+      const approvedDef = getActionDef(resolved.actionName);
       const exec = await proposeAction(
         resolved.taskId,
         {
@@ -116,9 +138,9 @@ export async function decideApproval(input: DecideApprovalInput, decidedBy: stri
           name: resolved.actionName,
           args: resolved.args,
           target: resolved.target,
-          timeoutMs: 60_000,
+          timeoutMs: approvedDef?.timeoutMs ?? 60_000,
         },
-        defaultPolicyContext(),
+        { ...defaultPolicyContext(), ...policyContextForAvailable() },
         { preApproved: resolved.id },
       );
       execNote =
@@ -128,11 +150,14 @@ export async function decideApproval(input: DecideApprovalInput, decidedBy: stri
     } catch (err) {
       execNote = `Approved action ${resolved.actionName} crashed on execution: ${err instanceof Error ? err.message : err}.`;
       setTaskStatus(resolved.taskId, "failed", { pendingApproval: undefined, error: execNote });
+      appendTaskEvent(resolved.taskId, { kind: "approval_decided", summary: `Approval ${resolved.id} approved by ${decidedBy}: ${execNote}`.slice(0, 300) });
       return { ok: true as const, taskId: resolved.taskId, resumed: false };
     }
+    appendTaskEvent(resolved.taskId, { kind: "approval_decided", summary: `Approval ${resolved.id} approved by ${decidedBy}: ${execNote}`.slice(0, 300) });
     setTaskStatus(resolved.taskId, "running", { pendingApproval: undefined });
     void resumeLoop(resolved.taskId, execNote).catch((err) => {
       setTaskStatus(resolved.taskId, "failed", {
+        outcome: { kind: "failed", reason: `planner resume crashed: ${err instanceof Error ? err.message : err}`, evidenceActionIds: [] },
         error: `planner resume crashed: ${err instanceof Error ? err.message : err}`,
       });
     });
@@ -140,9 +165,47 @@ export async function decideApproval(input: DecideApprovalInput, decidedBy: stri
   }
   setTaskStatus(resolved.taskId, "failed", {
     pendingApproval: undefined,
+    outcome: { kind: "failed", reason: `denied by user: ${resolved.actionName}${resolved.target ? ` on "${resolved.target}"` : ""} was not approved`, evidenceActionIds: [] },
     error: `denied by user: ${resolved.actionName}${resolved.target ? ` on "${resolved.target}"` : ""} was not approved`,
   });
+  appendTaskEvent(resolved.taskId, { kind: "approval_decided", summary: `Approval ${resolved.id} denied by ${decidedBy}: ${resolved.actionName} was not approved`.slice(0, 300) });
   return { ok: true as const, taskId: resolved.taskId, resumed: false };
+}
+
+/** Cancel a task (user channel). The loop observes and exits; pauses clear. */
+export function cancelTaskById(taskId: string, reason?: string) {
+  return cancelTask(taskId, reason);
+}
+
+/**
+ * Answer a paused clarifying question (user channel, not a public MCP tool).
+ * Validates, records the answer, emits the trail event, and resumes the loop.
+ */
+export function answerInput(
+  taskId: string,
+  text: unknown,
+): { ok: true; taskId: string; resumed: true } | { ok: false; code: "unknown" | "not_waiting" | "invalid"; error: string } {
+  if (typeof text !== "string" || !text.trim() || text.length > 2000) {
+    return { ok: false, code: "invalid", error: "invalid input: need {text} (1–2000 chars)" };
+  }
+  const task = getTask(taskId);
+  if (!task) return { ok: false, code: "unknown", error: `unknown task ${taskId}` };
+  if (task.status !== "awaiting_input" || !task.pendingInput) {
+    return { ok: false, code: "not_waiting", error: `task ${taskId} is not waiting for input (status: ${task.status})` };
+  }
+  const question = task.pendingInput.question;
+  const answer = text.trim();
+  setTaskStatus(taskId, "running", {
+    pendingInput: { ...task.pendingInput, answer, answeredAt: new Date().toISOString() },
+  });
+  appendTaskEvent(taskId, { kind: "clarification_answered", summary: `Answered "${question}": "${answer.slice(0, 200)}"` });
+  void resumeLoop(taskId, `User answered "${question}": "${answer}". Continue with the plan.`).catch((err) => {
+    setTaskStatus(taskId, "failed", {
+      outcome: { kind: "failed", reason: `planner resume crashed: ${err instanceof Error ? err.message : err}`, evidenceActionIds: [] },
+      error: `planner resume crashed: ${err instanceof Error ? err.message : err}`,
+    });
+  });
+  return { ok: true, taskId, resumed: true };
 }
 
 /** Look up a pending approval without resolving it (for status displays). */
@@ -156,6 +219,8 @@ export function peekApproval(approvalId: string) {
     actionClass: apr.actionClass,
     target: apr.target,
     consequence: apr.consequence,
+    args: apr.args,
+    createdAt: apr.createdAt,
     expiresAt: apr.expiresAt,
   };
 }

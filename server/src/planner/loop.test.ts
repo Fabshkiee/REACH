@@ -125,7 +125,9 @@ describe("planner loop", () => {
     const t = createTask("fsdf unplannable gibberish");
     await runPlannerLoop(t.id, { backend: mock });
     assert.equal(await pollDone(t.id), "failed");
-    assert.match(getTask(t.id)?.error ?? "", /could not ground/);
+    // Honest cannot: status failed, outcome carries the reason + empty evidence.
+    assert.equal(getTask(t.id)?.outcome?.kind, "cannot");
+    assert.match(getTask(t.id)?.error ?? "", /no capability matches/);
   });
 
   it("text-only finish without executed work fails (no narrated success)", async () => {

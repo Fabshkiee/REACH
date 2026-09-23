@@ -15,6 +15,7 @@ import {
   ALLOWED_CAPABILITIES,
   CreateDocumentSchema,
   DeleteFileSchema,
+  ListFilesSchema,
   MoveFileSchema,
   ReadFileSchema,
   SearchFilesSchema,
@@ -22,6 +23,7 @@ import {
   createDocument,
   deleteFile,
   isAllowed,
+  listFiles,
   moveFile,
   readFile,
   searchFiles,
@@ -71,6 +73,7 @@ const DISPATCH: Record<string, DispatchEntry> = {
     schema: ReadFileSchema.pick({ path: true }),
     run: async (a) => ({ ...(await verifyFile(a as { path: string })) }),
   },
+  list_files: { schema: ListFilesSchema, run: async (a) => ({ ...(await listFiles(a as never)) }) },
 };
 
 async function runCapability(capability: string, args: unknown): Promise<{ status: number; body: unknown }> {
@@ -119,7 +122,9 @@ const port = Number(process.env.AGENT_PORT ?? 3001);
 if (process.env.NODE_ENV !== "test") {
   loadEnv();
   requireAgentToken();
-  app.listen(port, () => console.log(`windows-agent on :${port}`));
+  // Localhost-only: the core reaches the agent over loopback. Never expose
+  // this port remotely — remote cores require the post-v1 outbound relay.
+  app.listen(port, "127.0.0.1", () => console.log(`windows-agent on 127.0.0.1:${port}`));
   startHeartbeat();
 }
 

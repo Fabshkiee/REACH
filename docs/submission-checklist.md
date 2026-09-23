@@ -9,12 +9,12 @@ Track: **Alexa+**. Mini: **AWS Builder**. Skip: Open Source.
 ## Repo (GitHub URL on form)
 * [ ] Public + MIT `LICENSE` detectable in About (done) OR private shared with `testing@devpost.com` + `@AmazonAppDev`.
 * [ ] All source + assets + setup/run instructions (`README.md` — done, verify on clean clone).
-* [ ] Runtime hook: `McpServer` created per request (`server/src/mcp/server.ts`), `BedrockRuntimeClient` imported (`server/src/aws/bedrock.stub.ts`, live calls in A-series) — plus planner/trace evidence once built.
-* [ ] Alexa+: MCP `2025-11-25` over Streamable HTTP (done, verified); sim path exempt but we target real route.
+* [ ] Runtime hook: `McpServer` created per request (`server/src/mcp/server.ts`), live Bedrock planner (`server/src/planner/bedrock.ts`, default `amazon.nova-lite-v1:0`) — plus planner/trace evidence (`plan/trace/usage/evidence` in `get_task_status`).
+* [ ] Alexa+: MCP `2025-11-25` over Streamable HTTP transport verified (Inspector/SDK per `docs/mcp-inspector.md`); **no live Alexa+ integration — sim locked, partner-gated.** Sim + laptop is the video platform; do not claim real route.
 
 ## Video
 * [ ] `<3min`, public YouTube/Vimeo, shows functioning on intended platform (simulator + laptop).
-* [ ] Video shows three unrelated goals on one engine + approval beat + refusal beat (script: `docs/demo-script.md`).
+* [ ] Video shows one local DOCX hero + read-only browser + CANNOT/approval beats on one engine (sim locked, simulated — not live Alexa+). Script: `docs/demo-script.md` (to be rewritten to hero; current script still old 3-proof cut).
 * [ ] No third-party trademarks/copyrighted music without permission. Script: `docs/demo-script.md`.
 
 ## Text

@@ -10,9 +10,9 @@ export interface CapabilityDefinition {
 }
 
 /**
- * Static seed: known capability metadata (scopes, descriptions) so the graph
- * is meaningful before any agent has registered. Live registrations supply
- * the device side — see listCapabilities().
+ * Static metadata (scopes, descriptions) for known capabilities. This is
+ * descriptive only — it never confers availability. A capability is
+ * executable only when a live, available device advertises it below.
  */
 const SEED: Omit<CapabilityDefinition, "deviceId">[] = [
   {
@@ -28,10 +28,13 @@ function seedFor(capabilityId: string): Omit<CapabilityDefinition, "deviceId"> |
 }
 
 /**
- * Capability graph: required capabilities → available devices.
- * Providers come from live agent registrations; the seed fills in metadata
- * for known capabilities. Unknown advertised capabilities are included with
- * a generic description so new agent features surface without a core deploy.
+ * Capability graph: advertised capabilities → advertising devices.
+ * Providers come ONLY from live agent registrations; the seed fills in
+ * metadata (scopes, descriptions) for known capabilities. An empty graph is
+ * an honest empty graph — tasks fail with "no capable device online" instead
+ * of planning against a phantom laptop. Unknown advertised capabilities are
+ * included with a generic description so new agent features surface without
+ * a core deploy.
  */
 export function listCapabilities(): CapabilityDefinition[] {
   const out: CapabilityDefinition[] = [];
@@ -50,10 +53,6 @@ export function listCapabilities(): CapabilityDefinition[] {
         description: seed?.description ?? `Advertised by ${device.id}.`,
       });
     }
-  }
-  // Pre-registration fallback so the graph is never empty on a fresh core.
-  if (out.length === 0) {
-    for (const seed of SEED) out.push({ ...seed, deviceId: "windows-laptop" });
   }
   return out;
 }

@@ -114,3 +114,54 @@ describe("agent file primitives", () => {
     assert.equal(r.hits.length, 0);
   });
 });
+
+describe("agent list + paged read (recovery moves)", () => {
+  it("lists directories with sizes, dirs first then smallest-first", async () => {
+    const { listFiles } = await import("./files.js");
+    await agentWrite({ path: "lst\\big.txt", content: "x".repeat(1000), overwrite: false });
+    await agentWrite({ path: "lst\\small.txt", content: "hi", overwrite: false });
+    const r = await listFiles({ path: "lst", limit: 50 });
+    assert.equal(r.truncated, false);
+    const names = r.entries.map((e) => e.name);
+    assert.ok(names.includes("big.txt") && names.includes("small.txt"));
+    const files = r.entries.filter((e) => !e.isDirectory);
+    assert.ok(files[0]!.size! <= files[files.length - 1]!.size!);
+    assert.equal(typeof files[0]!.size, "number");
+  });
+
+  it("list teaches on files and missing paths", async () => {
+    const { listFiles } = await import("./files.js");
+    await assert.rejects(listFiles({ path: "notes\\a.txt" }), /not a directory.*files\.read/);
+    await assert.rejects(listFiles({ path: "no\\such\\dir" }), /no such directory/);
+  });
+
+  it("reads page through text with totalChars", async () => {
+    const content = Array.from({ length: 200 }, (_, i) => `line-${i}-padding-xyz`).join("\n");
+    await agentWrite({ path: "pg\\big.txt", content, overwrite: false });
+    const full = await readFile({ path: "pg\\big.txt" });
+    assert.equal(full.truncated, false);
+    assert.equal(full.totalChars, content.length);
+    const p1 = await readFile({ path: "pg\\big.txt", maxBytes: 500, offsetChars: 0 });
+    const p2 = await readFile({ path: "pg\\big.txt", maxBytes: 500, offsetChars: 500 });
+    assert.equal(p1.truncated, true);
+    assert.equal(p1.text + p2.text, content.slice(0, 1000));
+    const tail = await readFile({ path: "pg\\big.txt", maxBytes: 100_000, offsetChars: full.totalChars - 10 });
+    assert.equal(tail.truncated, false);
+    assert.equal(tail.text, content.slice(-10));
+  });
+
+  it("reads files larger than the old 2MB one-shot cap", async () => {
+    const { writeFile: wf } = await import("node:fs/promises");
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(join(root, "huge"), { recursive: true });
+    await wf(join(root, "huge", "big.txt"), "z".repeat(3 * 1024 * 1024));
+    const first = await readFile({ path: "huge\\big.txt", maxBytes: 1000, offsetChars: 0 });
+    assert.equal(first.totalChars, 3 * 1024 * 1024);
+    assert.equal(first.truncated, true);
+    assert.equal(first.text, "z".repeat(1000));
+  });
+
+  it("verify teaches on directories", async () => {
+    await assert.rejects(verifyFile({ path: "lst" }), /not a file.*files\.list/);
+  });
+});

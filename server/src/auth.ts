@@ -5,19 +5,16 @@ export function agentToken(): string | undefined {
 }
 
 /**
- * Shared-secret auth for the Core ↔ agent channel. When AGENT_TOKEN is unset
- * (default local dev), localhost traffic is trusted and a warning is logged
- * at boot — set AGENT_TOKEN (same value on core + agent) to enforce Bearer
- * auth. Full OAuth 2.1 PKCE arrives with the Alexa-facing surface (Phase 3/4);
- * this only ever guards the private device channel.
+ * Shared-secret auth for the Core ↔ agent channel. Fail-closed: when
+ * AGENT_TOKEN is unset, every guarded request is refused — the boot gate
+ * (`requireAgentToken`) normally prevents reaching this state, and this
+ * middleware holds the line if the process was ever constructed without it
+ * (tests/dev). Full OAuth 2.1 PKCE arrives with the Alexa-facing surface
+ * (Phase 3/4); this only ever guards the private device channel.
  */
 export function requireAgentAuth(req: Request, res: Response, next: NextFunction): void {
   const token = agentToken();
-  if (!token) {
-    next();
-    return;
-  }
-  if (req.header("authorization") === `Bearer ${token}`) {
+  if (token && req.header("authorization") === `Bearer ${token}`) {
     next();
     return;
   }
@@ -28,6 +25,6 @@ let warned = false;
 export function warnIfAuthDisabled(service: string): void {
   if (!agentToken() && !warned) {
     warned = true;
-    console.warn(`[${service}] AGENT_TOKEN unset — device channel trusts local traffic. Set AGENT_TOKEN to enforce.`);
+    console.warn(`[${service}] AGENT_TOKEN unset — device channel refuses all requests until it is set.`);
   }
 }

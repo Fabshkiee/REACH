@@ -1,4 +1,10 @@
-# Alexa+ Auth Checklist (OAuth 2.1 + PKCE S256)
+# Alexa+ Auth Checklist (OAuth 2.1 + PKCE S256) — NO-GO, sim locked
+
+> Decision 2026-09-24: Alexa+ MCP Toolkit is partner-gated with no consumer SDK
+> access for this account. No live Alexa+ integration in v1/video. REACH stays
+> Alexa+-compatible MCP (simulated in video): `execute_on_my_devices →
+> get_task_status → decide_approval`. Well-known routes stub 404,
+> `addon.json` is example.com scaffolding. Revisit only if program access lands.
 
 Source: Alexa+ MCP QuickStart. Full server lands Phase 3/4. Skeleton reserves routes.
 

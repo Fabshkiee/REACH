@@ -4,15 +4,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAgentAuth } from "./auth.js";
 import { loadEnv, requireAgentToken } from "./config.js";
-import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks } from "./mcp/tools.js";
-import { resumeLoop } from "./planner/loop.js";
+import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks, cancelTaskById, answerInput } from "./mcp/tools.js";
 import { registerAgentActions } from "./actions/agent.js";
 import { registerBrowserActions } from "./actions/browser.js";
-import { getTask, setTaskStatus } from "./tasks/taskStore.js";
+import { getTask } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
 import { createMcpTransport } from "./mcp/transport.js";
 import { listCapabilities } from "./registry/capabilityGraph.js";
-import { heartbeat, isDeviceAvailable, listDevices, registerDevice } from "./registry/deviceStore.js";
+import { heartbeat, isDeviceAvailable, listDevices, pauseDevice, registerDevice, resumeDevice, revokeDevice } from "./registry/deviceStore.js";
 
 const app = express();
 app.use(express.json());
@@ -96,26 +95,23 @@ app.post("/tasks/:id/input", (req, res) => {
   const rawId = req.params.id;
   const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
   const { text } = req.body as { text?: unknown };
-  if (typeof text !== "string" || !text.trim() || text.length > 2000) {
-    return res.status(400).json({ error: "invalid input: need {text} (1–2000 chars)" });
+  const out = answerInput(id, text);
+  if (!out.ok) {
+    const status = out.code === "unknown" ? 404 : out.code === "not_waiting" ? 409 : 400;
+    return res.status(status).json({ error: out.error });
   }
-  const task = getTask(id);
-  if (!task) return res.status(404).json({ error: `unknown task ${id}` });
-  if (task.status !== "awaiting_input" || !task.pendingInput) {
-    return res.status(409).json({ error: `task ${id} is not waiting for input (status: ${task.status})` });
-  }
-  setTaskStatus(id, "running", {
-    pendingInput: { ...task.pendingInput, answer: text.trim(), answeredAt: new Date().toISOString() },
-  });
-  void resumeLoop(id, `User answered "${task.pendingInput.question}": "${text.trim()}". Continue with the plan.`).catch((err) => {
-    setTaskStatus(id, "failed", {
-      error: `planner resume crashed: ${err instanceof Error ? err.message : err}`,
-    });
-  });
   res.json({ ok: true, taskId: id, resumed: true });
 });
+app.post("/tasks/:id/cancel", (req, res) => {
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId;
+  const { reason } = (req.body ?? {}) as { reason?: unknown };
+  const task = getTask(id);
+  if (!task) return res.status(404).json({ error: `unknown task ${id}` });
+  const cancelled = cancelTaskById(id, typeof reason === "string" && reason.trim() ? reason.trim().slice(0, 500) : undefined);
+  res.json({ ok: true, taskId: id, status: cancelled?.status ?? "cancelled" });
+});
 app.get("/debug/capabilities", (_req, res) => res.json(listCapabilities()));
-app.get("/debug/devices", (_req, res) => res.json(listDevices()));
 
 // Device mesh: agents register + heartbeat here. Mutations require the shared
 // secret; the read-only status view stays public for dashboards/debugging.
@@ -128,6 +124,9 @@ app.post("/devices/register", requireAgentAuth, (req, res) => {
   };
   if (typeof id !== "string" || !id || typeof name !== "string" || !Array.isArray(capabilities)) {
     return res.status(400).json({ error: "invalid registration: need {id, name, capabilities[]}" });
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+    return res.status(400).json({ error: "invalid registration: id must match [A-Za-z0-9_-]+" });
   }
   res.json(
     registerDevice({
@@ -151,21 +150,47 @@ app.post("/devices/:id/heartbeat", requireAgentAuth, (req, res) => {
   res.json(device);
 });
 app.get("/devices", (_req, res) => {
-  res.json(listDevices().map((d) => ({ ...d, available: isDeviceAvailable(d) })));
+  res.json(listDevices().map((d) => ({ ...d, available: isDeviceAvailable(d), paused: !!d.disabled })));
 });
-app.get("/debug/devices", (_req, res) => res.json(listDevices()));
+
+// User channel (localhost sim UI, same trust as approvals/input): pause stops
+// dispatch while the heartbeat continues; resume re-enables; revoke deletes
+// the record (a still-running agent re-registers on its next heartbeat —
+// pause is the control that holds while the agent is alive).
+function deviceIdParam(req: { params: unknown }): string {
+  const raw = (req.params as { id?: unknown }).id;
+  return Array.isArray(raw) ? (raw[0] ?? "") : ((raw as string) ?? "");
+}
+app.post("/devices/:id/pause", (req, res) => {
+  const device = pauseDevice(deviceIdParam(req));
+  if (!device) return res.status(404).json({ error: "unknown device" });
+  res.json({ ...device, available: isDeviceAvailable(device), paused: true });
+});
+app.post("/devices/:id/resume", (req, res) => {
+  const device = resumeDevice(deviceIdParam(req));
+  if (!device) return res.status(404).json({ error: "unknown device" });
+  res.json({ ...device, available: isDeviceAvailable(device), paused: false });
+});
+app.post("/devices/:id/revoke", (req, res) => {
+  if (!revokeDevice(deviceIdParam(req))) return res.status(404).json({ error: "unknown device" });
+  res.json({ ok: true });
+});
 
 // Reserved well-known routes for Alexa+ OAuth 2.1 PKCE (Phase 3/4). Stub 404 for now.
 app.get("/.well-known/oauth-protected-resource", (_req, res) => res.status(404).json({ error: "todo-phase-3" }));
 app.get("/.well-known/oauth-authorization-server", (_req, res) => res.status(404).json({ error: "todo-phase-3" }));
 
 const port = Number(process.env.PORT ?? 3000);
+// Localhost-only by construction: remote access requires an explicit tunnel
+// (documented). Never change this to a wildcard bind without route-auth review:
+// /tools/*, /approvals/*, /tasks/*/input and device pause/revoke are
+// same-origin user-channel routes, not internet-authenticated endpoints.
 if (process.env.NODE_ENV !== "test") {
   loadEnv();
   requireAgentToken("reach-server");
   registerAgentActions();
   registerBrowserActions();
-  app.listen(port, () => console.log(`reach-server on :${port} (mcp: streamable-http stateless)`));
+  app.listen(port, "127.0.0.1", () => console.log(`reach-server on 127.0.0.1:${port} (mcp: streamable-http stateless)`));
 }
 
 export default app;

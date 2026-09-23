@@ -194,6 +194,7 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
   .dot.off { background: var(--muted); }
   .device .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .device .rowbtns { display: flex; gap: 8px; }
   .ritem { width: 100%; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
   .ritem:hover { border-color: var(--accent); }
   .ritem .top { display: flex; align-items: center; gap: 8px; }
@@ -209,6 +210,8 @@
   .st { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); flex: none; }
   .st.completed { color: var(--accent-text); border-color: var(--accent); }
   .st.failed { color: var(--danger); border-color: var(--danger); }
+  .st.awaiting_approval, .st.awaiting_input { color: var(--accent-text); border-color: var(--accent); border-style: dashed; }
+  .st.cancelled { color: var(--muted); border-style: dashed; }
   .rexp { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; font-size: 12px; color: var(--muted); }
   .rexp .rowbtns { display: flex; gap: 8px; margin-top: 8px; }
   .empty { color: var(--muted); font-size: 13px; }
@@ -372,14 +375,41 @@
     input.focus();
   }
 
+  function eventsDetails(events) {
+    if (!events || !events.length) return null;
+    const det = document.createElement("details");
+    const sum = document.createElement("summary");
+    sum.textContent = "Activity (" + events.length + ")";
+    det.appendChild(sum);
+    events.forEach((e) => {
+      const row = document.createElement("div");
+      row.className = "row";
+      const k = document.createElement("span");
+      k.className = "k";
+      k.textContent = (e.kind || "event").replace(/_/g, " ");
+      const v = document.createElement("span");
+      v.textContent = (e.status ? "[" + e.status + "] " : "") + (e.summary || "");
+      row.append(k, v);
+      det.appendChild(row);
+    });
+    return det;
+  }
+
   function addDoneCard(t) {
     const ev = t.evidence || {};
-    const name = fileName(ev.artifactUri) || "Done";
+    const oc = t.outcome || {};
+    const isPartial = oc.kind === "partial";
+    const isUnverified = oc.kind === "unverified";
+    const title = isPartial ? "Partially done" : isUnverified ? "Done — not independently verified" : "Completed";
+    const name = fileName(ev.artifactUri) || (isPartial ? "Partially done" : "Done");
     const card = document.createElement("div");
     card.className = "card";
     const head = document.createElement("div");
     head.className = "cardhead ok";
-    head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Completed</span>';
+    head.innerHTML = '<span class="dot" aria-hidden="true"></span>';
+    const hs = document.createElement("span");
+    hs.textContent = title;
+    head.appendChild(hs);
     const time = document.createElement("time");
     time.textContent = clock();
     head.appendChild(time);
@@ -390,20 +420,40 @@
     what.className = "row";
     what.innerHTML = '<span class="k">Result</span>';
     const wv = document.createElement("span");
-    wv.textContent = ev.note || "Saved on your laptop.";
+    wv.textContent = ev.note || oc.summary || "Saved on your laptop.";
     what.appendChild(wv);
-    const where = document.createElement("div");
-    where.className = "row";
-    where.innerHTML = '<span class="k">Saved to</span>';
-    const wv2 = document.createElement("span");
-    wv2.className = "mono";
-    wv2.textContent = ev.artifactUri || "";
-    where.appendChild(wv2);
-    card.append(head, h, what, where);
-    card.appendChild(actionRow([
-      ["Copy path", (e) => copyPath(ev.artifactUri || "", e.target.closest("button")), COPY_SVG],
-      ["Reuse goal", () => reuseGoal(t.goal)],
-    ]));
+    card.append(head, h, what);
+    if (ev.artifactUri) {
+      const where = document.createElement("div");
+      where.className = "row";
+      where.innerHTML = '<span class="k">Saved to</span>';
+      const wv2 = document.createElement("span");
+      wv2.className = "mono";
+      wv2.textContent = ev.artifactUri;
+      where.appendChild(wv2);
+      card.appendChild(where);
+    }
+    if (isPartial && oc.remaining && oc.remaining.length) {
+      const rem = document.createElement("div");
+      rem.className = "row";
+      rem.innerHTML = '<span class="k">Remaining</span>';
+      const rv = document.createElement("span");
+      rv.textContent = oc.remaining.join("; ");
+      rem.appendChild(rv);
+      card.appendChild(rem);
+    }
+    if (isUnverified && oc.reason) {
+      const vr = document.createElement("div");
+      vr.className = "row";
+      vr.innerHTML = '<span class="k">Verify</span>';
+      const vv = document.createElement("span");
+      vv.textContent = oc.reason;
+      vr.appendChild(vv);
+      card.appendChild(vr);
+    }
+    const buttons = [["Reuse goal", () => reuseGoal(t.goal)]];
+    if (ev.artifactUri) buttons.unshift(["Copy path", (e) => copyPath(ev.artifactUri || "", e.target.closest("button")), COPY_SVG]);
+    card.appendChild(actionRow(buttons));
     const det = document.createElement("details");
     const sum = document.createElement("summary");
     sum.textContent = "Technical details";
@@ -412,18 +462,24 @@
     mono.textContent = "device " + (ev.deviceId || "?") + " · capability " + (ev.capabilityId || "?") + " · " + t.id;
     det.append(sum, mono);
     card.appendChild(det);
+    const trail = eventsDetails(t.events);
+    if (trail) card.appendChild(trail);
     thread.appendChild(card);
     prune();
     h.focus({ preventScroll: false });
-    announce("Done: " + name);
+    announce(title + ": " + name);
   }
 
-  function addFailCard(message, goal, retryLabel) {
+  function addFailCard(message, goal, opts) {
+    const o = typeof opts === "string" ? { retryLabel: opts } : (opts || {});
     const card = document.createElement("div");
     card.className = "card";
     const head = document.createElement("div");
     head.className = "cardhead fail";
-    head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Could not do that</span>';
+    head.innerHTML = '<span class="dot" aria-hidden="true"></span>';
+    const hs = document.createElement("span");
+    hs.textContent = o.title || "Could not do that";
+    head.appendChild(hs);
     const time = document.createElement("time");
     time.textContent = clock();
     head.appendChild(time);
@@ -432,12 +488,21 @@
     p.textContent = message;
     p.tabIndex = -1;
     card.append(head, p);
+    if (o.note) {
+      const n = document.createElement("div");
+      n.className = "row";
+      n.innerHTML = '<span class="k">Evidence</span>';
+      const nv = document.createElement("span");
+      nv.textContent = o.note;
+      n.appendChild(nv);
+      card.appendChild(n);
+    }
     const row = document.createElement("div");
     row.className = "actions";
     const tryBtn = document.createElement("button");
     tryBtn.type = "button";
     tryBtn.className = "btn";
-    tryBtn.textContent = retryLabel || "Try an example instead";
+    tryBtn.textContent = o.retryLabel || "Try an example instead";
     tryBtn.onclick = () => { input.value = EXAMPLES[0]; void send(); };
     const reuse = document.createElement("button");
     reuse.type = "button";
@@ -446,6 +511,8 @@
     reuse.onclick = () => { input.value = goal; input.focus(); };
     row.append(tryBtn, reuse);
     card.appendChild(row);
+    const trail = eventsDetails(o.events);
+    if (trail) card.appendChild(trail);
     thread.appendChild(card);
     prune();
     p.focus({ preventScroll: false });
@@ -461,7 +528,7 @@
       } catch {
         return { status: "error", error: "Lost contact with the core mid-task. Is the server still running?" };
       }
-      if (t.status === "completed" || t.status === "failed") return t;
+      if (t.status === "completed" || t.status === "failed" || t.status === "cancelled") return t;
       if (t.status === "awaiting_approval" && t.pendingApproval) return t;
       if (t.status === "awaiting_input" && t.pendingInput) return t;
     }
@@ -500,8 +567,22 @@
       card.append(head, p);
       const meta = document.createElement("div");
       meta.className = "meta";
-      meta.textContent = "Action: " + pa.actionName + (pa.target ? " → " + pa.target : "");
+      meta.textContent = "Action: " + pa.actionName + (pa.actionClass ? " (" + pa.actionClass + ")" : "") + (pa.target ? " → " + pa.target : "");
       card.appendChild(meta);
+      if (pa.args && Object.keys(pa.args).length > 0) {
+        const adet = document.createElement("details");
+        const asum = document.createElement("summary");
+        asum.textContent = "Exact action payload";
+        const amono = document.createElement("span");
+        amono.className = "mono";
+        try {
+          amono.textContent = JSON.stringify(pa.args, null, 2);
+        } catch {
+          amono.textContent = String(pa.args);
+        }
+        adet.append(asum, amono);
+        card.appendChild(adet);
+      }
       const exp = expiryLine(pa.expiresAt);
       card.appendChild(exp.el);
       const row = document.createElement("div");
@@ -658,8 +739,17 @@
     if (work.el.isConnected) work.el.remove();
     setBusy(false);
     outcome.goal = goal;
+    const ock = (outcome.outcome || {}).kind;
+    const ocEv = (outcome.outcome || {}).evidenceActionIds || [];
     if (outcome.status === "completed") addDoneCard(outcome);
-    else addFailCard(outcome.error || "Unknown error.", goal);
+    else if (outcome.status === "cancelled") addFailCard(outcome.error || "Cancelled before finishing.", goal, { title: "Cancelled", retryLabel: "Send again", events: outcome.events });
+    else if (ock === "cannot" && ocEv.length > 0) {
+      addFailCard((outcome.outcome || {}).reason || outcome.error || "Could not do that.", goal, {
+        title: "Could not do that",
+        note: "Kept " + ocEv.length + " verified action(s) from this run — see Activity.",
+        events: outcome.events,
+      });
+    } else addFailCard(outcome.error || "Unknown error.", goal, { events: outcome.events });
     refreshRecent();
     input.focus();
   }
@@ -674,10 +764,19 @@
 
   form.addEventListener("submit", (e) => { e.preventDefault(); void send(); });
 
+  async function deviceAction(id, verb, confirmText) {
+    if (confirmText && !window.confirm(confirmText)) return;
+    try {
+      await fetch("/devices/" + encodeURIComponent(id) + "/" + verb, { method: "POST" });
+    } catch { /* panel refresh surfaces the state either way */ }
+    lastDevicesJson = "";
+    await refreshDevices();
+  }
+
   async function refreshDevices() {
     try {
       const ds = await (await fetch("/devices")).json();
-      const sig = JSON.stringify(ds.map((d) => [d.id, d.available, d.lastHeartbeatAt]));
+      const sig = JSON.stringify(ds.map((d) => [d.id, d.available, d.paused, d.lastHeartbeatAt]));
       if (sig === lastDevicesJson) return;
       lastDevicesJson = sig;
       devicesEl.innerHTML = "";
@@ -704,8 +803,36 @@
         name.append(dot, nm);
         const meta = document.createElement("div");
         meta.className = "meta";
-        meta.textContent = (d.available ? "Online" : "Offline") + " · " + (d.capabilities || []).length + " capabilities · beat " + ago(d.lastHeartbeatAt);
+        const state = d.paused ? "Paused" : d.available ? "Online" : "Offline";
+        meta.textContent = state + " · " + (d.capabilities || []).length + " capabilities · beat " + ago(d.lastHeartbeatAt);
         el.append(name, meta);
+        const row = document.createElement("div");
+        row.className = "rowbtns";
+        row.style.marginTop = "8px";
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "btn";
+        toggle.style.fontSize = "12px";
+        toggle.style.padding = "4px 10px";
+        if (d.paused) {
+          toggle.textContent = "Resume";
+          toggle.title = "Re-enable dispatch to this device";
+          toggle.onclick = () => deviceAction(d.id, "resume");
+        } else {
+          toggle.textContent = "Pause";
+          toggle.title = "Stop dispatch to this device (heartbeat continues)";
+          toggle.onclick = () => deviceAction(d.id, "pause");
+        }
+        const revoke = document.createElement("button");
+        revoke.type = "button";
+        revoke.className = "btn";
+        revoke.style.fontSize = "12px";
+        revoke.style.padding = "4px 10px";
+        revoke.textContent = "Revoke";
+        revoke.title = "Remove this device. A still-running agent re-registers on its next heartbeat — pause holds while the agent is alive.";
+        revoke.onclick = () => deviceAction(d.id, "revoke", "Revoke " + (d.name || d.id) + "? A still-running agent will re-register on its next heartbeat.");
+        row.append(toggle, revoke);
+        el.appendChild(row);
         devicesEl.appendChild(el);
       }
     } catch { /* core unreachable — leave panel as-is */ }
@@ -764,12 +891,15 @@
           exp.className = "rexp";
           const full = await (await fetch("/tools/task/" + encodeURIComponent(t.id))).json();
           const line = document.createElement("div");
+          const ock2 = (full.outcome || {}).kind;
           if (full.status === "completed" && full.evidence) {
-            line.textContent = fileName(full.evidence.artifactUri) + " · " + (full.evidence.note || "");
+            line.textContent = fileName(full.evidence.artifactUri) + " · " + (full.evidence.note || "") + (ock2 && ock2 !== "complete" ? " [" + ock2 + "]" : "");
           } else {
-            line.textContent = full.error || ("Status: " + full.status);
+            line.textContent = (full.error || ("Status: " + full.status)) + (ock2 ? " [" + ock2 + "]" : "");
           }
           exp.appendChild(line);
+          const trail = eventsDetails(full.events);
+          if (trail) exp.appendChild(trail);
           const row = document.createElement("div");
           row.className = "rowbtns";
           const toggle = document.createElement("button");

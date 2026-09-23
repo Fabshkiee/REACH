@@ -10,6 +10,7 @@ export const ALLOWED_CAPABILITIES = [
   "move_file",
   "delete_file",
   "verify_file",
+  "list_files",
 ] as const;
 export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number];
 
@@ -32,15 +33,17 @@ export {
 export type { LaunchApplicationInput, OpenDocumentInput, OpenUrlInput } from "./apps.js";
 export {
   DeleteFileSchema,
+  ListFilesSchema,
   MoveFileSchema,
   ReadFileSchema,
   SearchFilesSchema,
   WriteFileSchema,
   deleteFile,
+  listFiles,
   moveFile,
   readFile,
   searchFiles,
   verifyFile,
   writeFile,
 } from "./files.js";
-export type { DeleteFileInput, MoveFileInput, ReadFileInput, SearchFilesInput, WriteFileInput } from "./files.js";
+export type { DeleteFileInput, ListFilesInput, MoveFileInput, ReadFileInput, SearchFilesInput, WriteFileInput } from "./files.js";

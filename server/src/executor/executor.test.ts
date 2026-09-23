@@ -53,6 +53,7 @@ describe("executor", () => {
       description: "shred",
       schema: z.object({}),
       timeoutMs: 5000,
+      verify: () => "shredded (test only — handler throws before running)",
       handler: async () => {
         throw new Error("must never run without approval");
       },
@@ -74,6 +75,7 @@ describe("executor", () => {
       description: "peek",
       schema: z.object({}),
       timeoutMs: 5000,
+      verify: () => "peeked (test)",
       handler: async () => ({}) ,
     });
     const t = task();
@@ -98,6 +100,7 @@ describe("executor", () => {
       description: "strict",
       schema: z.object({ need: z.string() }),
       timeoutMs: 5000,
+      verify: () => "strict ok (test)",
       handler: async () => ({}),
     });
     const r2 = await proposeAction(t.id, { actionClass: "read", name: "test.strict", args: {} });
@@ -124,6 +127,7 @@ describe("executor", () => {
       description: "hang",
       schema: z.object({}),
       timeoutMs: 5000,
+      verify: () => "hung (test — timeout fires first)",
       handler: async () => new Promise(() => {}),
     });
     const t = task();
@@ -159,6 +163,7 @@ describe("executor", () => {
       description: "nuke",
       schema: z.object({}),
       timeoutMs: 5000,
+      verify: () => "nuked (test)",
       handler: async () => ({}),
     });
     const t1 = task();
@@ -186,6 +191,59 @@ describe("executor", () => {
     const after = getTask(t2.id)!;
     assert.equal(after.status, "failed");
     assert.match(after.error ?? "", /not approved/);
+  });
+
+  it("a second confirm while an approval is pending is denied, never overwrites", async () => {
+    const { ScriptedPlannerBackend: Mock } = await import("../planner/mock.js");
+    const { setPlannerBackendFactory: setFactory } = await import("../planner/loop.js");
+    defineAction({
+      name: "test.nuke2",
+      actionClass: "delete",
+      description: "nuke2",
+      schema: z.object({}),
+      timeoutMs: 5000,
+      verify: () => "nuked2 (test)",
+      handler: async () => ({}),
+    });
+    const t = task();
+    const p1 = await proposeAction(t.id, { actionClass: "delete", name: "test.nuke2", target: "old.txt", args: {} });
+    assert.equal(p1.outcome, "paused");
+    assert.ok(p1.approvalId);
+    // Second proposal for the same task: denied, original pause untouched.
+    // (softFail mirrors planner-driven use, where denial feeds recovery —
+    // standalone denials fail fast by executor convention.)
+    const p2 = await proposeAction(t.id, { actionClass: "delete", name: "test.nuke2", target: "other.txt", args: {} }, undefined, { softFail: true });
+    assert.equal(p2.outcome, "denied");
+    assert.match(p2.error ?? "", /still pending/);
+    assert.equal(getTask(t.id)?.status, "awaiting_approval");
+    assert.equal(getTask(t.id)?.pendingApproval?.id, p1.approvalId);
+    // After resolving, the resumed loop can pause anew with a fresh id
+    // (replacement works; only concurrent overwrite is denied).
+    setFactory(() => new Mock([{ toolCalls: [{ name: "test.nuke2", args: {} }] }]));
+    try {
+      const ok = await decideApproval({ approvalId: p1.approvalId!, decision: "approve" }, "test");
+      assert.equal(ok.ok, true);
+      const start = Date.now();
+      for (;;) {
+        const s = getTask(t.id);
+        if (s?.status === "awaiting_approval" && s?.pendingApproval?.id !== p1.approvalId) break;
+        if (s && (s.status === "completed" || s.status === "failed" || s.status === "cancelled")) {
+          throw new Error(`expected a fresh pause, task ended as ${s.status}`);
+        }
+        if (Date.now() - start > 8000) throw new Error(`approve-resume stalled at ${getTask(t.id)?.status}`);
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      assert.notEqual(getTask(t.id)?.pendingApproval?.id, p1.approvalId);
+    } finally {
+      setFactory(undefined);
+    }
+    // Ended tasks reject proposals instead of resurrecting.
+    const done = task();
+    const { setTaskStatus } = await import("../tasks/taskStore.js");
+    setTaskStatus(done.id, "completed", { outcome: { kind: "complete", summary: "done", evidenceActionIds: [] } });
+    const late = await proposeAction(done.id, { actionClass: "read", name: "test.echo", target: "x", args: { text: "hi" } });
+    assert.equal(late.outcome, "rejected");
+    assert.match(late.error ?? "", /already completed/);
   });
 });
 

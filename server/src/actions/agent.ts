@@ -52,10 +52,18 @@ export function registerAgentActions(): void {
     {
       name: "files.read",
       actionClass: "read" as const,
-      description: "Read a text/docx/pdf/xlsx file as text (capped).",
-      schema: z.object({ path: PathArg, maxBytes: z.number().int().positive().max(2_097_152).optional() }),
+      description: "Read a text/docx/pdf/xlsx file as text. Larger files: page with offsetChars (totalChars reports length, truncated says more remains).",
+      schema: z.object({ path: PathArg, maxBytes: z.number().int().positive().max(2_097_152).optional(), offsetChars: z.number().int().min(0).max(200_000_000).optional() }),
       timeoutMs: 30_000,
       capability: "read_file",
+    },
+    {
+      name: "files.list",
+      actionClass: "search" as const,
+      description: "List one directory: names, sizes, and types (directories first, files smallest-first). Use for 'what is here' or 'which files are small enough to read' — never verify a directory as a file.",
+      schema: z.object({ path: PathArg.optional(), limit: z.number().int().min(1).max(200).optional() }),
+      timeoutMs: 15_000,
+      capability: "list_files",
     },
     {
       name: "files.write",
@@ -159,14 +167,12 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
       return typeof args["root"] === "string" && args["root"] ? args["root"] : undefined;
     case "files.read":
     case "files.verify":
+    case "files.list":
     case "apps.open_document":
       return typeof args["path"] === "string" ? args["path"] : undefined;
     case "files.write":
       return typeof args["path"] === "string" ? args["path"] : undefined;
     case "files.create_document":
-      return typeof args["title"] === "string" ? args["title"] : undefined;
-    case "files.create_document":
-      // Saved under Documents/REACH by the agent; judge the title as a relative path.
       return typeof args["title"] === "string" ? args["title"] : undefined;
     case "files.move":
       return typeof args["to"] === "string" ? args["to"] : undefined;

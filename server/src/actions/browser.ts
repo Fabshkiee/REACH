@@ -20,14 +20,18 @@ const PageUrl = z.string().min(1).max(2000).describe("Current page URL (from the
 
 function assertMcpOk(result: unknown, tool: string): string {
   const r = result as { isError?: unknown; content?: Array<{ text?: string }> };
-  if (!r || typeof r !== "object" || r.isError === true) {
-    throw new Error(`${tool} reported an error`);
-  }
-  const text = (r.content ?? [])
+  const detail = (r && typeof r === "object" ? (r.content ?? []) : [])
     .map((c) => (typeof c?.text === "string" ? c.text : ""))
-    .join("\n");
-  if (!text.trim()) throw new Error(`${tool} returned empty content`);
-  return text;
+    .join("\n")
+    .trim()
+    .slice(0, 500);
+  // Upstream failures must stay diagnosable: the reason flows to the trace and
+  // the planner's recovery feedback, never a bare "reported an error".
+  if (!r || typeof r !== "object" || r.isError === true) {
+    throw new Error(detail ? `${tool} error: ${detail}` : `${tool} reported an error`);
+  }
+  if (!detail) throw new Error(`${tool} returned empty content`);
+  return detail;
 }
 
 /**

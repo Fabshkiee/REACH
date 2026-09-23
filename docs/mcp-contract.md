@@ -23,15 +23,24 @@ behind it — see `docs/architecture.md`.
 ### `execute_on_my_devices`
 * Input: `{ task: string }` (trimmed, 3–2000 chars, placeholders refused). Any natural-language goal.
 * Output: `{ taskId: string }`. MUST return fast (<500ms); planning + execution run async.
-* Every goal runs the same planner → executor → policy loop (lands in A3, which
-  deletes goal-string routing; until then the v1 router serves doc goals only —
-  see `docs/v1-retired.md`). No per-goal routes in v2, ever.
+* Every goal runs the same planner → executor → policy loop. No per-goal routes in v2, ever.
 
 ### `get_task_status`
 * Input: `{ taskId: string }`.
-* Output: `{ status, plan?, trace?, evidence?, error?, pendingApproval?, pendingInput? }`.
-* `status`: `queued → running → completed/failed`, plus `awaiting_approval` / `awaiting_input`.
+* Output: `{ status, plan?, trace?, events?, usage?, evidence?, outcome?, error?, pendingApproval?, pendingInput? }`.
+* `status`: `queued → running → completed/failed`, plus `awaiting_approval` / `awaiting_input`
+  and `cancelled`. Terminal `outcome {complete/partial/cannot/unverified/failed}` ships
+  here (Slice B built); `cancel` via `POST /tasks/:id/cancel` (HTTP only —
+  public MCP surface stays 3 tools).
+* `events`: last 100 of the append-only trail
+  (`goal_received → action_finished → … → outcome_set`); full trail persists in store.
+* `pendingApproval` carries the exact validated `args` + `actionClass` (Slice C) so the
+  approver consents to the real payload, not a sentence alone.
 * `evidence`: `{ plan, steps[{action, result, verifiedAt}], artifacts[], reasoning }`.
+
+> Known limit (v1): clarifying questions are answered via `POST /tasks/:id/input`
+> (HTTP/sim). Pure-MCP clients can poll `awaiting_input` but need that route or a
+> sim to answer — a dedicated MCP answer tool is deferred past v1.
 
 ### `decide_approval`
 * Input: `{ approvalId: string, decision: "approve" | "deny" }`.
@@ -42,7 +51,7 @@ behind it — see `docs/architecture.md`.
 
 * `reach://capabilities` — advertised capabilities across online devices.
 * `reach://tasks/recent` — recent tasks with statuses.
-* `make-meeting-minutes` prompt — structured minutes workflow (parked with the hero; landing in A-series).
+* `make-meeting-minutes` prompt — parked with the meeting-transcription hero.
 
 ## Core ↔ agent (executor channel, Bearer-authed)
 

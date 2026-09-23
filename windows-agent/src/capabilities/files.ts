@@ -7,6 +7,10 @@ import { z } from "zod";
 import { assertAllowedPath, resolveWithin, userRoot } from "../sandbox.js";
 
 export const MAX_READ_BYTES = 2 * 1024 * 1024;
+/** Largest single file the agent will parse into memory (safety rail). */
+export const MAX_PARSE_BYTES = 64 * 1024 * 1024;
+/** Ceiling on extracted text held in memory; reads page through it. */
+export const MAX_EXTRACT_CHARS = 8 * 1024 * 1024;
 export const MAX_SEARCH_RESULTS = 50;
 export const SEARCH_TIMEOUT_MS = 30_000;
 
@@ -73,8 +77,17 @@ export type SearchFilesInput = z.infer<typeof SearchFilesSchema>;
 export const ReadFileSchema = z.object({
   path: z.string().min(1).max(2000),
   maxBytes: z.number().int().positive().max(MAX_READ_BYTES).default(200_000),
+  /** Page through large files: text is sliced [offsetChars, offsetChars + maxBytes]. */
+  offsetChars: z.number().int().min(0).max(200_000_000).default(0),
 });
 export type ReadFileInput = z.infer<typeof ReadFileSchema>;
+
+export const ListFilesSchema = z.object({
+  /** Directory to list; empty means the user root. */
+  path: z.string().max(2000).default(""),
+  limit: z.number().int().min(1).max(200).default(50),
+});
+export type ListFilesInput = z.infer<typeof ListFilesSchema>;
 
 export const WriteFileSchema = z.object({
   path: z.string().min(1).max(2000),
@@ -167,9 +180,23 @@ async function smallestDirsFirst<T extends { name: string; isDirectory: () => bo
 
 const TEXT_EXTS = new Set([".txt", ".md", ".json", ".csv", ".log", ".xml", ".html", ".yaml", ".yml", ".ini", ".cfg"]);
 
-async function fileText(abs: string, maxBytes: number): Promise<{ text: string; truncated: boolean; kind: string }> {
+async function fileText(
+  abs: string,
+  maxChars: number,
+  offsetChars = 0,
+): Promise<{ text: string; truncated: boolean; kind: string; totalChars: number; pages?: number }> {
   const st = await stat(abs);
-  if (st.size > MAX_READ_BYTES) throw new Error(`file too large (${st.size} bytes, cap ${MAX_READ_BYTES})`);
+  if (st.size > MAX_PARSE_BYTES) {
+    throw new Error(
+      `file too large to parse (${st.size} bytes, cap ${MAX_PARSE_BYTES}) — work from its metadata (files.list / files.verify) or a smaller scope`,
+    );
+  }
+  const page = (full: string): { text: string; truncated: boolean } => {
+    const text = full.slice(offsetChars, offsetChars + maxChars);
+    return { text, truncated: offsetChars + text.length < full.length };
+  };
+  const ceiling = (full: string): string =>
+    full.length > MAX_EXTRACT_CHARS ? full.slice(0, MAX_EXTRACT_CHARS) : full;
   const ext = extname(abs).toLowerCase();
   if (ext === ".pdf") {
     const { readFile } = await import("node:fs/promises");
@@ -177,8 +204,9 @@ async function fileText(abs: string, maxBytes: number): Promise<{ text: string; 
     const parser = new PDFParse({ data: new Uint8Array(buf) });
     try {
       const res = await parser.getText();
-      const text = res.text.slice(0, maxBytes);
-      return { text, truncated: res.text.length > maxBytes, kind: `pdf (${res.pages} pages)` };
+      const full = ceiling(res.text);
+      const { text, truncated } = page(full);
+      return { text, truncated, kind: `pdf (${res.pages.length} pages)`, totalChars: res.text.length, pages: res.pages.length };
     } finally {
       await parser.destroy();
     }
@@ -192,38 +220,42 @@ async function fileText(abs: string, maxBytes: number): Promise<{ text: string; 
     for (const name of wb.SheetNames.slice(0, 10)) {
       const sheet = wb.Sheets[name];
       if (!sheet) continue;
-      parts.push(`# Sheet: ${name}\n` + XLSX.utils.sheet_to_csv(sheet).slice(0, Math.floor(maxBytes / 4)));
+      parts.push(`# Sheet: ${name}\n` + XLSX.utils.sheet_to_csv(sheet));
+      if (parts.join("\n").length > MAX_EXTRACT_CHARS) break;
     }
-    const text = parts.join("\n").slice(0, maxBytes);
-    return { text, truncated: parts.join("\n").length > maxBytes, kind: `xlsx (${wb.SheetNames.length} sheets)` };
+    const full = ceiling(parts.join("\n"));
+    const { text, truncated } = page(full);
+    return { text, truncated, kind: `xlsx (${wb.SheetNames.length} sheets)`, totalChars: full.length };
   }
   if (ext === ".docx") {
     const { readFile } = await import("node:fs/promises");
     const buf = await readFile(abs);
     const xml = extractZipEntry(buf, "word/document.xml");
     if (!xml) throw new Error("not a readable .docx (document.xml missing)");
-    const text = xml
-      .replace(/<w:tab[^>]*>/g, "\t")
-      .replace(/<w:br[^>]*>/g, "\n")
-      .replace(/<\/w:p[^>]*>/g, "\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&(lt|gt|amp|quot|apos);/g, (m, e: string) => ({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" })[e] ?? m)
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .join("\n")
-      .slice(0, maxBytes);
-    return { text, truncated: text.length >= maxBytes, kind: "docx" };
+    const full = ceiling(
+      xml
+        .replace(/<w:tab[^>]*>/g, "\t")
+        .replace(/<w:br[^>]*>/g, "\n")
+        .replace(/<\/w:p[^>]*>/g, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&(lt|gt|amp|quot|apos);/g, (m, e: string) => ({ lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" })[e] ?? m)
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join("\n"),
+    );
+    const { text, truncated } = page(full);
+    return { text, truncated, kind: "docx", totalChars: full.length };
   }
   if (!TEXT_EXTS.has(ext) && ext !== "") {
-    throw new Error(`unsupported type "${ext || "(none)"}": readable types are text, .docx, .pdf, .xlsx`);
+    throw new Error(`unsupported type "${ext || "(none)"}": readable types are text, .docx, .pdf, .xlsx — for anything else, open it with apps.open_document or inspect it with files.list`);
   }
   const { readFile } = await import("node:fs/promises");
   const buf = await readFile(abs);
-  const slice = buf.subarray(0, maxBytes + 1);
-  if (slice.includes(0)) throw new Error("binary file: refusing to dump bytes as text");
-  const text = slice.subarray(0, maxBytes).toString("utf8");
-  return { text, truncated: buf.length > maxBytes, kind: ext || "text" };
+  if (buf.subarray(0, Math.min(buf.length, 8192)).includes(0)) throw new Error("binary file: refusing to dump bytes as text");
+  const full = ceiling(buf.toString("utf8"));
+  const { text, truncated } = page(full);
+  return { text, truncated, kind: ext || "text", totalChars: full.length };
 }
 
 /** Walk local file headers to pull one entry's raw bytes (no zip dependency). */
@@ -284,11 +316,67 @@ export async function searchFiles(input: z.input<typeof SearchFilesSchema>): Pro
   return { hits, timedOut: Date.now() > deadline, visited: state.visited };
 }
 
-export async function readFile(input: z.input<typeof ReadFileSchema>): Promise<{ path: string; kind: string; text: string; truncated: boolean }> {
+export async function readFile(input: z.input<typeof ReadFileSchema>): Promise<{
+  path: string;
+  kind: string;
+  text: string;
+  truncated: boolean;
+  totalChars: number;
+  pages?: number;
+}> {
   const parsed = ReadFileSchema.parse(input);
   const abs = assertAllowedPath(parsed.path);
-  const { text, truncated, kind } = await fileText(abs, parsed.maxBytes);
-  return { path: abs, kind, text, truncated };
+  const { text, truncated, kind, totalChars, pages } = await fileText(abs, parsed.maxBytes, parsed.offsetChars);
+  return { path: abs, kind, text, truncated, totalChars, ...(pages !== undefined ? { pages } : {}) };
+}
+
+export interface ListEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size?: number;
+  modifiedAt?: string;
+}
+
+/**
+ * List one directory: names, sizes, and types, directories first then files
+ * smallest-first. The companion to search when the question is "what is here"
+ * or "which files are small enough to read" — no walk, no timeouts.
+ */
+export async function listFiles(input: z.input<typeof ListFilesSchema>): Promise<{
+  path: string;
+  entries: ListEntry[];
+  truncated: boolean;
+}> {
+  const parsed = ListFilesSchema.parse(input);
+  const abs = parsed.path ? assertAllowedPath(parsed.path) : userRoot();
+  const st = await stat(abs).catch(() => undefined);
+  if (!st) throw new Error(`no such directory: ${abs} — check the path with files.search`);
+  if (!st.isDirectory()) {
+    throw new Error(`not a directory: ${abs} — it is a file; use files.read or files.verify on it instead`);
+  }
+  const dirents = await readdir(abs, { withFileTypes: true });
+  const entries: ListEntry[] = [];
+  for (const e of dirents) {
+    const full = join(abs, e.name);
+    if (e.isDirectory()) {
+      entries.push({ name: e.name, path: full, isDirectory: true });
+    } else if (e.isFile()) {
+      try {
+        const fst = await stat(full);
+        entries.push({ name: e.name, path: full, isDirectory: false, size: fst.size, modifiedAt: fst.mtime.toISOString() });
+      } catch {
+        // vanished mid-list; ignore
+      }
+    }
+  }
+  entries.sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+    if (!a.isDirectory && !b.isDirectory) return (a.size ?? 0) - (b.size ?? 0);
+    return a.name.localeCompare(b.name);
+  });
+  const sliced = entries.slice(0, parsed.limit);
+  return { path: abs, entries: sliced, truncated: entries.length > sliced.length };
 }
 
 export async function writeFile(input: z.input<typeof WriteFileSchema>): Promise<{ path: string; bytes: number; overwritten: boolean }> {
@@ -347,7 +435,13 @@ export async function deleteFile(input: z.input<typeof DeleteFileSchema>): Promi
 export async function verifyFile(input: { path: string; minBytes?: number }): Promise<{ path: string; size: number; modifiedAt: string }> {
   const abs = assertAllowedPath(input.path);
   const st = await stat(abs);
-  if (!st.isFile()) throw new Error(`not a file: ${abs}`);
+  if (!st.isFile()) {
+    throw new Error(
+      st.isDirectory()
+        ? `not a file: ${abs} — it is a directory; use files.list on it instead`
+        : `not a file: ${abs}`,
+    );
+  }
   if (input.minBytes !== undefined && st.size < input.minBytes) {
     throw new Error(`file smaller than expected (${st.size} < ${input.minBytes}): ${abs}`);
   }

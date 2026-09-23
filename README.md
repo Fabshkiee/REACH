@@ -9,7 +9,9 @@ Alexa+ (or any MCP client) handles conversational understanding; REACH expands
 where that intent can execute — including capabilities not natively exposed
 through Alexa. Truth: `docs/architecture.md`. v1 history: `docs/v1-retired.md`.
 
-**Not a universal remote. Not Jarvis. Not a household concierge.**
+REACH is a general-purpose, Jarvis-like agent for your connected computing
+environment — with a load-bearing boundary: it acts only through a capability
+that is installed, reachable, and authorized for the exact target and scope.
 Unlike Aura+ (household concierge + memory) or KinSwitch (reassignment between people),
 REACH drives **goals through capabilities in your computing environment** via a
 planner over an explicitly authorized, pluggable capability set. Unlike
@@ -19,8 +21,9 @@ arbitrary user goals**: observe → plan → act → verify, with policy enforce
 ## Track / prizes
 
 * Primary: **Alexa+** (self-hosted MCP server, MCP spec `2025-11-25` minimum, **Streamable HTTP**).
-* Mini-challenge: **AWS Builder** (Bedrock-only for MVP — meeting transcript → minutes).
+* Mini-challenge: **AWS Builder** (Bedrock as planner brain — Nova Lite, planning + drafting).
 * Deadline: **Oct 23, 2026 12:00 PM PDT**. Video `<3min` showing real functioning.
+* Demo client: **sim locked** (Alexa+ toolkit partner-gated, no live integration in video). REACH is Alexa+-compatible MCP (simulated in video): `execute_on_my_devices → get_task_status → decide_approval`. No Amazon marks in REACH UI.
 
 ## Architecture (v2 — see `docs/architecture.md` for truth)
 
@@ -108,8 +111,10 @@ npm run dev:server
 npm run dev:agent
 
 # Auth today: set the SAME AGENT_TOKEN on both sides to enforce Bearer auth.
-# (Unset = local traffic trusted with a boot warning — v2 direction is fail-closed;
-#  lands in the A-series builds. Never commit secrets — see docs/security.md.)
+# Boot is fail-closed: server and agent refuse to start without it (test exempt).
+# Note: auth middleware still skips if constructed without a token, so the boot
+# gate is the enforcement layer — do not expose ports remotely; bind 127.0.0.1
+# and use a tunnel for any remote judge access. Never commit secrets — see docs/security.md.)
 #   $env:AGENT_TOKEN="dev-secret"  (PowerShell) / AGENT_TOKEN=dev-secret (bash)
 # Test knobs: DEVICE_TIMEOUT_MS (default 90000), HEARTBEAT_INTERVAL_MS (default 30000),
 #   REACH_DATA_DIR (default <server-cwd>/data), DISPATCH_TIMEOUT_MS (default 60000).
@@ -131,18 +136,18 @@ curl localhost:3000/tools/task/<taskId>
 
 ## AWS Builder plan (Bedrock as the planner brain)
 
-* Bedrock (Converse, Haiku default via `BEDROCK_MODEL_ID`, `us-east-1`) drives the
+* Bedrock (Converse, Nova Lite default `amazon.nova-lite-v1:0` via `BEDROCK_MODEL_ID`, `us-east-1`) drives the
   ReAct loop — goal → plan → proposed actions — and drafts structured document
-  content. Runtime hook exists today (`BedrockRuntimeClient` in
-  `server/src/aws/bedrock.stub.ts`); live calls land in the A-series builds.
+  content. Live planner loop is checked in (`server/src/planner/bedrock.ts` + `loop.ts`);
+  meeting-transcription hero is parked.
 * Meeting-transcription hero parked; content drafting folded into the planner.
 * Document model + usage in `docs/aws-builder.md` + Product Feedback at submission.
 
 ## Submission pointers
 
 * License: MIT at repo root (Devpost-detectable).
-* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`, `BedrockRuntimeClient` imported in stub (live Bedrock in A-series).
-* Video (TODO): `<3min` — three unrelated goals on one engine + approval beat. Script: `docs/demo-script.md`.
+* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`, live Bedrock planner (`server/src/planner/bedrock.ts`, default `amazon.nova-lite-v1:0`).
+* Video (TODO): `<3min` — one local DOCX hero + read-only browser + CANNOT/approval beats (sim locked, simulated — not live Alexa+). Script: `docs/demo-script.md` (to be rewritten to hero).
 * Friction log (bonus up to 10%): `docs/friction-log.md` — updated continuously.
 * Checklist: `docs/submission-checklist.md`.
 

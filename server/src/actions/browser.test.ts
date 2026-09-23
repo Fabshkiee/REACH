@@ -39,6 +39,21 @@ describe("browser action defs", () => {
     assert.ok(type.schema.safeParse({ pageUrl: "https://x.io", target: "e1", text: "hi", submit: true }).success);
   });
 
+  it("verifiers pass upstream error text through (diagnosable failures)", () => {
+    const click = getActionDef("browser.click")!;
+    assert.throws(
+      () => click.verify!({ isError: true, content: [{ text: "upstream boom: ref e12 detached" }] }),
+      /upstream boom: ref e12 detached/,
+    );
+    const observe = getActionDef("browser.observe")!;
+    assert.throws(() => observe.verify!({ isError: true, content: [] }), /reported an error/);
+    assert.throws(() => observe.verify!({ content: [{ text: "   " }] }), /empty content/);
+    assert.equal(
+      observe.verify!({ content: [{ text: "page ok" }] }),
+      "page ok",
+    );
+  });
+
   it("no def maps to a banned upstream tool", () => {
     // Structural complement to the whitelist test: even if registration is
     // refactored, banned capabilities can never be wired to the planner.

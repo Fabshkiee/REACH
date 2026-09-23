@@ -7,13 +7,15 @@ REACH uses **Bedrock as the planner brain** (plus drafted document content from 
 
 ## What / where
 
-* Code hook (runtime, not README-only): `server/src/aws/bedrock.stub.ts`
-  imports `BedrockRuntimeClient` today; live Converse calls land in the A-series
-  planner loop (goal → plan → proposed actions) and in structured drafting for
-  `create_document` sections.
-* Model: `BEDROCK_MODEL_ID` env, default `anthropic.claude-haiku-4-5-20251001-v1:0`
-  (fast/cheap, strong tool use; Sonnet fallback documented if plans get hard),
-  `AWS_REGION` default `us-east-1` (confirm model access in console once credits land).
+* Code hook (runtime, not README-only): `server/src/planner/bedrock.ts`
+  live Converse calls in the planner loop (goal → plan → proposed actions) plus
+  structured drafting for `create_document` sections. (`server/src/aws/bedrock.stub.ts`
+  is legacy only.) Wire mapping handles Bedrock tool-name rules; unmappable names
+  fall through to unknown-tool recovery.
+* Model: `BEDROCK_MODEL_ID` env, default `amazon.nova-lite-v1:0`
+  (fast/cheap, strong tool use), `AWS_REGION` default `us-east-1` (confirm model
+  access in console once credits land). Live evidence: 2026-09-20 full run
+  `3678 in / 91 out` — fractions of a cent at Nova pricing (see friction log).
 * Meeting-transcription hero (Transcribe + S3) is **parked**, not cut — minutes-style
   drafting happens through the planner instead.
 * Kiro/CLI use during dev also counts toward Builder narrative — note in Product Feedback.
@@ -22,7 +24,7 @@ REACH uses **Bedrock as the planner brain** (plus drafted document content from 
 
 1. AWS account + $150 credit request (by Oct 21 12pm PT) + Bedrock model access enable.
 2. `AWS_REGION`, `BEDROCK_MODEL_ID`, credentials via env (never commit).
-3. Wire Converse into the planner loop, document latency/cost per plan.
+3. Converse is wired into the planner loop; document latency/cost per plan in evidence (`usage` field) + friction log.
 
 ## For Product Feedback answer
 

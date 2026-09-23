@@ -239,6 +239,49 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): completion now requires at least one executed (ok, non-pause, non-question) record; otherwise the model's own text becomes a `failed` error. Pinned by a "narration trap" test (ask → answer → text-only "done" → failed).
 * Suggestion: n/a.
 
+## 2026-09-24 — Slice 0: Alexa+ no-go + truth-docs reconciliation (docs only)
+* Task: lock demo client without partner SDK; reconcile 7 stale truth claims before code work.
+* Steps: confirmed toolkit partner-gated (no consumer access), well-known routes stub 404, `addon.json` example.com; inspected code vs `README/architecture/security/aws-builder/submission/mcp-contract`; rewrote drift to built/verified/planned/blocked with file:line pins.
+* Expected vs actual: expected small doc pass; actual 8 files needed fixes (Jarvis vision, fail-closed boot vs middleware fallback, `app.listen(port)` vs `127.0.0.1` claim, Haiku vs `amazon.nova-lite-v1:0`, future-live Bedrock tense, 3-proof vs 1-hero demo, transport-done vs Alexa-E2E).
+* Severity: Medium (submission honesty — judges score false claims; no runtime change).
+* Workaround (kept): sim locked as `Alexa+-compatible MCP (simulated)`; REACH-branded UI, no Amazon marks; video parked until Slices B–D green.
+* Suggestion: keep per-slice doc bundle rule (code + tests + friction + truth docs in same commit).
+
+## 2026-09-24 — Slice B: honest outcomes/budgets/cancel + pre-existing suite break
+* Task: Slice B (reach.finish, cumulative budgets, single-flight, cancel) to green on both workspaces.
+* Steps: implemented `TaskOutcome/budget/loop-slot` (`tasks/types.ts`), store v3 + `claim/release/cancel` (`taskStore.ts`), finish interception + budget/single-flight/cancel checks (`planner/loop.ts`), `outcome` in `get_task_status` + terminal-approval guard + cancel route; 11 new tests (`planner/outcome.test.ts`); full `npm run typecheck` + `npm test` both workspaces.
+* Expected vs actual: expected green; actual (1) `loop.test.ts` CANNOT assertion stale — old path said "could not ground", honest path is `failed + outcome cannot` (updated test, intended change); (2) `executor.test.ts` timeout test aborted the whole file — reproduced on pristine tree via `git stash`, so pre-existing, not Slice B. Root cause: `timer.unref?.()` in `runAllowed` let the event loop drain while a hung handler pended, so the timeout never fired ("event loop has already resolved"). Fixed by removing `unref` (timer always cleared on settle) — a hung primitive now fails at its timeout instead of hanging the task forever.
+* Severity: High (suite was red on this machine; hang-forever risk is product-grade).
+* Workaround (kept): unref removal + updated CANNOT assertion. Result: server 67/67 (56 old + 11 new), agent 19/19, both typechecks clean.
+* Suggestion: never `unref` a timeout gate guarding a possibly-hung handler; add a cross-layer test (core allows + agent allows) in Slice C/D per 2026-09-20 entry.
+
+## 2026-09-24 — Slice C: event trail + mandatory verifiers + sim states (live-proven)
+* Task: Slice C (verify required, append-only events, full-detail approvals, sim timeline/outcome/cancel rendering) to green + live HTTP proof.
+* Steps: `verify` required in type + `defineAction` runtime guard (fixed 4 test defs); `TaskEvent` trail capped at 200 in store v4, emitted from executor `audit()` (covers every record in one place), loop `exit()` (`outcome_set`), `decideApproval`/`answerInput`/`cancelTask`; extracted `answerInput()` from the HTTP route so it is unit-testable; `get_task_status` returns last-100 events + approval `args`; sim renders Activity timelines, partial/unverified/cannot/cancelled cards, exact-payload approval `<details>`, cancelled-aware polling.
+* Expected vs actual: expected unit-only proof; actual ran 3 live smokes (boot server on scratch ports + tmp data dir, no repo pollution): (1) health/sim/400/404/409 shapes all correct; (2) surprise — this machine HAS Bedrock access, so the probe goal ran the real Nova loop and asked a clarifying question (events live over HTTP); (3) answered via the new input route → resumed for 4 calls (12751 in / 231 out ≈ sub-cent) → asked again (vague goal, correct behavior). Full loop, budgets, usage, and trail proven against production Bedrock, not mocks.
+* Severity: Low (all green; spend negligible).
+* Workaround (kept): pure-MCP clients still answer via HTTP/sim — documented as a known v1 limit in `mcp-contract.md`, MCP answer tool deferred.
+* Suggestion: keep one scratch-port smoke per slice; it catches wiring the unit suites cannot.
+* Result: server 78/78 (67 + 11 new), agent 19/19, both typechecks clean, sim script parses.
+
+## 2026-09-24 — Slice D: readiness honesty + local trust (phantom killed, two guard holes closed)
+* Task: Slice D (no-phantom graph, pause/revoke, 127.0.0.1, fail-closed middleware, approval overwrite guard, approve-context fix) to green + live HTTP proof.
+* Steps: removed `windows-laptop` seed fallback (`capabilityGraph.ts` — empty graph is now empty); `disabled` flag sticky across heartbeat/re-register + pause/resume/revoke store fns + user-channel routes + sim buttons with honest revoke tooltip; both processes bind `127.0.0.1`; middleware refuses when unconfigured (both sides); second-confirm-while-pending denied (`confirm.superseded`); `decideApproval` re-executes with loop-equivalent context + def timeout; executor rejects proposals on terminal tasks; removed duplicate `GET /debug/devices`.
+* Expected vs actual: expected routine; actual (1) smoke caught my own leftover duplicate route (`/debug/devices` existed twice — removed the second, re-verified 404); (2) my overwrite test initially failed the task because direct `proposeAction` denials fail fast by convention — passed `softFail` to mirror planner use, kept hard-fail for standalone; (3) my terminal-guard comment tripped the "executor never resolves approvals" structural test via the literal `decideApproval` — reworded, test green. All three were my-drift, caught same-turn.
+* Severity: Medium (approval overwrite orphaned a resolvable id; terminal proposals could resurrect ended tasks — both closed).
+* Workaround (kept): revoke re-registers while the agent runs (by design) — documented in code + sim tooltip; per-device credentials + outbound relay stay post-v1.
+* Result: server 87/87 (78 + 9 new: 8 device/graph + 1 overwrite/terminal), agent 19/19, both typechecks clean; smoke: empty caps, 401-noauth, pause/resume/revoke round-trip live.
+* Suggestion: smoke every new route the same turn it is added — the duplicate would have shipped otherwise.
+
+## 2026-09-24 — Slice E: recovery machinery (errors teach, loop retries, then asks)
+* Task: Slice E — generic reflect-and-retry (no example names): hint table on failure shape, consecutive-failure ask-nudge, files.list + paged files.read, browser error transparency.
+* Steps: `executor/recovery.ts` (10 hint codes + `failureFeedback` with 2-recovery budget); loop counter + hint wiring + SYSTEM recover-then-ask-then-concede rules; `assertMcpOk` passes upstream text (was bare "reported an error"); agent `list_files` (dirs-first, size-asc, teaching errors) + `read_file` offset paging (64MB parse gate, 8MB extract ceiling, totalChars/pages) + core defs + allowlist/dispatch; `files.verify`/`list` directory confusion now names the sibling tool.
+* Expected vs actual: expected smooth; actual (1) my hint regexes collided twice — bare `not found` stole ref-not-found from page_rejected, `[^.]*` couldn't cross `C:\x.pdf` — tightened patterns + tests, green; (2) pdf-parse types `pages` as an array, not a number — `.length`, green; (3) smoke surprise: something already answers 401 on :3001 (likely the founder's live agent with a different token) — core's dispatch refused correctly and the live Bedrock loop went failure → ask instead of dying, which is Slice E working in the wild. Smoke used an isolated data dir; no repo state touched.
+* Severity: Medium (the 1:25 AM cat run and 1:28 AM Jeremy runs both trace to this slice: blind retries on swallowed errors + no recovery moves).
+* Workaround (kept): none needed — 21MB PDFs now page through `offsetChars`; `verify "."` now answers "use files.list".
+* Result: server 96/96 (87 + 9 new), agent 24/24 (19 + 5 new), both typechecks clean; live smoke: list_files advertises, fail-closed dispatch holds, planner asks.
+* Suggestion: every swallowed error is a future blind-retry loop — propagate reason text by default, redact only secrets.
+
 ## Template for new entries
 * Task:
 * Steps:
