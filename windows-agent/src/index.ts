@@ -35,8 +35,11 @@ import type { z } from "zod";
 const app = express();
 app.use(express.json());
 
+export const BUILD_STAMP = "2026-09-24T02:30:00Z";
+
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "windows-agent", agentId: AGENT_ID });
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.json({ ok: true, service: "windows-agent", agentId: AGENT_ID, buildStamp: BUILD_STAMP });
 });
 
 app.get("/capabilities", (_req, res) => {

@@ -20,10 +20,12 @@ const SYSTEM = [
   "- If the target of an action is genuinely ambiguous (which file? which device?), call reach.ask_user instead of guessing.",
   "- Some actions pause for user approval; you will be told when that happens. Continue after approval arrives.",
   "- When no more actions are needed, call reach.finish with kind + evidence: complete (cite verified actionIds), partial (cite prior evidence + remaining work), cannot (missing capabilities + reason), unverified (reason), or failed (reason). Narration without cited evidence is rejected.",
-  "- Plain-text replies are legacy only: a summary means done, starting with CANNOT: means unachievable. Both are validated against the trace like reach.finish.",
+  "- Plain-text replies are deprecated: turns without tool calls are rejected. You must call reach.finish with structured evidence.",
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
-  "- Directories are listed with files.list (names + sizes); files.read pages large files via offsetChars. Never verify a directory as a file.",
+  "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
+  "- apps.launch is strictly restricted to known desktop utilities (notepad, calc, cmd, powershell, explorer).",
+  "- Directories are explored via files.list (names + sizes) and opened in File Explorer via apps.open_document. Never read or verify a directory as a file.",
   "- Keep reasoning brief. Temperature is 0; be decisive.",
 ].join("\n");
 
@@ -205,7 +207,7 @@ export async function runPlannerLoop(
 
   const policyCtx = { ...defaultPolicyContext(), ...policyContextForAvailable() };
   const tools = toolsForPlanner();
-  const history: HistoryEntry[] = [{ role: "user", text: task.goal }];
+  let history: HistoryEntry[] = [{ role: "user", text: task.goal }];
   if (opts.resumeNote) {
     history.push({
       role: "user",
@@ -239,15 +241,16 @@ export async function runPlannerLoop(
   const startedMs = Date.parse(task.createdAt);
 
   setTaskStatus(taskId, "running", { plan });
-  const stepBase = plan.length;
+  let stepBase = plan.length;
 
-  for (let step = 1; step <= MAX_STEPS; step++) {
-    // Cooperative cancel + terminal check at every step boundary.
-    const live = getTask(taskId);
-    if (!live || isTerminalStatus(live.status)) {
-      releaseLoopSlot(taskId, slot);
-      return;
-    }
+  horizonLoop: while (true) {
+    for (let step = 1; step <= MAX_STEPS; step++) {
+      // Cooperative cancel + terminal check at every step boundary.
+      const live = getTask(taskId);
+      if (!live || isTerminalStatus(live.status)) {
+        releaseLoopSlot(taskId, slot);
+        return;
+      }
     // Cumulative task-wide budgets (survive approval/input resumes via usage).
     if (callCount >= budget.maxPlannerCalls) {
       const ids = succeededRecords(taskId).map((r) => r.actionId);
@@ -292,51 +295,17 @@ export async function runPlannerLoop(
       return;
     }
 
-    // Text-only turn: legacy finish, validated against the trace like reach.finish.
+    // Plain-text finishes are deprecated: force reach.finish with cited evidence.
     if (turn.toolCalls.length === 0) {
-      const text = turn.text.trim();
-      const succeeded = succeededRecords(taskId);
-      if (text.toUpperCase().startsWith("CANNOT:")) {
-        const reason = text.slice("CANNOT:".length).trim().slice(0, 500) || text.slice(0, 500);
-        // A CANNOT after partial work preserves that evidence — it never
-        // overwrites the trace as completed.
-        exit("failed", {
-          plan,
-          outcome: { kind: "cannot", reason, evidenceActionIds: succeeded.map((r) => r.actionId) } satisfies TaskOutcome,
-          error: reason,
-        });
-        return;
-      }
-      if (succeeded.length === 0) {
-        // No grounding whatsoever — fail fast with the model's own reason,
-        // never a hallucinated success. Preserves v1 fail-fast honesty.
-        exit("failed", {
-          outcome: { kind: "failed", reason: text ? `planner could not ground the goal: ${text.slice(0, 500)}` : "planner stalled with no actions", evidenceActionIds: [] } satisfies TaskOutcome,
-          error: text ? `planner could not ground the goal: ${text.slice(0, 500)}` : "planner stalled with no actions",
-          plan,
-        });
-        return;
-      }
-      const verified = verifiedRecords(taskId);
-      if (verified.length === succeeded.length) {
-        exit("completed", {
-          plan,
-          outcome: { kind: "complete", summary: text.slice(0, 500) || "done", evidenceActionIds: verified.map((r) => r.actionId) } satisfies TaskOutcome,
-          evidence: { deviceId: "reach-core", capabilityId: "planner-loop", note: text.slice(0, 500) || "done" },
-        });
-        return;
-      }
-      exit("completed", {
-        plan,
-        outcome: {
-          kind: "unverified",
-          summary: text.slice(0, 500) || undefined,
-          reason: `${succeeded.length - verified.length} of ${succeeded.length} actions lack independent verification`,
-          evidenceActionIds: verified.map((r) => r.actionId),
-        } satisfies TaskOutcome,
-        evidence: { deviceId: "reach-core", capabilityId: "planner-loop", note: text.slice(0, 500) || "done (unverified)" },
+      history.push({ role: "assistant", text: turn.text });
+      history.push({
+        role: "user",
+        text: "ERROR: Plain-text finishes are deprecated. You must call reach.finish with kind ('complete'|'partial'|'cannot'|'unverified'|'failed') and cite evidenceActionIds from verified actions.",
       });
-      return;
+      plan.push(`step ${stepBase + step}: rejected plain-text turn — directed to reach.finish`);
+      setTaskStatus(taskId, "running", { plan });
+      saveUsage();
+      continue;
     }
 
     // One action per turn; extras are reported, never silently run.
@@ -370,6 +339,39 @@ export async function runPlannerLoop(
       setTaskStatus(taskId, "running", { plan });
       saveUsage();
       continue;
+    }
+
+    if (first.name === "apps.launch") {
+      const appName = String((first.args as { app?: unknown })?.app ?? "").trim().toLowerCase();
+      const cleanApp = appName.replace(/\.exe$/i, "");
+      const BROWSER_NAMES = new Set(["chrome", "msedge", "edge", "firefox", "brave", "opera", "safari", "browser"]);
+      const KNOWN_UTILITIES = new Set(["notepad", "calc", "calculator", "cmd", "powershell", "explorer", "mspaint", "paint", "snipping", "settings"]);
+      if (BROWSER_NAMES.has(appName) || BROWSER_NAMES.has(cleanApp)) {
+        history.push({
+          role: "user",
+          toolResults: [{
+            toolCallId: first.id,
+            content: `ERROR: apps.launch cannot be used to launch web browsers (e.g. chrome, msedge, firefox). Web browsing must use web.* or browser.* tools.`,
+          }],
+        });
+        plan.push(`step ${stepBase + step}: rejected apps.launch for browser "${appName}"`);
+        setTaskStatus(taskId, "running", { plan });
+        saveUsage();
+        continue;
+      }
+      if (!KNOWN_UTILITIES.has(appName) && !KNOWN_UTILITIES.has(cleanApp)) {
+        history.push({
+          role: "user",
+          toolResults: [{
+            toolCallId: first.id,
+            content: `ERROR: apps.launch is restricted to known desktop utilities (notepad, calc, cmd, powershell, explorer). "${appName}" is not permitted.`,
+          }],
+        });
+        plan.push(`step ${stepBase + step}: rejected apps.launch for unknown utility "${appName}"`);
+        setTaskStatus(taskId, "running", { plan });
+        saveUsage();
+        continue;
+      }
     }
 
     const def = getActionDef(first.name);
@@ -454,6 +456,40 @@ export async function runPlannerLoop(
     setTaskStatus(taskId, "running", { plan });
     saveUsage();
   }
+
+  // Step horizon reached (all MAX_STEPS turns exhausted).
+  // If cumulative budget remains, auto-continue by re-seeding with compact trace summary.
+  const budgetRemaining =
+    callCount < budget.maxPlannerCalls &&
+    (Date.now() - startedMs) < budget.maxElapsedMs &&
+    (getTask(taskId)?.trace?.length ?? 0) < budget.maxActions;
+
+  if (budgetRemaining) {
+    const verified = verifiedRecords(taskId);
+    const compactTrace = verified.length > 0
+      ? verified.map((r) => `- [${r.actionId}] ${r.name}${r.target ? ` on "${r.target}"` : ""}: ${(r.resultSummary ?? "ok").slice(0, 150)}`).join("\n")
+      : "(no verified actions yet)";
+
+    history = [
+      { role: "user", text: task.goal },
+      { role: "assistant", text: `Step horizon checkpoint: completed ${MAX_STEPS} turns. Verified progress so far:\n${compactTrace}` },
+      { role: "user", text: `Budget checkpoint: ${MAX_STEPS} turns completed. Verified progress so far:\n${compactTrace}\nContinue executing towards final goal or call reach.finish.` },
+    ];
+    plan.push(`step horizon reached (${MAX_STEPS} turns) — auto-continuing with verified trace summary`);
+    appendTaskEvent(taskId, {
+      kind: "action_finished",
+      capabilityId: "planner-loop",
+      status: "succeeded",
+      summary: `Step horizon reached (${MAX_STEPS} steps); auto-continuing`,
+    });
+    setTaskStatus(taskId, "running", { plan });
+    saveUsage();
+    stepBase = plan.length;
+    continue horizonLoop;
+  }
+
+  break horizonLoop;
+}
 
   exit("failed", {
     outcome: {

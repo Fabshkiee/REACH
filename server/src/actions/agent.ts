@@ -109,7 +109,7 @@ export function registerAgentActions(): void {
     {
       name: "apps.open_document",
       actionClass: "interact" as const,
-      description: "Open a document in its default app.",
+      description: "Open a document in its default app, or a directory in Windows File Explorer.",
       schema: z.object({ path: PathArg }),
       timeoutMs: 30_000,
       capability: "open_document",
@@ -125,7 +125,7 @@ export function registerAgentActions(): void {
     {
       name: "apps.launch",
       actionClass: "launch" as const,
-      description: "Launch a known-safe application by name.",
+      description: "Launch a known-safe desktop utility by name (notepad, calc, cmd, powershell, explorer).",
       schema: z.object({ app: z.string().min(1).max(100) }),
       timeoutMs: 30_000,
       capability: "launch_application",

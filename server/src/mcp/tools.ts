@@ -95,7 +95,12 @@ export function getTaskStatus(input: GetTaskStatusInput) {
     out.pendingInput = {
       question: task.pendingInput.question,
       options: task.pendingInput.options,
+      questionCount: task.askedQuestions?.length ?? 1,
     };
+  }
+  if (task.askedQuestions) {
+    out.askedQuestions = task.askedQuestions;
+    out.questionCount = task.askedQuestions.length;
   }
   return out;
 }
@@ -195,8 +200,15 @@ export function answerInput(
   }
   const question = task.pendingInput.question;
   const answer = text.trim();
+  const askedQuestions = (task.askedQuestions ?? []).map((q) => {
+    if (q.question === question && !q.answer) {
+      return { ...q, answer, answeredAt: new Date().toISOString() };
+    }
+    return q;
+  });
   setTaskStatus(taskId, "running", {
     pendingInput: { ...task.pendingInput, answer, answeredAt: new Date().toISOString() },
+    askedQuestions,
   });
   appendTaskEvent(taskId, { kind: "clarification_answered", summary: `Answered "${question}": "${answer.slice(0, 200)}"` });
   void resumeLoop(taskId, `User answered "${question}": "${answer}". Continue with the plan.`).catch((err) => {

@@ -72,13 +72,24 @@ describe("reach.finish structured outcomes", () => {
     assert.deepEqual(after.outcome?.evidenceActionIds, [actId]);
   });
 
-  it("complete with bogus evidence is rejected and the loop recovers via text", async () => {
+  it("complete with bogus evidence is rejected and the loop recovers via valid finish", async () => {
+    const t = createTask("finish bogus recovery goal");
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "test.step", args: {} }] },
       { toolCalls: [{ name: "reach.finish", args: { kind: "complete", evidenceActionIds: ["act_nonexistent"] } }] },
-      { text: "Step verified and done." },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => ({
+              kind: "complete",
+              summary: "Step verified and done.",
+              evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+            }),
+          },
+        ],
+      },
     ]);
-    const t = createTask("finish bogus recovery goal");
     await runPlannerLoop(t.id, { backend: mock });
     const after = getTask(t.id)!;
     assert.equal(after.status, "completed");
@@ -89,7 +100,7 @@ describe("reach.finish structured outcomes", () => {
   it("complete with empty evidence is rejected (no narrated success)", async () => {
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "reach.finish", args: { kind: "complete", summary: "trust me" } }] },
-      { text: "CANNOT: nothing offered matches." },
+      { toolCalls: [{ name: "reach.finish", args: { kind: "cannot", reason: "nothing offered matches." } }] },
     ]);
     const t = createTask("finish empty evidence goal");
     await runPlannerLoop(t.id, { backend: mock });
@@ -154,12 +165,23 @@ describe("reach.finish structured outcomes", () => {
     assert.match(after2.error ?? "", /downstream exploded/);
   });
 
-  it("CANNOT text after partial work preserves evidence as cannot", async () => {
+  it("CANNOT reach.finish after partial work preserves evidence as cannot", async () => {
+    const t = createTask("cannot after partial goal");
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "test.step", args: {} }] },
-      { text: "CANNOT: the second half needs a missing integration." },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => ({
+              kind: "cannot",
+              reason: "the second half needs a missing integration.",
+              evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok).map((r) => r.actionId),
+            }),
+          },
+        ],
+      },
     ]);
-    const t = createTask("cannot after partial goal");
     await runPlannerLoop(t.id, { backend: mock });
     const after = getTask(t.id)!;
     assert.equal(after.status, "failed");
@@ -177,7 +199,17 @@ describe("budgets, single-flight, cancel", () => {
       { toolCalls: [{ name: "test.step", args: {} }] },
       { toolCalls: [{ name: "test.step", args: {} }] },
       { toolCalls: [{ name: "test.step", args: {} }] },
-      { text: "Done." },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => ({
+              kind: "complete",
+              evidenceActionIds: (getTask(t.id)?.trace ?? []).map((r) => r.actionId),
+            }),
+          },
+        ],
+      },
     ]);
     await runPlannerLoop(t.id, { backend: mock });
     const after = getTask(t.id)!;
@@ -207,7 +239,17 @@ describe("budgets, single-flight, cancel", () => {
     assert.equal(claimLoopSlot(t.id, "foreign-holder"), true);
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "test.step", args: {} }] },
-      { text: "Done." },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => ({
+              kind: "complete",
+              evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+            }),
+          },
+        ],
+      },
     ]);
     await runPlannerLoop(t.id, { backend: mock });
     assert.equal(getTask(t.id)?.status, "queued");
@@ -224,7 +266,17 @@ describe("budgets, single-flight, cancel", () => {
     assert.equal(getTask(t.id)?.status, "cancelled");
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "test.step", args: {} }] },
-      { text: "Done." },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => ({
+              kind: "complete",
+              evidenceActionIds: (getTask(t.id)?.trace ?? []).map((r) => r.actionId),
+            }),
+          },
+        ],
+      },
     ]);
     await runPlannerLoop(t.id, { backend: mock });
     assert.equal(getTask(t.id)?.status, "cancelled");

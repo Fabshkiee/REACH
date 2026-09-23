@@ -102,6 +102,18 @@ const AskSchema = {
   },
 };
 
+export function normalizeQuestion(q: string): string {
+  return q.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function questionNamesAnswer(normQuestion: string, answer: string): boolean {
+  const normAns = normalizeQuestion(answer);
+  if (!normAns || normAns.length < 2) return false;
+  const escaped = normAns.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  const re = new RegExp(`\\b${escaped}\\b`, "i");
+  return re.test(normQuestion);
+}
+
 /**
  * Propose one action for a task: validate → policy → run / pause / fail.
  * Handler-agnostic: real primitives register in A2; A1 proves the loop with
@@ -150,13 +162,68 @@ export async function proposeAction(
   if (action.actionClass === "ask") {
     try {
       const { question, options } = AskSchema.parse(action.args);
+      const priorQuestions = task.askedQuestions ?? [];
+
+      // Hard cap: 3 questions per task
+      if (priorQuestions.length >= 3) {
+        const errMsg = "ERROR: Question budget exhausted (3/3 questions already asked for this task). You must proceed with available tools or call reach.finish.";
+        const record = baseRecord(action, "deny", "deny.ask-budget-exhausted");
+        record.endedAt = new Date().toISOString();
+        record.ok = false;
+        record.resultSummary = errMsg;
+        audit(taskId, record);
+        fail({ error: errMsg });
+        return { outcome: "rejected", taskId, actionId: action.id, error: errMsg };
+      }
+
+      // Duplicate detection & naming prior answer
+      const normQ = normalizeQuestion(question);
+      for (const prior of priorQuestions) {
+        const isDuplicate = normQ === prior.normalized ||
+          (normQ.length >= 15 && prior.normalized.length >= 15 && (normQ.includes(prior.normalized) || prior.normalized.includes(normQ)));
+
+        if (isDuplicate) {
+          const errMsg = prior.answer
+            ? `ERROR: Duplicate question already asked: "${prior.question}". The user already answered: "${prior.answer}". Act on this prior answer instead of repeating questions.`
+            : `ERROR: Duplicate question already asked: "${prior.question}". Await or act on available information instead of repeating questions.`;
+          const record = baseRecord(action, "deny", "deny.duplicate-question");
+          record.endedAt = new Date().toISOString();
+          record.ok = false;
+          record.resultSummary = errMsg;
+          audit(taskId, record);
+          fail({ error: errMsg });
+          return { outcome: "rejected", taskId, actionId: action.id, error: errMsg };
+        }
+
+        if (prior.answer && questionNamesAnswer(normQ, prior.answer)) {
+          const errMsg = `ERROR: Question already answered: "${prior.question}" was answered with "${prior.answer}". Act on this prior answer instead of asking again.`;
+          const record = baseRecord(action, "deny", "deny.repeat-answered-question");
+          record.endedAt = new Date().toISOString();
+          record.ok = false;
+          record.resultSummary = errMsg;
+          audit(taskId, record);
+          fail({ error: errMsg });
+          return { outcome: "rejected", taskId, actionId: action.id, error: errMsg };
+        }
+      }
+
       const record = baseRecord(action, "allow", "allow.ask-user");
       record.endedAt = new Date().toISOString();
       record.ok = true;
       record.resultSummary = `asked: ${question.slice(0, 120)}`;
       audit(taskId, record);
+      const askedQuestions = [
+        ...priorQuestions,
+        {
+          question,
+          normalized: normQ,
+          options,
+          askedAt: new Date().toISOString(),
+        },
+      ];
       setTaskStatus(taskId, "awaiting_input", {
-        pendingInput: { taskId, question, options, createdAt: new Date().toISOString() },
+        pendingInput: { taskId, question, options, createdAt: new Date().toISOString(), questionCount: askedQuestions.length },
+        askedQuestions,
       });
       return { outcome: "paused", taskId, actionId: action.id };
     } catch (err) {

@@ -68,11 +68,22 @@ describe("task event trail", () => {
   });
 
   it("a run emits action_finished + outcome_set in order", async () => {
+    const t = createTask("event run goal");
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "test.step", args: { label: "one" } }] },
-      { text: "Done." },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => ({
+              kind: "complete",
+              summary: "Done.",
+              evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+            }),
+          },
+        ],
+      },
     ]);
-    const t = createTask("event run goal");
     await runPlannerLoop(t.id, { backend: mock });
     assert.equal(await pollDone(t.id), "completed");
     const kinds = (getTask(t.id)?.events ?? []).map((e) => e.kind);
@@ -88,7 +99,7 @@ describe("task event trail", () => {
   it("failed actions emit failed action_finished, never success", async () => {
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "test.step", args: { label: 123 } }] },
-      { text: "CANNOT: bad args everywhere." },
+      { toolCalls: [{ name: "reach.finish", args: { kind: "failed", reason: "bad args everywhere." } }] },
     ]);
     const t = createTask("event failure goal");
     await runPlannerLoop(t.id, { backend: mock });
@@ -113,7 +124,23 @@ describe("task event trail", () => {
     const status = getTaskStatus({ taskId: t.id }) as { pendingApproval?: { args?: unknown } };
     assert.deepEqual(status.pendingApproval?.args ?? null, {});
 
-    setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ text: "Approved work finished." }]));
+    setPlannerBackendFactory(
+      () =>
+        new ScriptedPlannerBackend([
+          {
+            toolCalls: [
+              {
+                name: "reach.finish",
+                args: () => ({
+                  kind: "complete",
+                  summary: "Approved work finished.",
+                  evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+                }),
+              },
+            ],
+          },
+        ]),
+    );
     const approvalId = getTask(t.id)?.pendingApproval?.id;
     assert.ok(approvalId);
     const res = await decideApproval({ approvalId: approvalId!, decision: "approve" }, "test");
@@ -137,7 +164,18 @@ describe("task event trail", () => {
       () =>
         new ScriptedPlannerBackend([
           { toolCalls: [{ name: "test.step", args: {} }] },
-          { text: "Answered and done." },
+          {
+            toolCalls: [
+              {
+                name: "reach.finish",
+                args: () => ({
+                  kind: "complete",
+                  summary: "Answered and done.",
+                  evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+                }),
+              },
+            ],
+          },
         ]),
     );
     const ans = answerInput(t.id, "the invoice");

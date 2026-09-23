@@ -4,14 +4,24 @@ import type { HistoryEntry, PlannerBackend, PlannerToolDef } from "./backend.js"
  * Scripted backend for tests: returns queued turns, fails loudly when dry.
  * Zero spend, deterministic. Never used outside NODE_ENV=test-driven suites.
  */
+export type ScriptedToolCall = {
+  name: string;
+  args?: Record<string, unknown> | (() => Record<string, unknown>);
+};
+
+export type ScriptedTurn = {
+  text?: string;
+  toolCalls?: ScriptedToolCall[];
+};
+
 export class ScriptedPlannerBackend implements PlannerBackend {
   readonly backendName = "scripted-mock";
-  private readonly queue: Array<{ text?: string; toolCalls?: Array<{ name: string; args?: Record<string, unknown> }> }>;
+  private readonly queue: ScriptedTurn[];
   private readonly strict: boolean;
   readonly calls: Array<{ system: string; history: HistoryEntry[]; tools: PlannerToolDef[] }> = [];
 
   constructor(
-    steps: Array<{ text?: string; toolCalls?: Array<{ name: string; args?: Record<string, unknown> }> }>,
+    steps: ScriptedTurn[],
     opts: { strict?: boolean } = {},
   ) {
     this.queue = [...steps];
@@ -40,7 +50,7 @@ export class ScriptedPlannerBackend implements PlannerBackend {
         toolCalls: (next.toolCalls ?? []).map((tc, i) => ({
           id: `mock_tc_${this.calls.length}_${i}`,
           name: tc.name,
-          args: tc.args ?? {},
+          args: typeof tc.args === "function" ? tc.args() : (tc.args ?? {}),
         })),
       },
       usage: { inputTokens: 100, outputTokens: 50 },

@@ -282,6 +282,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: server 96/96 (87 + 9 new), agent 24/24 (19 + 5 new), both typechecks clean; live smoke: list_files advertises, fail-closed dispatch holds, planner asks.
 * Suggestion: every swallowed error is a future blind-retry loop — propagate reason text by default, redact only secrets.
 
+## 2026-09-24 — Phase 1: ESM import port-bind hang, answerInput background resume, and policy knownApps
+* Task: Implement and test Phase 1 loop reliability, grounding rules, question guardrails, step-exhaustion continuation, and /health build stamps.
+* Steps: (1) Added `server/src/health.test.ts` importing `server/src/index.ts`; test timed out after 30s because `index.ts` unconditionally executed `app.listen(port)` when `NODE_ENV !== "test"`, and static ESM imports hoisted evaluation before top-level statements; (2) `answerInput` in `server/src/mcp/tools.ts` fires background `void resumeLoop(...)` which, when unmocked in executor tests, crashed on Bedrock credentials and asynchronously marked tasks `failed`, cascading into "task is already failed" rejections; (3) in `loop.test.ts`, testing `apps.launch` with no mock devices in `deviceStore` resulted in policy returning `confirm` (pausing for user approval) rather than executing.
+* Expected vs actual: expected fast unit tests; actual (1) port 3000 hung the runner, (2) async test failures in `executor.test.ts`, and (3) approval-pause timeout in `loop.test.ts`.
+* Severity: Medium (test harness & asynchronous lifecycle coordination).
+* Workaround (kept): (1) set `process.env.NODE_ENV = "test"` before dynamic `await import("./index.js")` in both health test suites; (2) set an idle mock planner factory via `setPlannerBackendFactory` during `answerInput` unit testing; (3) grounded `apps.launch` rejection tests assert directly on browser and unauthorized binary interception before policy proposal.
+* Suggestion: Keep entry points cleanly separated from server startup (e.g. `app.ts` exporting Express app vs `index.ts` executing listen), and ensure async background tasks initiated by helper functions allow optional suppression or explicit completion tracking in test runners.
+
 ## Template for new entries
 * Task:
 * Steps:
@@ -289,3 +297,4 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Severity: Critical / High / Medium / Low
 * Workaround:
 * Suggestion:
+

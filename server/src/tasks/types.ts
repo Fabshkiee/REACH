@@ -89,6 +89,16 @@ export interface PendingInput {
   /** Set when the user answers; the executor consumes it on resume. */
   answer?: string;
   answeredAt?: string;
+  questionCount?: number;
+}
+
+export interface AskedQuestion {
+  question: string;
+  normalized: string;
+  options?: string[];
+  answer?: string;
+  askedAt: string;
+  answeredAt?: string;
 }
 
 /** Append-only, user-visible task event. The sim timeline renders these. */
@@ -143,6 +153,8 @@ export interface ReachTask {
   loop?: TaskLoopSlot;
   /** Append-only user-visible event trail (capped, oldest dropped first). */
   events?: TaskEvent[];
+  /** Asked clarifying questions history for guardrails and UI (Phase 1). */
+  askedQuestions?: AskedQuestion[];
 }
 
 export interface ExecuteOnMyDevicesInput {

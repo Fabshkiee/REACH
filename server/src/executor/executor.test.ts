@@ -8,8 +8,8 @@ import { z } from "zod";
 process.env.REACH_DATA_DIR = mkdtempSync(join(tmpdir(), "reach-a1-exec-"));
 
 import { createTask, getTask } from "../tasks/taskStore.js";
-import { decideApproval } from "../mcp/tools.js";
-import { proposeAction } from "./executor.js";
+import { decideApproval, answerInput } from "../mcp/tools.js";
+import { proposeAction, questionNamesAnswer, normalizeQuestion } from "./executor.js";
 import { clearActionRegistry, defineAction } from "./registry.js";
 
 function task(goal = "scripted test goal") {
@@ -168,8 +168,24 @@ describe("executor", () => {
     });
     const t1 = task();
     const p1 = await proposeAction(t1.id, { actionClass: "delete", name: "test.nuke", target: "old.txt", args: {} });
-    // Resume with a mock planner that declares the resumed work done.
-    setPlannerBackendFactory(() => new ScriptedPlannerBackend([{ text: "Resumed and finished." }]));
+    // Resume with a mock planner that declares the resumed work done via reach.finish.
+    setPlannerBackendFactory(
+      () =>
+        new ScriptedPlannerBackend([
+          {
+            toolCalls: [
+              {
+                name: "reach.finish",
+                args: () => ({
+                  kind: "complete",
+                  summary: "Resumed and finished.",
+                  evidenceActionIds: (getTask(t1.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+                }),
+              },
+            ],
+          },
+        ]),
+    );
     try {
       const ok = await decideApproval({ approvalId: p1.approvalId!, decision: "approve" }, "test");
       assert.equal(ok.ok, true);
@@ -267,6 +283,162 @@ describe("structural guarantees", () => {
     const mod = await import("../policy/types.js");
     for (const c of mod.ACTION_CLASSES as readonly string[]) {
       assert.ok(!/exec|shell|eval|^run$/i.test(c), c);
+    }
+  });
+});
+
+describe("reach.ask_user guardrails", () => {
+  it("normalizes questions and detects answer names", () => {
+    assert.equal(normalizeQuestion("Which file, exactly, should I open?"), "which file exactly should i open");
+    assert.equal(normalizeQuestion("  HELLO   WORLD!  "), "hello world");
+    assert.equal(questionNamesAnswer("should i check budget xlsx", "budget.xlsx"), true);
+    assert.equal(questionNamesAnswer("is this invoice", "invoice"), true);
+    assert.equal(questionNamesAnswer("reinvoicing the client", "invoice"), false);
+    assert.equal(questionNamesAnswer("noticed something", "no"), false);
+  });
+
+  it("first question pauses task with awaiting_input and initializes askedQuestions with questionCount = 1", async () => {
+    const t = task("clarification test task 1");
+    const r = await proposeAction(t.id, {
+      actionClass: "ask",
+      name: "reach.ask_user",
+      args: { question: "Which file should I read?", options: ["a.txt", "b.txt"] },
+    });
+    assert.equal(r.outcome, "paused");
+    const after = getTask(t.id)!;
+    assert.equal(after.status, "awaiting_input");
+    assert.equal(after.pendingInput?.question, "Which file should I read?");
+    assert.equal(after.pendingInput?.questionCount, 1);
+    assert.equal(after.askedQuestions?.length, 1);
+    assert.equal(after.askedQuestions?.[0]?.normalized, "which file should i read");
+  });
+
+  it("duplicate question is rejected and leaves task running without overwriting", async () => {
+    const t = task("clarification test task 2");
+    await proposeAction(t.id, {
+      actionClass: "ask",
+      name: "reach.ask_user",
+      args: { question: "Which file should I read?" },
+    });
+    // Duplicate question with different casing and punctuation
+    const dup = await proposeAction(
+      t.id,
+      {
+        actionClass: "ask",
+        name: "reach.ask_user",
+        args: { question: "  WHICH FILE SHOULD I READ?!  " },
+      },
+      undefined,
+      { softFail: true },
+    );
+    assert.equal(dup.outcome, "rejected");
+    assert.match(dup.error ?? "", /Duplicate question already asked/);
+
+    // Substring duplicate
+    const subDup = await proposeAction(
+      t.id,
+      {
+        actionClass: "ask",
+        name: "reach.ask_user",
+        args: { question: "Which file should I read right now?" },
+      },
+      undefined,
+      { softFail: true },
+    );
+    assert.equal(subDup.outcome, "rejected");
+    assert.match(subDup.error ?? "", /Duplicate question already asked/);
+  });
+
+  it("answering question records answer and question naming prior answer is rejected", async () => {
+    const { setPlannerBackendFactory } = await import("../planner/loop.js");
+    setPlannerBackendFactory(() => ({
+      backendName: "idle-mock",
+      converse: () => new Promise(() => {}),
+    }));
+    try {
+      const t = task("clarification test task 3");
+      await proposeAction(t.id, {
+        actionClass: "ask",
+        name: "reach.ask_user",
+        args: { question: "Which document should I process?" },
+      });
+      const ans = answerInput(t.id, "budget.xlsx");
+      assert.equal(ans.ok, true);
+      assert.equal(getTask(t.id)?.status, "running");
+      assert.equal(getTask(t.id)?.askedQuestions?.[0]?.answer, "budget.xlsx");
+
+      // Repeat question naming the prior answer
+      const repeat = await proposeAction(
+        t.id,
+        {
+          actionClass: "ask",
+          name: "reach.ask_user",
+          args: { question: "Should I open the budget.xlsx file?" },
+        },
+        undefined,
+        { softFail: true },
+      );
+      assert.equal(repeat.outcome, "rejected");
+      assert.match(repeat.error ?? "", /Question already answered/);
+      assert.match(repeat.error ?? "", /budget\.xlsx/);
+    } finally {
+      setPlannerBackendFactory(undefined);
+    }
+  });
+
+  it("hard cap of 3 questions per task rejects subsequent asks", async () => {
+    const { setPlannerBackendFactory } = await import("../planner/loop.js");
+    setPlannerBackendFactory(() => ({
+      backendName: "idle-mock",
+      converse: () => new Promise(() => {}),
+    }));
+    try {
+      const t = task("clarification test task 4");
+      // Question 1
+      const q1 = await proposeAction(t.id, {
+        actionClass: "ask",
+        name: "reach.ask_user",
+        args: { question: "First question: which folder?" },
+      });
+      assert.equal(q1.outcome, "paused");
+      answerInput(t.id, "Documents");
+
+      // Question 2
+      const q2 = await proposeAction(t.id, {
+        actionClass: "ask",
+        name: "reach.ask_user",
+        args: { question: "Second question: which format?" },
+      });
+      assert.equal(q2.outcome, "paused");
+      assert.equal(getTask(t.id)?.pendingInput?.questionCount, 2);
+      answerInput(t.id, "PDF");
+
+      // Question 3
+      const q3 = await proposeAction(t.id, {
+        actionClass: "ask",
+        name: "reach.ask_user",
+        args: { question: "Third question: should I compress it?" },
+      });
+      assert.equal(q3.outcome, "paused");
+      assert.equal(getTask(t.id)?.pendingInput?.questionCount, 3);
+      answerInput(t.id, "No");
+
+      // Question 4: exceeds cap of 3
+      const q4 = await proposeAction(
+        t.id,
+        {
+          actionClass: "ask",
+          name: "reach.ask_user",
+          args: { question: "Fourth question: where should I send it?" },
+        },
+        undefined,
+        { softFail: true },
+      );
+      assert.equal(q4.outcome, "rejected");
+      assert.match(q4.error ?? "", /Question budget exhausted \(3\/3 questions already asked for this task\)/);
+      assert.equal(getTask(t.id)?.askedQuestions?.length, 3);
+    } finally {
+      setPlannerBackendFactory(undefined);
     }
   });
 });
