@@ -324,6 +324,15 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: 118/118 server tests pass, 41/41 agent tests pass, 187/187 E2E tests pass, strict typechecks pass with 0 errors.
 * Suggestion: Boundary validators on user input should not enforce arbitrary minimum string lengths that reject natural greetings ("hi", "go"), and JSON Schema converters for LLM tools must support primitive array types (`string[]`, `number[]`) since modern models natively support them.
 
+## 2026-09-26 — Conversational Trap, Cross-Task Follow-Up Amnesia, and Summary Truncation
+* Task: Support conversational openings ("hi", "hello there"), follow-up queries ("okay then show me the summarized version of waht u said"), and substantive document summaries in `/sim`.
+* Steps: (1) Submitted "hi" and "hello there how are you" in `/sim`; planner rejected plain-text turn and ordered `reach.finish`, which failed with "Unable to proceed without user input or task request"; (2) Asked to read and summarize Jeremy's resume; planner read the PDF but returned only a 1-sentence meta-description in `reach.finish.summary` (clamped to 500 chars); (3) Followed up with "okay then show me the summarized version of waht u said"; new task failed with "Missing evidenceActionIds: No prior verified actions were performed to cite as evidence for the requested summary".
+* Expected vs actual: expected (1) greetings to prompt the model to call `reach.ask_user` asking how to assist the user on their devices; (2) document summaries to provide the substantive summary in the result; (3) follow-up questions to retain context from the immediate prior completed task and permit citing verified actions from that task. Actual: (1) plain-text rejection blindly demanded `reach.finish`, which cannot declare `complete` without actions, trapping the model into `reach.finish cannot`; (2) `args.summary` was clamped to 500 chars and prompt lacked guidance on full user-facing answers; (3) each task ran in total isolation with empty trace, forcing `reach.finish cannot` on all follow-up questions.
+* Severity: High (broke conversational UX, multi-turn task comprehension, and document summarization in live testing).
+* Workaround (kept): (1) grounded `SYSTEM` prompt and plain-text turn rejection to direct greetings and requests lacking device tasks to `reach.ask_user`; (2) expanded summary limit to 2000 chars and instructed model to provide substantive summaries in `reach.finish.summary`; (3) injected recent completed task context (prior goal, outcome, and verified actions) into planner history and allowed `validateFinish` to verify citations against the combined trace of the current task and immediate prior completed task; (4) bumped `BUILD_STAMP` to `2026-09-26T22:20:00Z` in both server and agent.
+* Result: 118/118 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
+* Suggestion: In task-oriented agent systems with citation requirements, conversational openings must route to clarification/question primitives (`reach.ask_user`) rather than completion primitives, and follow-up turns in an interactive session must inherit recent task context and prior verified action citations.
+
 ## Template for new entries
 * Task:
 * Steps:
@@ -331,6 +340,7 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Severity: Critical / High / Medium / Low
 * Workaround:
 * Suggestion:
+
 
 
 

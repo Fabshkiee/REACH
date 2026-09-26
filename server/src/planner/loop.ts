@@ -5,7 +5,7 @@ import { proposeAction } from "../executor/executor.js";
 import { getActionDef } from "../executor/registry.js";
 import { policyContextForAvailable } from "../policy/context.js";
 import { defaultPolicyContext } from "../policy/engine.js";
-import { claimLoopSlot, getTask, isTerminalStatus, releaseLoopSlot, setTaskStatus, appendTaskEvent } from "../tasks/taskStore.js";
+import { claimLoopSlot, getTask, isTerminalStatus, releaseLoopSlot, setTaskStatus, appendTaskEvent, listRecentTasks } from "../tasks/taskStore.js";
 import { failureFeedback, recoveryHintFor } from "../executor/recovery.js";
 import type { ActionRecord, TaskOutcome, TaskStatus } from "../tasks/types.js";
 import type { HistoryEntry, PlannerBackend } from "./backend.js";
@@ -17,10 +17,12 @@ const SYSTEM = [
   "You are the REACH planner: given a user goal, achieve it by calling the offered tools, one per turn.",
   "Rules:",
   "- Call exactly ONE tool per turn. Never invent tool names — only call tools from the offered set.",
+  "- If the user goal is a greeting, conversational opening, or lacks an actionable device task (e.g. 'hi', 'hello', 'how are you', 'help'), call reach.ask_user to greet the user and ask what task they would like you to perform on their connected devices.",
   "- If the target of an action is genuinely ambiguous (which file? which device?), call reach.ask_user instead of guessing.",
+  "- For questions, file reading, or summarization goals, include the full substantive answer or summary directly in the 'summary' argument of reach.finish (up to 2000 characters). Do not output just a meta-description like 'done'.",
   "- Some actions pause for user approval; you will be told when that happens. Continue after approval arrives.",
   "- When no more actions are needed, call reach.finish with kind + evidence: complete (cite verified actionIds), partial (cite prior evidence + remaining work), cannot (missing capabilities + reason), unverified (reason), or failed (reason). Narration without cited evidence is rejected.",
-  "- Plain-text replies are deprecated: turns with no tool calls are rejected. You must call reach.finish with structured evidence.",
+  "- Plain-text replies with no tool calls are deprecated: every turn must call a tool (an action tool, reach.ask_user, or reach.finish with evidence).",
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
@@ -97,15 +99,19 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   if (kind !== "complete" && kind !== "partial" && kind !== "unverified" && kind !== "failed" && kind !== "cannot") {
     return { invalid: `reach.finish needs kind one of complete|partial|unverified|failed|cannot, got ${JSON.stringify(kind) ?? "missing"}.` };
   }
-  const trace = getTask(taskId)?.trace ?? [];
-  const byId = new Map(trace.map((r) => [r.actionId, r]));
+  const task = getTask(taskId);
+  const trace = task?.trace ?? [];
+  const recent = listRecentTasks(5).filter((t) => t.id !== taskId && t.status === "completed");
+  const lastTask = recent.length > 0 && (Date.now() - Date.parse(recent[0].createdAt) < 15 * 60_000) ? recent[0] : undefined;
+  const combinedTrace = [...trace, ...(lastTask?.trace ?? [])];
+  const byId = new Map(combinedTrace.map((r) => [r.actionId, r]));
   const cited = asStringArray(args.evidenceActionIds);
   const bad = cited.filter((id) => {
     const r = byId.get(id);
     return !r || r.ok !== true;
   });
-  const summary = typeof args.summary === "string" ? args.summary.slice(0, 500) : "";
-  const reason = typeof args.reason === "string" ? args.reason.slice(0, 500) : "";
+  const summary = typeof args.summary === "string" ? args.summary.slice(0, 2000) : "";
+  const reason = typeof args.reason === "string" ? args.reason.slice(0, 2000) : "";
   const missingCapabilities = asStringArray(args.missingCapabilities);
   const remaining = asStringArray(args.remaining);
 
@@ -214,6 +220,22 @@ export async function runPlannerLoop(
       role: "user",
       text: `Context from earlier in this task (audit-trace summary, not verbatim):\n${traceSummary(taskId)}\n${opts.resumeNote}`,
     });
+  } else {
+    const recentTasks = listRecentTasks(5).filter((t) => t.id !== taskId && t.status === "completed");
+    if (recentTasks.length > 0) {
+      const last = recentTasks[0];
+      const lastMs = Date.parse(last.createdAt);
+      if (!isNaN(lastMs) && Date.now() - lastMs < 15 * 60_000) {
+        const actions = (last.trace ?? [])
+          .filter((r) => r.ok && r.verified)
+          .map((r) => `${r.name}${r.target ? ` on "${r.target}"` : ""} (${r.actionId})`)
+          .join(", ");
+        history.push({
+          role: "user",
+          text: `[Prior completed task context: id=${last.id}, goal="${last.goal}", outcome="${last.outcome?.summary || last.outcome?.reason || "done"}"]${actions ? `\n[Prior verified actions that can be cited if answering follow-up questions: ${actions}]` : ""}`,
+        });
+      }
+    }
   }
   const plan: string[] = [...(task.plan ?? [])];
   // Consecutive FAILED turns (reset by ok/paused): after MAX_AUTONOMOUS_RECOVERIES
@@ -296,12 +318,15 @@ export async function runPlannerLoop(
       return;
     }
 
-    // Plain-text finishes are deprecated: force reach.finish with cited evidence.
+    // Plain-text turns are deprecated: force reach.finish with cited evidence or reach.ask_user.
     if (turn.toolCalls.length === 0) {
       history.push({ role: "assistant", text: turn.text });
+      const hint = succeededRecords(taskId).length === 0
+        ? "If this is a greeting or request without an actionable device task, call reach.ask_user to ask the user how to help. Otherwise, select an action tool or call reach.finish cannot."
+        : "You must call reach.finish with kind ('complete'|'partial'|'cannot'|'unverified'|'failed') and cite evidenceActionIds from verified actions. Put your full substantive answer/summary in the summary argument.";
       history.push({
         role: "user",
-        text: "ERROR: Plain-text finishes are deprecated. You must call reach.finish with kind ('complete'|'partial'|'cannot'|'unverified'|'failed') and cite evidenceActionIds from verified actions.",
+        text: `ERROR: Plain-text turns are deprecated. Every turn must call a tool. ${hint}`,
       });
       plan.push(`step ${stepBase + step}: rejected plain-text turn — directed to reach.finish`);
       setTaskStatus(taskId, "running", { plan });
