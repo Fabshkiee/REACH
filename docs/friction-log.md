@@ -298,6 +298,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): (1) in `downloadAsset.ts`, break the chunk iteration loop on ceiling breach, close the write stream gracefully before unlinking, and ensure the 50MB ceiling error is rethrown; in mock test server, guard `res.write` against closed/destroyed streams; (2) widened traversal test assertion regexes to `/refused: (path escapes sandbox|allowed|system location)/i`.
 * Result: server 115/115 pass, agent 41/41 pass (156/156 total), both strict typechecks pass with 0 errors.
 
+## 2026-09-26 — Phase 3: Autonomous Two-Tier Sub-Goal Execution (milestones, checkpointing, event logging)
+* Task: Implement Phase 3 two-tier sub-goal decomposition and milestone checkpointing to allow the planner to decompose composite goals into verifiable sub-goals and track milestone progress.
+* Steps: (1) Added `milestone_completed` to `TaskEventKind` in `server/src/tasks/types.ts`; (2) registered `reach.checkpoint_milestone` in `server/src/planner/tools.ts`; (3) encoded two-tier planning rules in `SYSTEM` prompt in `server/src/planner/loop.ts`; (4) implemented milestone interception in `loop.ts` emitting `milestone_completed` events, updating `plan`, and providing progress feedback; (5) added unit test in `server/src/planner/loop.test.ts`.
+* Expected vs actual: expected smooth test pass; actual initial unit test defined `test.step2` with `actionClass: "write"`, which triggered policy engine `confirm` (awaiting approval) since writes without targets inside user space pause for user confirmation.
+* Severity: Low (test action class selection).
+* Workaround (kept): defined `test.step2` with `actionClass: "observe"` for autonomous milestone flow verification.
+* Result: server 116/116 pass, agent 41/41 pass (157/157 total), both strict typechecks pass with 0 errors.
+
 ## Template for new entries
 * Task:
 * Steps:
@@ -305,5 +313,6 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Severity: Critical / High / Medium / Low
 * Workaround:
 * Suggestion:
+
 
 

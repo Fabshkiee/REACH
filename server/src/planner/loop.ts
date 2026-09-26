@@ -9,7 +9,7 @@ import { claimLoopSlot, getTask, isTerminalStatus, releaseLoopSlot, setTaskStatu
 import { failureFeedback, recoveryHintFor } from "../executor/recovery.js";
 import type { ActionRecord, TaskOutcome, TaskStatus } from "../tasks/types.js";
 import type { HistoryEntry, PlannerBackend } from "./backend.js";
-import { FINISH_TOOL_NAME, toolsForPlanner, type FinishArgs } from "./tools.js";
+import { FINISH_TOOL_NAME, MILESTONE_TOOL_NAME, toolsForPlanner, type CheckpointMilestoneArgs, type FinishArgs } from "./tools.js";
 
 const MAX_STEPS = Number(process.env.PLANNER_MAX_STEPS ?? 8);
 
@@ -26,6 +26,7 @@ const SYSTEM = [
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
   "- apps.launch is strictly restricted to known desktop utilities (notepad, calc, cmd, powershell, explorer).",
   "- Directories are explored via files.list (names + sizes) and opened in File Explorer via apps.open_document. Never read or verify a directory as a file.",
+  "- Two-tier planning: For composite or multi-step goals, break the goal into 2–4 verifiable milestones. Call reach.checkpoint_milestone upon completing each milestone before advancing to the next, maintaining verified evidence at each step.",
   "- Keep reasoning brief. Temperature is 0; be decisive.",
 ].join("\n");
 
@@ -336,6 +337,39 @@ export async function runPlannerLoop(
         role: "user",
         toolResults: [{ toolCallId: first.id, content: `ERROR: ${checked.invalid} Continue with verified actions or a grounded cannot.` }],
       });
+      setTaskStatus(taskId, "running", { plan });
+      saveUsage();
+      continue;
+    }
+
+    if (first.name === MILESTONE_TOOL_NAME) {
+      const args = first.args as unknown as CheckpointMilestoneArgs;
+      const completed = typeof args?.completed === "string" ? args.completed.trim().slice(0, 500) : "";
+      const next = typeof args?.next === "string" ? args.next.trim().slice(0, 500) : undefined;
+      if (!completed) {
+        history.push({
+          role: "user",
+          toolResults: [{ toolCallId: first.id, content: "ERROR: reach.checkpoint_milestone requires a non-empty 'completed' string." }],
+        });
+        continue;
+      }
+      plan.push(`step ${stepBase + step}: milestone "${completed}"${next ? ` (next: ${next})` : ""}`);
+      appendTaskEvent(taskId, {
+        kind: "milestone_completed",
+        capabilityId: "planner-loop",
+        status: "succeeded",
+        summary: `Milestone: ${completed}`,
+      });
+      history.push({
+        role: "user",
+        toolResults: [
+          {
+            toolCallId: first.id,
+            content: `OK: milestone recorded: "${completed}". ${next ? `Proceed with next sub-goal: ${next}` : "Proceed towards finishing the goal."}`,
+          },
+        ],
+      });
+      consecutiveFailures = 0;
       setTaskStatus(taskId, "running", { plan });
       saveUsage();
       continue;

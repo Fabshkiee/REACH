@@ -352,6 +352,79 @@ describe("planner loop", () => {
     assert.ok(task.plan?.some((p) => p.includes("rejected plain-text turn — directed to reach.finish")));
     assert.equal(task.outcome?.kind, "cannot");
   });
+
+  it("two-tier planning: reach.checkpoint_milestone logs milestone event and advances sub-goal", async () => {
+    defineAction({
+      name: "test.step1",
+      actionClass: "observe",
+      description: "Perform sub-goal step 1",
+      schema: z.object({}),
+      timeoutMs: 5000,
+      verify: () => "verified step 1",
+      handler: async () => ({ step: 1 }),
+    });
+
+    defineAction({
+      name: "test.step2",
+      actionClass: "observe",
+      description: "Perform sub-goal step 2",
+      schema: z.object({}),
+      timeoutMs: 5000,
+      verify: () => "verified step 2",
+      handler: async () => ({ step: 2 }),
+    });
+
+    const t = createTask("composite goal test");
+
+    const mock = new ScriptedPlannerBackend([
+      { toolCalls: [{ name: "test.step1", args: {} }] },
+      {
+        toolCalls: [
+          {
+            name: "reach.checkpoint_milestone",
+            args: { completed: "Gathered all required data", next: "Generate final report" },
+          },
+        ],
+      },
+      { toolCalls: [{ name: "test.step2", args: {} }] },
+      {
+        toolCalls: [
+          {
+            name: "reach.checkpoint_milestone",
+            args: { completed: "Generated final report" },
+          },
+        ],
+      },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: () => {
+              const trace = getTask(t.id)?.trace ?? [];
+              const verified = trace.filter((r) => r.ok && r.verified).map((r) => r.actionId);
+              return {
+                kind: "complete",
+                summary: "All milestones accomplished.",
+                evidenceActionIds: verified,
+              };
+            },
+          },
+        ],
+      },
+    ]);
+
+    await runPlannerLoop(t.id, { backend: mock });
+    assert.equal(await pollDone(t.id), "completed");
+    const task = getTask(t.id)!;
+    assert.ok(task.plan?.some((p) => p.includes('milestone "Gathered all required data" (next: Generate final report)')));
+    assert.ok(task.plan?.some((p) => p.includes('milestone "Generated final report"')));
+
+    const milestoneEvents = (task.events ?? []).filter((e) => e.kind === "milestone_completed");
+    assert.equal(milestoneEvents.length, 2);
+    assert.ok(milestoneEvents[0]?.summary.includes("Gathered all required data"));
+    assert.ok(milestoneEvents[1]?.summary.includes("Generated final report"));
+    assert.equal(task.outcome?.kind, "complete");
+  });
 });
 
 describe("no goal-string routing (structural)", () => {

@@ -110,7 +110,8 @@ export type TaskEventKind =
   | "clarification_requested"
   | "clarification_answered"
   | "outcome_set"
-  | "task_cancelled";
+  | "task_cancelled"
+  | "milestone_completed";
 
 export interface TaskEvent {
   eventId: string;

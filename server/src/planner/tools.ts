@@ -41,6 +41,29 @@ export function finishToolDef(): PlannerToolDef {
   };
 }
 
+export const MILESTONE_TOOL_NAME = "reach.checkpoint_milestone";
+
+export interface CheckpointMilestoneArgs {
+  completed: string;
+  next?: string;
+}
+
+export function milestoneToolDef(): PlannerToolDef {
+  return {
+    name: MILESTONE_TOOL_NAME,
+    description:
+      "Record progress on a composite goal milestone. Call this when a sub-goal is achieved (e.g. 'found 3 dog photos', 'downloaded images', 'created document') before moving to the next milestone.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        completed: { type: "string", minLength: 1, maxLength: 500, description: "Description of the milestone completed." },
+        next: { type: "string", maxLength: 500, description: "Next sub-goal to execute." },
+      },
+      required: ["completed"],
+    },
+  };
+}
+
 /**
  * Planner-visible tools, generated from the executor registry — the single
  * source of truth. The model can only ever propose registered actions;
@@ -66,6 +89,8 @@ export function toolsForPlanner(): PlannerToolDef[] {
       required: ["question"],
     },
   });
+  // Framework-level milestone checkpoint for two-tier decomposition:
+  tools.push(milestoneToolDef());
   // Structured terminal reply: intercepted in planner/loop.ts, never dispatched
   // through the executor as a device action.
   tools.push(finishToolDef());
