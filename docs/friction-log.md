@@ -333,6 +333,15 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: 118/118 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
 * Suggestion: In task-oriented agent systems with citation requirements, conversational openings must route to clarification/question primitives (`reach.ask_user`) rather than completion primitives, and follow-up turns in an interactive session must inherit recent task context and prior verified action citations.
 
+## 2026-09-26 — Evidence Citation Resolution (Tool Name Aliasing and ActionId Visibility)
+* Task: Execute document reading and summarization goal ("please summarize the content of a document insidejeremy folder. choose whatever file u want").
+* Steps: (1) Planner executed `files.list` (failed path), recovered with `files.search` (found PDF), and ran `files.read` (read PDF content); (2) Model attempted `reach.finish complete` without actionIds, then with `evidenceActionIds: ["files__list", "files__search", "files__read"]`, then with `["files__read"]`; (3) Server rejected all attempts because `evidenceActionIds` only accepted opaque `actionId` strings (`act_...`), and the tool execution results never provided the model with its `actionId`; (4) Model failed the task with `reach.finish cannot`.
+* Expected vs actual: expected task to succeed with verified summary; actual: model performed the real work and read the file, but was blocked at completion because `validateFinish` strictly required opaque internal action IDs rather than capability names, while `toolResults` never exposed `proposed.actionId` to the model.
+* Severity: High (caused genuine successful actions to fail at the finish line).
+* Workaround (kept): (1) surfaced `[actionId: ${proposed.actionId}]` in the tool result message so the model explicitly receives its action ID; (2) enhanced `validateFinish` to index verified trace records by `actionId`, tool name (`files.read`), and sanitized tool name (`files__read`), automatically resolving tool name citations to their verified action IDs; (3) automatically attached verified trace actions when `kind === "complete"` has verified work but omitted explicit citation strings; (4) bumped `BUILD_STAMP` to `2026-09-26T22:35:00Z`.
+* Result: 118/118 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
+* Suggestion: Planner-facing citation validators should resolve canonical tool names (`domain.action` or `domain__action`) to their underlying execution records when unambiguous, rather than requiring the LLM to guess internal opaque UUIDs.
+
 ## Template for new entries
 * Task:
 * Steps:
@@ -340,6 +349,7 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Severity: Critical / High / Medium / Low
 * Workaround:
 * Suggestion:
+
 
 
 

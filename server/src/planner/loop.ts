@@ -104,12 +104,39 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   const recent = listRecentTasks(5).filter((t) => t.id !== taskId && t.status === "completed");
   const lastTask = recent.length > 0 && (Date.now() - Date.parse(recent[0].createdAt) < 15 * 60_000) ? recent[0] : undefined;
   const combinedTrace = [...trace, ...(lastTask?.trace ?? [])];
-  const byId = new Map(combinedTrace.map((r) => [r.actionId, r]));
-  const cited = asStringArray(args.evidenceActionIds);
-  const bad = cited.filter((id) => {
-    const r = byId.get(id);
-    return !r || r.ok !== true;
-  });
+  
+  // Index by actionId, by tool name (e.g. files.read), and by sanitized name (files__read)
+  const byKey = new Map<string, ActionRecord>();
+  for (const r of combinedTrace) {
+    byKey.set(r.actionId, r);
+    if (!byKey.has(r.name)) byKey.set(r.name, r);
+    const sanitized = r.name.replace(/\./g, "__");
+    if (!byKey.has(sanitized)) byKey.set(sanitized, r);
+  }
+
+  const rawCited = asStringArray(args.evidenceActionIds);
+  const cited: string[] = [];
+  const bad: string[] = [];
+  for (const item of rawCited) {
+    const r = byKey.get(item);
+    if (!r || r.ok !== true) {
+      bad.push(item);
+    } else {
+      if (!cited.includes(r.actionId)) {
+        cited.push(r.actionId);
+      }
+    }
+  }
+
+  // If the model did not explicitly provide actionIds but verified actions ran in this task,
+  // ground the completion with the verified actions that succeeded.
+  if (kind === "complete" && cited.length === 0 && bad.length === 0) {
+    const verified = (task?.trace ?? []).filter((r) => r.ok && r.verified);
+    if (verified.length > 0) {
+      cited.push(...verified.map((r) => r.actionId));
+    }
+  }
+
   const summary = typeof args.summary === "string" ? args.summary.slice(0, 2000) : "";
   const reason = typeof args.reason === "string" ? args.reason.slice(0, 2000) : "";
   const missingCapabilities = asStringArray(args.missingCapabilities);
@@ -118,7 +145,7 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   if (kind === "complete") {
     if (cited.length === 0) return { invalid: "reach.finish complete needs evidenceActionIds citing verified trace actions." };
     if (bad.length > 0) return { invalid: `reach.finish complete cites unknown/failed actions: ${bad.join(", ")}. Cite only successful trace actionIds.` };
-    const unverified = cited.filter((id) => byId.get(id)?.verified !== true);
+    const unverified = cited.filter((id) => byKey.get(id)?.verified !== true);
     if (unverified.length > 0) {
       return { invalid: `reach.finish complete cites unverified actions: ${unverified.join(", ")}. Use kind unverified, or wait for verification.` };
     }
@@ -484,7 +511,7 @@ export async function runPlannerLoop(
         toolResults: [
           {
             toolCallId: first.id,
-            content: `OK: ${JSON.stringify(proposed.data).slice(0, 8000)}${proposed.verified === false ? " (UNVERIFIED)" : " (verified)"}`,
+            content: `OK [actionId: ${proposed.actionId}]: ${JSON.stringify(proposed.data).slice(0, 8000)}${proposed.verified === false ? " (UNVERIFIED)" : " (verified)"}`,
           },
         ],
       });
