@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { stat } from "node:fs/promises";
 import { z } from "zod";
 import { assertAllowedPath } from "../sandbox.js";
 import { verifyFile } from "./files.js";
@@ -88,12 +89,34 @@ export async function openWithDefaultApp(absPath: string): Promise<{ opened: boo
   }
 }
 
-export async function openDocument(input: OpenDocumentInput): Promise<{ path: string; opened: boolean; openNote?: string }> {
+export async function openDocument(input: OpenDocumentInput): Promise<{
+  path: string;
+  opened: boolean;
+  isDirectory?: boolean;
+  openNote?: string;
+}> {
   const parsed = OpenDocumentSchema.parse(input);
   const abs = assertAllowedPath(parsed.path);
-  await verifyFile({ path: abs });
+  let st;
+  try {
+    st = await stat(abs);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`missing path: no such file or directory (ENOENT): ${abs}`);
+    }
+    throw err;
+  }
+  if (!st.isFile() && !st.isDirectory()) {
+    throw new Error(`not an openable file or directory: ${abs}`);
+  }
+  const isDirectory = st.isDirectory();
   const { opened, openNote } = await openWithDefaultApp(abs);
-  return { path: abs, opened, openNote };
+  return {
+    path: abs,
+    opened,
+    ...(isDirectory ? { isDirectory: true } : {}),
+    openNote,
+  };
 }
 
 const BLOCKED_SCHEMES = new Set(["file:", "javascript:", "data:", "vbscript:"]);

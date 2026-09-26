@@ -290,6 +290,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): (1) set `process.env.NODE_ENV = "test"` before dynamic `await import("./index.js")` in both health test suites; (2) set an idle mock planner factory via `setPlannerBackendFactory` during `answerInput` unit testing; (3) grounded `apps.launch` rejection tests assert directly on browser and unauthorized binary interception before policy proposal.
 * Suggestion: Keep entry points cleanly separated from server startup (e.g. `app.ts` exporting Express app vs `index.ts` executing listen), and ensure async background tasks initiated by helper functions allow optional suppression or explicit completion tracking in test runners.
 
+## 2026-09-26 — Phase 2: High-Level General Primitives (web.search, download_asset, folder-open, docx-images)
+* Task: Implement Phase 2 high-level general primitives to enable composite user tasks (web search, media downloading, folder opening in Explorer, and DOCX image embedding) without low-level DOM or file wrangling.
+* Steps: (1) Added `server/src/actions/web.ts` and `web.test.ts` implementing `web.search` (text and image search via DuckDuckGo without external paid API keys); (2) added `windows-agent/src/capabilities/downloadAsset.ts` and `downloadAsset.test.ts` implementing `web.download_asset` with streaming fetch, 50MB ceiling, and MIME validation; (3) upgraded `apps.open_document` in `windows-agent/src/capabilities/apps.ts` to open directories in Windows File Explorer via `Start-Process`; (4) upgraded `windows-agent/src/capabilities/createDocument.ts` to accept `imagePaths` and embed images into Word `.docx` files via `docx` `ImageRun`.
+* Expected vs actual: expected smooth test suite; actual (1) `downloadAsset` 50MB ceiling test threw uncaught `ERR_STREAM_DESTROYED` because aborting while chunks buffered caused Node's Writable stream to throw during pending `writev`, and the `fetch` stream's `AbortError` swallowed the ceiling error message; (2) sandbox traversal tests in `createDocument.test.ts` and `downloadAsset.test.ts` expected `/refused: path escapes sandbox|allowed/i`, but Windows sandbox threw `refused: system location "c:\windows"`.
+* Severity: Medium (stream abort lifecycle and test assertion regex alignment).
+* Workaround (kept): (1) in `downloadAsset.ts`, break the chunk iteration loop on ceiling breach, close the write stream gracefully before unlinking, and ensure the 50MB ceiling error is rethrown; in mock test server, guard `res.write` against closed/destroyed streams; (2) widened traversal test assertion regexes to `/refused: (path escapes sandbox|allowed|system location)/i`.
+* Result: server 115/115 pass, agent 41/41 pass (156/156 total), both strict typechecks pass with 0 errors.
+
 ## Template for new entries
 * Task:
 * Steps:
@@ -297,4 +305,5 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Severity: Critical / High / Medium / Low
 * Workaround:
 * Suggestion:
+
 

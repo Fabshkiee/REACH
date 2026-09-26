@@ -15,6 +15,7 @@ import {
   ALLOWED_CAPABILITIES,
   CreateDocumentSchema,
   DeleteFileSchema,
+  DownloadAssetSchema,
   ListFilesSchema,
   MoveFileSchema,
   ReadFileSchema,
@@ -22,6 +23,7 @@ import {
   WriteFileSchema,
   createDocument,
   deleteFile,
+  downloadAsset,
   isAllowed,
   listFiles,
   moveFile,
@@ -77,6 +79,10 @@ const DISPATCH: Record<string, DispatchEntry> = {
     run: async (a) => ({ ...(await verifyFile(a as { path: string })) }),
   },
   list_files: { schema: ListFilesSchema, run: async (a) => ({ ...(await listFiles(a as never)) }) },
+  download_asset: {
+    schema: DownloadAssetSchema,
+    run: async (a) => ({ ...(await downloadAsset(a as never)) }),
+  },
 };
 
 async function runCapability(capability: string, args: unknown): Promise<{ status: number; body: unknown }> {

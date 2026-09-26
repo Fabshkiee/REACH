@@ -11,7 +11,7 @@ function agentHeaders(): Record<string, string> {
 }
 
 /** Call one agent capability; agent-side guards re-validate everything. */
-async function callAgent(capability: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function callAgent(capability: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS);
   try {
@@ -78,7 +78,11 @@ export function registerAgentActions(): void {
       actionClass: "write" as const,
       description:
         "Create and open a real .docx Word document on the laptop. Draft the body text yourself (plain paragraphs, one per line). The file lands in the Documents/REACH folder and opens automatically.",
-      schema: z.object({ title: z.string().min(1).max(120), body: z.string().max(20000) }),
+      schema: z.object({
+        title: z.string().min(1).max(200),
+        body: z.string().max(20000).default(""),
+        imagePaths: z.array(z.string().min(1).max(2000)).max(20).optional(),
+      }),
       timeoutMs: 60_000,
       capability: "create_document",
     },

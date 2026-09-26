@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { KNOWN_APPS, assertSafeUrl, launchApplication, openDocument } from "./apps.js";
 
 describe("agent app primitives", () => {
@@ -24,5 +25,16 @@ describe("agent app primitives", () => {
 
   it("openDocument refuses missing files before opening", async () => {
     await assert.rejects(openDocument({ path: "definitely\\not\\here-12345.txt" }), /ENOENT|no such/i);
+  });
+
+  it("openDocument opens directories in Windows File Explorer without rejection", async () => {
+    const { homedir } = await import("node:os");
+    const { mkdir } = await import("node:fs/promises");
+    const testDir = join(homedir(), "Documents", "REACH", "test_explorer_open");
+    await mkdir(testDir, { recursive: true });
+    const res = await openDocument({ path: testDir });
+    assert.equal(typeof res.opened, "boolean");
+    assert.equal(res.path, testDir);
+    assert.equal(res.isDirectory, true);
   });
 });
