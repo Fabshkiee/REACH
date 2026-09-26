@@ -254,6 +254,50 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
     }
   }
 
+  // Resilient fallback to DuckDuckGo lite endpoint if HTML scraping produced no results
+  if (results.length === 0) {
+    try {
+      const liteCtrl = new AbortController();
+      const liteTimer = setTimeout(() => liteCtrl.abort(), 10_000);
+      try {
+        const liteRes = await fetch("https://lite.duckduckgo.com/lite/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": USER_AGENTS[0]!,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+          body: `q=${encodeURIComponent(parsed.query)}`,
+          signal: liteCtrl.signal,
+        });
+        if (liteRes.ok) {
+          const liteHtml = await liteRes.text();
+          const linkMatches = [
+            ...liteHtml.matchAll(/<a[^>]*class=['"]result-link['"][^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi),
+            ...liteHtml.matchAll(/<a\s+[^>]*?href=['"]([^'"]+)['"][^>]*?class=['"]result-link['"][^>]*?>([\s\S]*?)<\/a>/gi),
+          ];
+          const snippetMatches = [...liteHtml.matchAll(/<td\s+[^>]*?class=['"]result-snippet['"][^>]*?>([\s\S]*?)<\/td>/gi)];
+          const count = Math.min(linkMatches.length, parsed.limit);
+          for (let i = 0; i < count; i++) {
+            const lm = linkMatches[i];
+            if (!lm) continue;
+            const url = extractDestinationUrl(lm[1] ?? "");
+            const title = stripHtmlTags(lm[2] ?? "");
+            const snippet = stripHtmlTags(snippetMatches[i] ? snippetMatches[i]![1] ?? "" : "");
+            if (url && title) {
+              results.push({ title, url, snippet });
+            }
+            if (results.length >= parsed.limit) break;
+          }
+        }
+      } finally {
+        clearTimeout(liteTimer);
+      }
+    } catch {
+      // Non-fatal fallback attempt
+    }
+  }
+
   return {
     ok: true,
     query: parsed.query,

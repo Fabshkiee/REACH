@@ -62,7 +62,16 @@ class FileTaskStore implements TaskStore {
       kind: "goal_received",
       summary: goal.length > 200 ? goal.slice(0, 200) + "…" : goal,
     };
-    const task: ReachTask = { id: newId(), goal, status: "queued", createdAt: now, updatedAt: now, budget: defaultBudget(), events: [goalEvent] };
+    const task: ReachTask = {
+      id: newId(),
+      goal,
+      status: "queued",
+      createdAt: now,
+      updatedAt: now,
+      budget: defaultBudget(),
+      events: [goalEvent],
+      plan: [],
+    };
     writeJsonAtomic(taskPath(task.id), { version: TASK_SCHEMA_VERSION, ...task });
     return task;
   }

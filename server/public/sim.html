@@ -638,7 +638,7 @@
       const head = document.createElement("div");
       head.className = "cardhead pending";
       const qCount = task.questionCount || (pi && pi.questionCount) || (task.askedQuestions && task.askedQuestions.length) || 1;
-      head.innerHTML = '<span class="dot" aria-hidden="true"></span><span>Question for you (' + qCount + '/3)</span>';
+      head.innerHTML = '<span class="dot" aria-hidden="true"></span><span class="question-count">Question for you (' + qCount + '/3)</span>';
       const time = document.createElement("time");
       time.textContent = clock();
       head.appendChild(time);

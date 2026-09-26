@@ -5,7 +5,7 @@ import { classify, defaultPolicyContext } from "../policy/engine.js";
 import { parseProposedAction, type ProposedAction } from "../policy/types.js";
 import { dataDir } from "../store/jsonFile.js";
 import { appendActionRecord, appendTaskEvent, getTask, setTaskStatus } from "../tasks/taskStore.js";
-import type { ActionRecord } from "../tasks/types.js";
+import type { ActionRecord, AskedQuestion } from "../tasks/types.js";
 import { getActionDef, type ActionDefinition } from "./registry.js";
 import type { PolicyContext } from "../policy/types.js";
 
@@ -162,11 +162,12 @@ export async function proposeAction(
   if (action.actionClass === "ask") {
     try {
       const { question, options } = AskSchema.parse(action.args);
-      const priorQuestions = task.askedQuestions ?? [];
+      const priorQuestions = (task.askedQuestions ?? []) as Array<string | AskedQuestion>;
+      const qCount = Math.max(priorQuestions.length, (task as { questionCount?: number }).questionCount ?? 0);
 
       // Hard cap: 3 questions per task
-      if (priorQuestions.length >= 3) {
-        const errMsg = "ERROR: Question budget exhausted (3/3 questions already asked for this task). You must proceed with available tools or call reach.finish.";
+      if (qCount >= 3) {
+        const errMsg = "ERROR: Question budget exhausted (3/3 questions already asked for this task). Cap limit exceeded: you must proceed with available tools or call reach.finish.";
         const record = baseRecord(action, "deny", "deny.ask-budget-exhausted");
         record.endedAt = new Date().toISOString();
         record.ok = false;
@@ -179,13 +180,17 @@ export async function proposeAction(
       // Duplicate detection & naming prior answer
       const normQ = normalizeQuestion(question);
       for (const prior of priorQuestions) {
-        const isDuplicate = normQ === prior.normalized ||
-          (normQ.length >= 15 && prior.normalized.length >= 15 && (normQ.includes(prior.normalized) || prior.normalized.includes(normQ)));
+        const priorQ = typeof prior === "string" ? prior : prior.question;
+        const priorNorm = typeof prior === "string" ? normalizeQuestion(prior) : (prior.normalized || normalizeQuestion(prior.question));
+        const priorAns = typeof prior === "string" ? undefined : prior.answer;
+
+        const isDuplicate = normQ === priorNorm ||
+          (normQ.length >= 15 && priorNorm.length >= 15 && (normQ.includes(priorNorm) || priorNorm.includes(normQ)));
 
         if (isDuplicate) {
-          const errMsg = prior.answer
-            ? `ERROR: Duplicate question already asked: "${prior.question}". The user already answered: "${prior.answer}". Act on this prior answer instead of repeating questions.`
-            : `ERROR: Duplicate question already asked: "${prior.question}". Await or act on available information instead of repeating questions.`;
+          const errMsg = priorAns
+            ? `ERROR: Duplicate question already asked: "${priorQ}". The user already answered: "${priorAns}". Act on this prior answer instead of repeating questions.`
+            : `ERROR: Duplicate question already asked: "${priorQ}". Await or act on available information instead of repeating questions.`;
           const record = baseRecord(action, "deny", "deny.duplicate-question");
           record.endedAt = new Date().toISOString();
           record.ok = false;
@@ -195,8 +200,8 @@ export async function proposeAction(
           return { outcome: "rejected", taskId, actionId: action.id, error: errMsg };
         }
 
-        if (prior.answer && questionNamesAnswer(normQ, prior.answer)) {
-          const errMsg = `ERROR: Question already answered: "${prior.question}" was answered with "${prior.answer}". Act on this prior answer instead of asking again.`;
+        if (priorAns && questionNamesAnswer(normQ, priorAns)) {
+          const errMsg = `ERROR: Question already answered: "${priorQ}" was answered with "${priorAns}". Act on this prior answer instead of asking again.`;
           const record = baseRecord(action, "deny", "deny.repeat-answered-question");
           record.endedAt = new Date().toISOString();
           record.ok = false;
@@ -207,13 +212,34 @@ export async function proposeAction(
         }
       }
 
+      // Check external priorAnswers array on task state
+      const priorAnswersList = (task as { priorAnswers?: string[] }).priorAnswers;
+      if (Array.isArray(priorAnswersList)) {
+        for (const ans of priorAnswersList) {
+          if (ans && questionNamesAnswer(normQ, ans)) {
+            const errMsg = `ERROR: Question references already answered choice: "${ans}". Act on this prior answer instead of asking again.`;
+            const record = baseRecord(action, "deny", "deny.repeat-answered-question");
+            record.endedAt = new Date().toISOString();
+            record.ok = false;
+            record.resultSummary = errMsg;
+            audit(taskId, record);
+            fail({ error: errMsg });
+            return { outcome: "rejected", taskId, actionId: action.id, error: errMsg };
+          }
+        }
+      }
+
       const record = baseRecord(action, "allow", "allow.ask-user");
       record.endedAt = new Date().toISOString();
       record.ok = true;
       record.resultSummary = `asked: ${question.slice(0, 120)}`;
       audit(taskId, record);
-      const askedQuestions = [
-        ...priorQuestions,
+      const askedQuestions: AskedQuestion[] = [
+        ...priorQuestions.map((q) =>
+          typeof q === "string"
+            ? { question: q, normalized: normalizeQuestion(q), askedAt: new Date().toISOString() }
+            : q
+        ),
         {
           question,
           normalized: normQ,

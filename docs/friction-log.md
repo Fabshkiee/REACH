@@ -306,6 +306,15 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): defined `test.step2` with `actionClass: "observe"` for autonomous milestone flow verification.
 * Result: server 116/116 pass, agent 41/41 pass (157/157 total), both strict typechecks pass with 0 errors.
 
+## 2026-09-26 — E2E 4-Tier Test Suite: DuckDuckGo rate-limiting fallback, question cap regex, and AskedQuestion typing
+* Task: Execute complete independent 4-tier E2E test suite (187 tests) across Feature Coverage, Boundary Cases, Pairwise Combinations, and Real-World Scenarios.
+* Steps: (1) Ran `tests/e2e/tier1_features.test.ts`, `tier2_boundaries.test.ts`, `tier3_pairwise.test.ts`, and `tier4_scenarios.test.ts`; (2) diagnosed failures in text search rate limiting, question budget message format, `AskedQuestion` typing, and uninitialized `plan` on new tasks.
+* Expected vs actual: expected initial 100% pass; actual (1) rapid sequential test calls to DuckDuckGo HTML resulted in empty responses due to automated scraper rate-limiting/bot challenge; (2) question budget exhausted message lacked the exact phrasing expected by both unit test regexes and boundary assertions simultaneously; (3) newly created tasks in `taskStore.ts` did not initialize `plan: []`, failing contract check `"plan" in task`; (4) `AskedQuestion` type was not imported in `executor.ts`, failing strict typecheck.
+* Severity: Medium (test suite edge cases and network resiliency).
+* Workaround (kept): (1) added resilient fallback in `server/src/actions/web.ts` to `https://lite.duckduckgo.com/lite/` when HTML scraping returns 0 results; (2) harmonized question cap rejection message to include both exact budget exhausted clause and cap limit exceeded keywords; (3) initialized `plan: []` in `taskStore.ts` while leaving `trace` undefined on unstarted tasks; (4) imported `AskedQuestion` and mapped string items to typed objects in `executor.ts`.
+* Result: 187/187 tests passing across all 4 tiers (100.0% pass rate); 116/116 server unit tests pass; 41/41 agent unit tests pass; both workspaces pass strict typecheck with 0 errors.
+* Suggestion: External network scrapers should always incorporate a lightweight secondary fallback endpoint (e.g. DDG Lite) to maintain resiliency against transient bot challenges and IP rate-limiting in automated CI/test environments.
+
 ## Template for new entries
 * Task:
 * Steps:
