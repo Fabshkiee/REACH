@@ -97,6 +97,45 @@ describe("reach.finish structured outcomes", () => {
     assert.ok((after.plan ?? []).some((p) => p.includes("reach.finish rejected")));
   });
 
+  it("complete citing tool names and exploratory failed actions alongside successful actions succeeds", async () => {
+    defineAction({
+      name: "test.fail",
+      actionClass: "observe",
+      description: "exploratory failure",
+      schema: z.object({}),
+      timeoutMs: 5000,
+      verify: () => "failed",
+      handler: async () => {
+        throw new Error("directory not found");
+      },
+    });
+    const t = createTask("finish with exploratory failure and tool names");
+    const mock = new ScriptedPlannerBackend([
+      { toolCalls: [{ name: "test.fail", args: {} }] },
+      { toolCalls: [{ name: "test.step", args: { label: "success" } }] },
+      {
+        toolCalls: [
+          {
+            name: "reach.finish",
+            args: {
+              kind: "complete",
+              summary: "Found and read successfully.",
+              evidenceActionIds: ["test__fail", "test__step"],
+            },
+          },
+        ],
+      },
+    ]);
+    await runPlannerLoop(t.id, { backend: mock });
+    const after = getTask(t.id)!;
+    assert.equal(after.status, "completed");
+    assert.equal(after.outcome?.kind, "complete");
+    assert.equal(after.outcome?.summary, "Found and read successfully.");
+    const stepActId = after.trace?.find((r) => r.name === "test.step")?.actionId;
+    assert.ok(stepActId);
+    assert.deepEqual(after.outcome?.evidenceActionIds, [stepActId]);
+  });
+
   it("complete with empty evidence is rejected (no narrated success)", async () => {
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "reach.finish", args: { kind: "complete", summary: "trust me" } }] },

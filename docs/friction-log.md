@@ -342,6 +342,15 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: 118/118 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
 * Suggestion: Planner-facing citation validators should resolve canonical tool names (`domain.action` or `domain__action`) to their underlying execution records when unambiguous, rather than requiring the LLM to guess internal opaque UUIDs.
 
+## 2026-09-26 — Exploratory Failure Disqualification in reach.finish Evidence Validation
+* Task: Execute document summarization requiring autonomous path recovery ("please summarize the content of a document insidejeremy folder. choose whatever file u want").
+* Steps: (1) Planner executed exploratory `files.list` on "jeremy" (failed path); (2) Recovered autonomously with `files.search` (found PDF in Desktop\Jeremy) and `files.read` (successfully read PDF); (3) Called `reach.finish complete` citing all steps performed: `evidenceActionIds: ["files__list", "files__search", "files__read"]`; (4) `validateFinish` placed `files__list` into `bad` because `ok === false`, and rejected the completion despite `files__search` and `files__read` being verified and successful; (5) LLM assumed trace recording had failed and conceded with `reach.finish cannot`.
+* Expected vs actual: expected task to succeed citing the verified successful actions; actual: including an exploratory failed step in the cited actions caused `validateFinish` to reject the entire completion, turning a recovered autonomous success into an unrecoverable failure.
+* Severity: High (disqualified legitimate recovery flows when the model narrated all attempted steps in evidence).
+* Workaround (kept): (1) differentiated completely unknown fake IDs from known exploratory trace actions that failed; (2) if `cited.length > 0` with verified actions, exploratory failed steps in the trace are omitted from final evidence rather than rejecting completion; (3) prioritized successful/verified actions when multiple executions of the same tool name exist; (4) guided model in SYSTEM prompt to cite verified actionIds or successful tool names; (5) bumped `BUILD_STAMP` to `2026-09-26T22:45:00Z`.
+* Result: 119/119 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
+* Suggestion: In evidence-based task verification, distinguish between bogus/hallucinated IDs (which should be rejected) and genuine exploratory actions in the trace that failed prior to successful recovery (which should simply be filtered from the final verified evidence set).
+
 ## Template for new entries
 * Task:
 * Steps:

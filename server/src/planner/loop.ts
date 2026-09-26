@@ -21,7 +21,7 @@ const SYSTEM = [
   "- If the target of an action is genuinely ambiguous (which file? which device?), call reach.ask_user instead of guessing.",
   "- For questions, file reading, or summarization goals, include the full substantive answer or summary directly in the 'summary' argument of reach.finish (up to 2000 characters). Do not output just a meta-description like 'done'.",
   "- Some actions pause for user approval; you will be told when that happens. Continue after approval arrives.",
-  "- When no more actions are needed, call reach.finish with kind + evidence: complete (cite verified actionIds), partial (cite prior evidence + remaining work), cannot (missing capabilities + reason), unverified (reason), or failed (reason). Narration without cited evidence is rejected.",
+  "- When no more actions are needed, call reach.finish with kind + evidence: complete (cite verified actionIds returned in tool results like 'act_...' or successful tool names like 'files.read'), partial (cite prior evidence + remaining work), cannot (missing capabilities + reason), unverified (reason), or failed (reason). Narration without cited evidence is rejected.",
   "- Plain-text replies with no tool calls are deprecated: every turn must call a tool (an action tool, reach.ask_user, or reach.finish with evidence).",
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
@@ -106,21 +106,38 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   const combinedTrace = [...trace, ...(lastTask?.trace ?? [])];
   
   // Index by actionId, by tool name (e.g. files.read), and by sanitized name (files__read)
+  // When duplicate tool names exist, prefer the successful/verified one
   const byKey = new Map<string, ActionRecord>();
   for (const r of combinedTrace) {
     byKey.set(r.actionId, r);
-    if (!byKey.has(r.name)) byKey.set(r.name, r);
+    const existing = byKey.get(r.name);
+    if (!existing || (!existing.ok && r.ok) || (!existing.verified && r.verified)) {
+      byKey.set(r.name, r);
+    }
     const sanitized = r.name.replace(/\./g, "__");
-    if (!byKey.has(sanitized)) byKey.set(sanitized, r);
+    const existingSanitized = byKey.get(sanitized);
+    if (!existingSanitized || (!existingSanitized.ok && r.ok) || (!existingSanitized.verified && r.verified)) {
+      byKey.set(sanitized, r);
+    }
   }
 
   const rawCited = asStringArray(args.evidenceActionIds);
   const cited: string[] = [];
-  const bad: string[] = [];
+  const unknown: string[] = [];
+  const failedInTrace: string[] = [];
   for (const item of rawCited) {
     const r = byKey.get(item);
-    if (!r || r.ok !== true) {
-      bad.push(item);
+    if (!r) {
+      const anyMatch = combinedTrace.find(
+        (x) => x.actionId === item || x.name === item || x.name.replace(/\./g, "__") === item,
+      );
+      if (anyMatch) {
+        failedInTrace.push(item);
+      } else {
+        unknown.push(item);
+      }
+    } else if (r.ok !== true) {
+      failedInTrace.push(item);
     } else {
       if (!cited.includes(r.actionId)) {
         cited.push(r.actionId);
@@ -128,9 +145,9 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
     }
   }
 
-  // If the model did not explicitly provide actionIds but verified actions ran in this task,
-  // ground the completion with the verified actions that succeeded.
-  if (kind === "complete" && cited.length === 0 && bad.length === 0) {
+  // If the model did not explicitly provide valid actionIds but verified actions ran in this task,
+  // and no completely unknown fake IDs were passed, auto-attach verified actions.
+  if (kind === "complete" && cited.length === 0 && unknown.length === 0) {
     const verified = (task?.trace ?? []).filter((r) => r.ok && r.verified);
     if (verified.length > 0) {
       cited.push(...verified.map((r) => r.actionId));
@@ -143,8 +160,12 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   const remaining = asStringArray(args.remaining);
 
   if (kind === "complete") {
-    if (cited.length === 0) return { invalid: "reach.finish complete needs evidenceActionIds citing verified trace actions." };
-    if (bad.length > 0) return { invalid: `reach.finish complete cites unknown/failed actions: ${bad.join(", ")}. Cite only successful trace actionIds.` };
+    if (unknown.length > 0) {
+      return { invalid: `reach.finish complete cites unknown/failed actions: ${unknown.join(", ")}. Cite only successful trace actionIds.` };
+    }
+    if (cited.length === 0) {
+      return { invalid: "reach.finish complete needs evidenceActionIds citing verified trace actions." };
+    }
     const unverified = cited.filter((id) => byKey.get(id)?.verified !== true);
     if (unverified.length > 0) {
       return { invalid: `reach.finish complete cites unverified actions: ${unverified.join(", ")}. Use kind unverified, or wait for verification.` };
@@ -161,8 +182,8 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
     };
   }
   if (kind === "partial") {
+    if (unknown.length > 0) return { invalid: `reach.finish partial cites unknown/failed actions: ${unknown.join(", ")}.` };
     if (cited.length === 0) return { invalid: "reach.finish partial needs evidenceActionIds for the work that succeeded." };
-    if (bad.length > 0) return { invalid: `reach.finish partial cites unknown/failed actions: ${bad.join(", ")}.` };
     const outcome: TaskOutcome = {
       kind: "partial",
       summary: summary || "partially done",
@@ -180,8 +201,8 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
     };
   }
   if (kind === "unverified") {
+    if (unknown.length > 0) return { invalid: `reach.finish unverified cites unknown/failed actions: ${unknown.join(", ")}.` };
     if (cited.length === 0) return { invalid: "reach.finish unverified needs evidenceActionIds for the unconfirmed work." };
-    if (bad.length > 0) return { invalid: `reach.finish unverified cites unknown/failed actions: ${bad.join(", ")}.` };
     const outcome: TaskOutcome = {
       kind: "unverified",
       summary: summary || undefined,
@@ -199,7 +220,7 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
     };
   }
   // failed | cannot: evidence optional (may be empty when nothing ran).
-  if (bad.length > 0) return { invalid: `reach.finish ${kind} cites unknown/failed actions: ${bad.join(", ")}.` };
+  if (unknown.length > 0) return { invalid: `reach.finish ${kind} cites unknown/failed actions: ${unknown.join(", ")}.` };
   const outcome: TaskOutcome = {
     kind,
     reason: reason || summary || (kind === "cannot" ? "goal cannot be achieved with available capabilities" : "task failed"),
