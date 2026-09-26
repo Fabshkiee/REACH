@@ -1,4 +1,5 @@
 import {
+  ZodArray,
   ZodBoolean,
   ZodDefault,
   ZodEffects,
@@ -70,5 +71,29 @@ function fieldSchema(key: string, field: ZodTypeAny): Record<string, unknown> {
   }
   if (field instanceof ZodBoolean) return { type: "boolean" };
   if (field instanceof ZodEnum) return { type: "string", enum: [...(field._def.values as unknown[])] };
+  if (field instanceof ZodArray) {
+    let itemType = field.element;
+    while (itemType instanceof ZodOptional || itemType instanceof ZodDefault) {
+      itemType = unwrap(itemType);
+    }
+    if (itemType instanceof ZodEffects) itemType = unwrap(itemType);
+    const itemSchema = fieldSchema(`${key}[]`, itemType);
+    const out: Record<string, unknown> = {
+      type: "array",
+      items: itemSchema,
+    };
+    const max = (field._def as { maxLength?: { value: number } })?.maxLength?.value;
+    const min = (field._def as { minLength?: { value: number } })?.minLength?.value;
+    const exact = (field._def as { exactLength?: { value: number } })?.exactLength?.value;
+    if (typeof min === "number") out.minItems = min;
+    if (typeof max === "number") out.maxItems = max;
+    if (typeof exact === "number") {
+      out.minItems = exact;
+      out.maxItems = exact;
+    }
+    const desc = (field._def as { description?: unknown }).description;
+    if (typeof desc === "string") out.description = desc;
+    return out;
+  }
   throw new Error(`unsupported schema field "${key}": Nova tool schemas accept flat primitives and enums only`);
 }

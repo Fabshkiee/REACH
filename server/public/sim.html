@@ -713,7 +713,10 @@
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ task: goal }),
       });
-      if (!res.ok) throw new Error("core refused the goal (HTTP " + res.status + ")");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "core refused the goal (HTTP " + res.status + ")");
+      }
       const { taskId } = await res.json();
       for (;;) {
         outcome = await poll(taskId);

@@ -315,6 +315,15 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: 187/187 tests passing across all 4 tiers (100.0% pass rate); 116/116 server unit tests pass; 41/41 agent unit tests pass; both workspaces pass strict typecheck with 0 errors.
 * Suggestion: External network scrapers should always incorporate a lightweight secondary fallback endpoint (e.g. DDG Lite) to maintain resiliency against transient bot challenges and IP rate-limiting in automated CI/test environments.
 
+## 2026-09-26 — ZodArray in Nova Tool Schemas & Short Goal Ingestion (HTTP 400 on "hi")
+* Task: Execute user goals in live server/sim environment (`/sim`), including short inputs ("hi") and composite document generation with embedded images.
+* Steps: (1) Submitted "hi" in `/sim`; server rejected with HTTP 400 "core refused the goal"; (2) planner crashed on `files.create_document` with `unsupported schema field "imagePaths": Nova tool schemas accept flat primitives and enums only`.
+* Expected vs actual: expected (1) "hi" to be accepted and passed to planner loop (which asks the user how to help), and (2) `imagePaths` to be converted to a valid tool schema `{ type: "array", items: { type: "string" } }`. Actual: (1) `ExecuteOnMyDevicesSchema` enforced `.min(3)`, rejecting 2-letter greetings ("hi") with HTTP 400; (2) `toFlatJsonSchema` in `schema.ts` lacked `ZodArray` handling, throwing an error for any action with array arguments.
+* Severity: High (blocked user interaction on both greetings and composite document creation in live production environment).
+* Workaround (kept): (1) changed `ExecuteOnMyDevicesSchema` minimum length from `min(3)` to `min(1)` in `server/src/mcp/tools.ts`, and updated `sim.html` to surface server JSON error details instead of raw HTTP status; (2) added `ZodArray` conversion in `server/src/planner/schema.ts` to output `{ type: "array", items: ... }` for arrays of flat primitives while continuing to reject nested objects.
+* Result: 118/118 server tests pass, 41/41 agent tests pass, 187/187 E2E tests pass, strict typechecks pass with 0 errors.
+* Suggestion: Boundary validators on user input should not enforce arbitrary minimum string lengths that reject natural greetings ("hi", "go"), and JSON Schema converters for LLM tools must support primitive array types (`string[]`, `number[]`) since modern models natively support them.
+
 ## Template for new entries
 * Task:
 * Steps:

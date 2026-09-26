@@ -40,4 +40,30 @@ describe("flat json schema converter", () => {
   it("rejects nested objects loudly", () => {
     assert.throws(() => toFlatJsonSchema(z.object({ deep: z.object({ x: z.string() }) })), /flat primitives/);
   });
+
+  it("converts arrays of primitive items with bounds", () => {
+    const out = toFlatJsonSchema(
+      z.object({
+        imagePaths: z.array(z.string().min(1).max(2000)).max(20).optional(),
+      }),
+    );
+    assert.deepEqual(out, {
+      type: "object",
+      properties: {
+        imagePaths: {
+          type: "array",
+          items: { type: "string", minLength: 1, maxLength: 2000 },
+          maxItems: 20,
+        },
+      },
+      required: [],
+    });
+  });
+
+  it("rejects arrays of nested objects loudly", () => {
+    assert.throws(
+      () => toFlatJsonSchema(z.object({ deepArr: z.array(z.object({ x: z.string() })) })),
+      /flat primitives/,
+    );
+  });
 });

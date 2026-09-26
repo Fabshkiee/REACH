@@ -14,7 +14,7 @@ export const ExecuteOnMyDevicesSchema = z.object({
   task: z
     .string()
     .trim()
-    .min(3)
+    .min(1)
     .max(2000)
     .refine((t) => !MEANINGLESS.test(t), { message: "task must be a real goal, not a placeholder" })
     .describe("Natural-language user goal, e.g. create a homework document on my laptop."),
