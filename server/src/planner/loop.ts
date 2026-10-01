@@ -1,4 +1,6 @@
+import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { userInfo } from "node:os";
 import { BedrockPlannerBackend } from "./bedrock.js";
 import { requireBedrockConfig } from "../config.js";
 import { proposeAction } from "../executor/executor.js";
@@ -26,6 +28,9 @@ const SYSTEM = [
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
+  "- Never invent placeholder usernames (such as 'yourusername', 'username', 'example', 'myuser', etc.) in URLs or commands. If the user refers to 'my profile', 'my repo', or 'my account', use the provided gitUser/systemUser environment context. If the username is still unknown, call reach.ask_user to ask for their username/profile URL, or use web.search to locate it (e.g. searching the repo name).",
+  "- Web information extraction: When the user asks for information from a web page (e.g. 'tell me the issues', 'what does the page say', 'read the title'): once the relevant text or item titles appear in browser.observe or browser.find snapshots, do not click randomly; extract the answer directly and call reach.finish complete with the substantive summary in the summary argument.",
+  "- In browser.click, 'target' must be the exact snapshot ref identifier (e.g. 'f1e36', 'e4') from browser.observe, never a CSS selector, element name, or empty string.",
   "- apps.launch is strictly restricted to known desktop utilities (notepad, calc, cmd, powershell, explorer).",
   "- Directories are explored via files.list (names + sizes) and opened in File Explorer via apps.open_document. Never read or verify a directory as a file.",
   "- Two-tier planning: For composite or multi-step goals, break the goal into 2–4 verifiable milestones. Allocate a dedicated 6-step horizon per sub-goal. Call reach.checkpoint_milestone upon completing each milestone before advancing to the next, maintaining verified evidence at each step.",
@@ -230,6 +235,19 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   return { terminal: { status: "failed", patch: { outcome, error: outcome.reason } } };
 }
 
+function localUserContextNote(): string {
+  const parts: string[] = [];
+  try {
+    const gitUser = execSync("git config user.name", { encoding: "utf8", timeout: 2000 }).trim();
+    if (gitUser) parts.push(`gitUser="${gitUser}"`);
+  } catch {}
+  try {
+    const sysUser = userInfo().username || process.env.USERNAME || process.env.USER;
+    if (sysUser) parts.push(`systemUser="${sysUser}"`);
+  } catch {}
+  return parts.length > 0 ? `[Local environment identity: ${parts.join(", ")}]` : "";
+}
+
 /**
  * Run (or resume) the ReAct loop for a task. Entry points:
  * - fresh goals via execute_on_my_devices,
@@ -262,7 +280,8 @@ export async function runPlannerLoop(
 
   const policyCtx = { ...defaultPolicyContext(), ...policyContextForAvailable() };
   const tools = toolsForPlanner();
-  let history: HistoryEntry[] = [{ role: "user", text: task.goal }];
+  const userEnv = localUserContextNote();
+  let history: HistoryEntry[] = [{ role: "user", text: userEnv ? `${task.goal}\n${userEnv}` : task.goal }];
   if (opts.resumeNote) {
     history.push({
       role: "user",

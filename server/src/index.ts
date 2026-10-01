@@ -17,7 +17,7 @@ import { heartbeat, isDeviceAvailable, listDevices, pauseDevice, registerDevice,
 const app = express();
 app.use(express.json());
 
-export const BUILD_STAMP = "2026-09-26T22:45:00Z";
+export const BUILD_STAMP = "2026-09-26T23:05:00Z";
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "reach-server", mcp: "streamable-http", buildStamp: BUILD_STAMP });

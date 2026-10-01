@@ -73,11 +73,19 @@ export function registerBrowserActions(): void {
     {
       name: "browser.click",
       actionClass: "interact" as const,
-      description: "Click a snapshot element ref on the given page.",
-      schema: z.object({ pageUrl: PageUrl, target: z.string().min(1).max(200), element: z.string().max(300).optional() }),
+      description: "Click a snapshot element ref on the given page. The target must be a snapshot ref ID (e.g. 'e1', 'f1e36') from browser.observe, never a CSS selector or element name.",
+      schema: z.object({
+        pageUrl: PageUrl,
+        target: z.string().min(1).max(200).describe("The snapshot element ref ID (e.g. 'e1', 'f1e36') from browser.observe, NOT a CSS selector"),
+        element: z.string().max(300).optional().describe("Optional element description"),
+      }),
       timeoutMs: 30_000,
-      call: (a: Record<string, unknown>) =>
-        playwrightMcp.callTool("browser_click", { target: a["target"], element: a["element"] }),
+      call: (a: Record<string, unknown>) => {
+        let target = String(a["target"] ?? "").trim();
+        const m = target.match(/^\[?ref=([^\]]+)\]?$/i);
+        if (m) target = m[1];
+        return playwrightMcp.callTool("browser_click", { target, element: a["element"] });
+      },
       targetOf: (a: Record<string, unknown>) => (typeof a["pageUrl"] === "string" ? a["pageUrl"] : undefined),
     },
     {
@@ -86,13 +94,17 @@ export function registerBrowserActions(): void {
       description: "Type into an editable snapshot ref. submit:true presses Enter (needs approval).",
       schema: z.object({
         pageUrl: PageUrl,
-        target: z.string().min(1).max(200),
+        target: z.string().min(1).max(200).describe("The editable element ref ID (e.g. 'e1', 'f1e36') from browser.observe"),
         text: z.string().max(5000),
         submit: z.boolean().optional(),
       }),
       timeoutMs: 30_000,
-      call: (a: Record<string, unknown>) =>
-        playwrightMcp.callTool("browser_type", { target: a["target"], text: a["text"], submit: a["submit"] ?? false }),
+      call: (a: Record<string, unknown>) => {
+        let target = String(a["target"] ?? "").trim();
+        const m = target.match(/^\[?ref=([^\]]+)\]?$/i);
+        if (m) target = m[1];
+        return playwrightMcp.callTool("browser_type", { target, text: a["text"], submit: a["submit"] ?? false });
+      },
       targetOf: (a: Record<string, unknown>) => (typeof a["pageUrl"] === "string" ? a["pageUrl"] : undefined),
     },
     {

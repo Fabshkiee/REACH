@@ -351,6 +351,15 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: 119/119 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
 * Suggestion: In evidence-based task verification, distinguish between bogus/hallucinated IDs (which should be rejected) and genuine exploratory actions in the trace that failed prior to successful recovery (which should simply be filtered from the final verified evidence set).
 
+## 2026-09-26 — Placeholder Username Hallucination and Browser Ref Grounding in Web Navigation
+* Task: Navigate to user's online repository and inspect content ("GO TO my github profile, then look for my repo called prism then tell me the issues").
+* Steps: (1) User issued goal referring to "my github profile"; (2) Because the model had no local user identity context, it hallucinated generic tutorial placeholder "yourusername", navigating to `https://github.com/yourusername/prism`; (3) Encountering a 404, it asked the user whether their username differed from "yourusername"; (4) Additionally in previous web query ("tell me one of the issues"), model observed the issue text in the page snapshot but attempted redundant `browser.click` with invalid selector strings ("" and "listitem").
+* Expected vs actual: expected (1) planner to identify the user's handle from local environment (e.g. `git config user.name` = "Fabshkiee") or ask the user upfront without guessing; (2) web information queries to synthesize answers directly from visible snapshot text in `browser.observe` rather than blindly clicking.
+* Severity: High (causes web navigation to fail on 404s and ask redundant questions for local users).
+* Workaround (kept): (1) injected local environment identity (`gitUser` and `systemUser`) directly into the initial planner turn context; (2) grounded `SYSTEM` prompt with explicit prohibition of tutorial placeholder usernames ("yourusername", "username", "example") and directed model to use `web.search` or `reach.ask_user` when ambiguous; (3) grounded web information extraction to synthesize visible snapshot text directly into `reach.finish(summary: ...)`; (4) enhanced `browser.click` and `browser.type` schemas with explicit ref ID descriptions and automatic `ref=` wrapper normalization; (5) bumped `BUILD_STAMP` to `2026-09-26T23:05:00Z`.
+* Result: 119/119 server unit tests pass; 41/41 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
+* Suggestion: In desktop agent frameworks, ground personal possessives ("my profile", "my account", "my files") with local user identity indicators (`git config`, OS user) so the LLM doesn't fall back to tutorial placeholders from training corpora.
+
 ## Template for new entries
 * Task:
 * Steps:
