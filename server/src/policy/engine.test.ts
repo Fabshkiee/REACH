@@ -116,4 +116,42 @@ describe("policy engine", () => {
       assert.equal(d.verdict, "deny", bad);
     }
   });
+
+  it("desktop interactions: observe/read allow, interact allows, submit:true confirms", () => {
+    assert.equal(
+      classify(action({ actionClass: "observe", name: "desktop.inspect_windows", target: "windows" }), ctx).verdict,
+      "allow",
+    );
+    assert.equal(
+      classify(action({ actionClass: "read", name: "desktop.get_clipboard", target: "clipboard" }), ctx).verdict,
+      "allow",
+    );
+    assert.equal(
+      classify(action({ actionClass: "interact", name: "desktop.focus_window", target: "Discord" }), ctx).verdict,
+      "allow",
+    );
+    assert.equal(
+      classify(action({ actionClass: "interact", name: "desktop.type_text", target: "active_window", args: { submit: false } }), ctx).verdict,
+      "allow",
+    );
+    assert.equal(
+      classify(action({ actionClass: "interact", name: "desktop.type_text", target: "active_window", args: { submit: true } }), ctx).verdict,
+      "confirm",
+    );
+    assert.equal(
+      classify(action({ actionClass: "interact", name: "desktop.send_hotkey", target: "active_window", args: { keys: ["ctrl", "k"] } }), ctx).verdict,
+      "allow",
+    );
+  });
+
+  it("web.request: GET on named web allows, POST/PUT confirms", () => {
+    assert.equal(
+      classify(action({ actionClass: "interact", name: "web.request", target: "https://api.github.com/repos", args: { method: "GET" } }), ctx).verdict,
+      "allow",
+    );
+    assert.equal(
+      classify(action({ actionClass: "interact", name: "web.request", target: "https://discord.com/api/webhooks/123", args: { method: "POST" } }), ctx).verdict,
+      "confirm",
+    );
+  });
 });

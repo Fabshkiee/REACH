@@ -16,19 +16,31 @@ import {
   CreateDocumentSchema,
   DeleteFileSchema,
   DownloadAssetSchema,
+  FocusWindowSchema,
+  GetClipboardSchema,
+  InspectWindowsSchema,
   ListFilesSchema,
   MoveFileSchema,
   ReadFileSchema,
   SearchFilesSchema,
+  SendHotkeySchema,
+  SetClipboardSchema,
+  TypeTextSchema,
   WriteFileSchema,
   createDocument,
   deleteFile,
   downloadAsset,
+  focusWindow,
+  getClipboard,
+  inspectWindows,
   isAllowed,
   listFiles,
   moveFile,
   readFile,
   searchFiles,
+  sendHotkey,
+  setClipboard,
+  typeText,
   verifyFile,
   writeFile,
 } from "./capabilities/index.js";
@@ -37,7 +49,7 @@ import type { z } from "zod";
 const app = express();
 app.use(express.json());
 
-export const BUILD_STAMP = "2026-10-01T10:30:00Z";
+export const BUILD_STAMP = "2026-10-01T10:46:00Z";
 
 app.get("/health", (_req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -82,6 +94,30 @@ const DISPATCH: Record<string, DispatchEntry> = {
   download_asset: {
     schema: DownloadAssetSchema,
     run: async (a) => ({ ...(await downloadAsset(a as never)) }),
+  },
+  inspect_windows: {
+    schema: InspectWindowsSchema,
+    run: async (a) => ({ ...(await inspectWindows(a as never)) }),
+  },
+  focus_window: {
+    schema: FocusWindowSchema,
+    run: async (a) => ({ ...(await focusWindow(a as never)) }),
+  },
+  type_text: {
+    schema: TypeTextSchema,
+    run: async (a) => ({ ...(await typeText(a as never)) }),
+  },
+  send_hotkey: {
+    schema: SendHotkeySchema,
+    run: async (a) => ({ ...(await sendHotkey(a as never)) }),
+  },
+  set_clipboard: {
+    schema: SetClipboardSchema,
+    run: async (a) => ({ ...(await setClipboard(a as never)) }),
+  },
+  get_clipboard: {
+    schema: GetClipboardSchema,
+    run: async () => ({ ...(await getClipboard()) }),
   },
 };
 

@@ -144,12 +144,15 @@ export function classify(action: ProposedAction, ctx: PolicyContext = defaultPol
           message: `Refused: scheme "${scheme}" can escape the browser sandbox.`,
         };
       }
-      if (action.actionClass === "interact" && action.args["submit"] === true) {
+      if (action.actionClass === "interact" && (action.args["submit"] === true || (action.name === "web.request" && typeof action.args["method"] === "string" && action.args["method"].toUpperCase() !== "GET"))) {
         return {
           verdict: "confirm",
           reason: "confirm.submit-action",
           message: `Confirmation needed: interacting with "${action.target}" submits or changes data. Confirm the exact payload.`,
         };
+      }
+      if (action.name.startsWith("desktop.")) {
+        return { verdict: "allow", reason: "allow.desktop-interaction", message: `Desktop interaction on "${action.target}"; allowed.` };
       }
       if (action.actionClass === "interact" && (scheme === "http:" || scheme === "https:")) {
         const host = rawTarget.split("/")[2] ?? "";

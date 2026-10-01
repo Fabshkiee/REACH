@@ -39,6 +39,13 @@ export const KNOWN_APPS: Record<string, { bin: string } | { uri: string }> = {
   outlook: { bin: "OUTLOOK.EXE" },
   vlc: { bin: "vlc.exe" },
   photos: { uri: "ms-photos:" },
+  obsidian: { uri: "obsidian:" },
+  notion: { uri: "notion:" },
+  steam: { uri: "steam:" },
+  telegram: { uri: "tg:" },
+  whatsapp: { uri: "whatsapp:" },
+  zoom: { uri: "zoommtg:" },
+  teams: { uri: "msteams:" },
 };
 
 export const OpenDocumentSchema = z.object({

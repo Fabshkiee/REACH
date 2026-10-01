@@ -359,4 +359,70 @@ export function registerWebActions(): void {
   } catch {
     // Already registered (dev re-entry)
   }
+
+  try {
+    defineAction({
+      name: "web.request",
+      actionClass: "interact",
+      description:
+        "Send an HTTP request to any external REST API or webhook (e.g. Discord webhook, Slack incoming webhook, IFTTT, Zapier, or custom HTTP endpoint). Supports GET, POST, PUT, DELETE with headers and JSON/text body.",
+      schema: z.object({
+        url: z.string().url().max(2000).describe("HTTP(S) URL to request"),
+        method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET").describe("HTTP method (default GET)"),
+        headers: z.record(z.string()).optional().describe("Optional HTTP headers"),
+        body: z.union([z.string(), z.record(z.unknown())]).optional().describe("Optional request body string or JSON object"),
+        timeoutMs: z.number().int().positive().max(60_000).optional().default(15_000),
+      }),
+      timeoutMs: 30_000,
+      targetOf: (args) => (typeof args["url"] === "string" ? args["url"] : undefined),
+      verify: (result) => {
+        const r = result as { ok?: unknown; status?: unknown };
+        if (!r || typeof r !== "object" || r.ok !== true) {
+          throw new Error("web.request did not succeed");
+        }
+        return `web.request ok: HTTP ${String(r.status ?? "200")}`;
+      },
+      handler: async (args) => {
+        const url = String(args["url"]);
+        const method = String(args["method"] ?? "GET").toUpperCase();
+        const timeout = Number(args["timeoutMs"] ?? 15_000);
+        const headers: Record<string, string> = {
+          "user-agent": "REACH-Agent/1.0",
+          ...((args["headers"] as Record<string, string>) ?? {}),
+        };
+        let body: string | undefined;
+        if (args["body"] !== undefined && method !== "GET") {
+          if (typeof args["body"] === "string") {
+            body = args["body"];
+          } else {
+            body = JSON.stringify(args["body"]);
+            if (!headers["content-type"]) headers["content-type"] = "application/json";
+          }
+        }
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), timeout);
+        try {
+          const res = await fetch(url, { method, headers, body, signal: ctrl.signal });
+          const text = await res.text();
+          let data: unknown = text;
+          try {
+            data = JSON.parse(text);
+          } catch {
+            // Keep as string
+          }
+          return {
+            ok: res.ok,
+            status: res.status,
+            statusText: res.statusText,
+            data,
+          };
+        } finally {
+          clearTimeout(t);
+        }
+      },
+    });
+  } catch {
+    // Already registered (dev re-entry)
+  }
 }
+

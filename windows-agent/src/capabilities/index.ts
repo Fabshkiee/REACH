@@ -1,4 +1,3 @@
-/** Explicit capability allowlist — the agent exposes ONLY these. No generic run_command. */
 export const ALLOWED_CAPABILITIES = [
   "create_document",
   "open_document",
@@ -12,6 +11,12 @@ export const ALLOWED_CAPABILITIES = [
   "verify_file",
   "list_files",
   "download_asset",
+  "inspect_windows",
+  "focus_window",
+  "type_text",
+  "send_hotkey",
+  "set_clipboard",
+  "get_clipboard",
 ] as const;
 export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number];
 
@@ -50,3 +55,26 @@ export {
   writeFile,
 } from "./files.js";
 export type { DeleteFileInput, ListFilesInput, MoveFileInput, ReadFileInput, SearchFilesInput, WriteFileInput } from "./files.js";
+export {
+  InspectWindowsSchema,
+  FocusWindowSchema,
+  TypeTextSchema,
+  SendHotkeySchema,
+  SetClipboardSchema,
+  GetClipboardSchema,
+  inspectWindows,
+  focusWindow,
+  typeText,
+  sendHotkey,
+  setClipboard,
+  getClipboard,
+} from "./desktop.js";
+export type {
+  InspectWindowsInput,
+  FocusWindowInput,
+  TypeTextInput,
+  SendHotkeyInput,
+  SetClipboardInput,
+  GetClipboardInput,
+} from "./desktop.js";
+

@@ -134,6 +134,58 @@ export function registerAgentActions(): void {
       timeoutMs: 30_000,
       capability: "launch_application",
     },
+    {
+      name: "desktop.inspect_windows",
+      actionClass: "observe" as const,
+      description: "Inspect currently open desktop application windows. Returns window titles and process names (e.g. Discord, Figma, Spotify, VS Code).",
+      schema: z.object({ query: z.string().max(100).optional() }),
+      timeoutMs: 15_000,
+      capability: "inspect_windows",
+    },
+    {
+      name: "desktop.focus_window",
+      actionClass: "interact" as const,
+      description: "Bring a desktop application window to the foreground by its window title or process name (e.g. 'Discord', 'Figma', 'Spotify').",
+      schema: z.object({ title: z.string().min(1).max(200) }),
+      timeoutMs: 15_000,
+      capability: "focus_window",
+    },
+    {
+      name: "desktop.type_text",
+      actionClass: "interact" as const,
+      description: "Type text into the active desktop window (e.g. Discord chat, search bar, text editor). Set submit:true to press Enter. Automatically uses clipboard pasting for reliability.",
+      schema: z.object({
+        text: z.string().max(10000),
+        submit: z.boolean().optional(),
+        useClipboard: z.boolean().optional(),
+      }),
+      timeoutMs: 15_000,
+      capability: "type_text",
+    },
+    {
+      name: "desktop.send_hotkey",
+      actionClass: "interact" as const,
+      description: "Send keyboard shortcuts to the active window (e.g. ['ctrl', 'k'] for quick open in Discord/Slack, ['ctrl', 'o'] for file open, ['enter'], ['escape'], ['space']).",
+      schema: z.object({ keys: z.array(z.string().min(1).max(20)).min(1).max(5) }),
+      timeoutMs: 15_000,
+      capability: "send_hotkey",
+    },
+    {
+      name: "desktop.set_clipboard",
+      actionClass: "interact" as const,
+      description: "Set the Windows system clipboard text. Useful for copying summaries, code snippets, or URLs to paste into desktop apps.",
+      schema: z.object({ text: z.string().max(100000) }),
+      timeoutMs: 15_000,
+      capability: "set_clipboard",
+    },
+    {
+      name: "desktop.get_clipboard",
+      actionClass: "read" as const,
+      description: "Read the current text from the Windows system clipboard.",
+      schema: z.object({}),
+      timeoutMs: 15_000,
+      capability: "get_clipboard",
+    },
   ] as const;
 
   for (const d of defs) {
@@ -186,6 +238,16 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
       return typeof args["url"] === "string" ? args["url"] : undefined;
     case "apps.launch":
       return typeof args["app"] === "string" ? args["app"] : undefined;
+    case "desktop.inspect_windows":
+      return typeof args["query"] === "string" ? args["query"] : "windows";
+    case "desktop.focus_window":
+      return typeof args["title"] === "string" ? args["title"] : undefined;
+    case "desktop.type_text":
+    case "desktop.send_hotkey":
+      return "active_window";
+    case "desktop.set_clipboard":
+    case "desktop.get_clipboard":
+      return "clipboard";
     default:
       return undefined;
   }
