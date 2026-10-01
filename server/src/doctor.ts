@@ -56,7 +56,7 @@ record("AGENT_TOKEN set", !!env["AGENT_TOKEN"], presence(env["AGENT_TOKEN"]));
 record("AWS_ACCESS_KEY_ID set", !!env["AWS_ACCESS_KEY_ID"], presence(env["AWS_ACCESS_KEY_ID"]));
 record("AWS_SECRET_ACCESS_KEY set", !!env["AWS_SECRET_ACCESS_KEY"], presence(env["AWS_SECRET_ACCESS_KEY"]));
 record("AWS_REGION", true, env["AWS_REGION"] ?? "unset (defaults to us-east-1)");
-record("BEDROCK_MODEL_ID", true, env["BEDROCK_MODEL_ID"] ?? "unset (defaults to amazon.nova-lite-v1:0)");
+record("BEDROCK_MODEL_ID", true, env["BEDROCK_MODEL_ID"] ?? "unset (defaults to amazon.nova-pro-v1:0)");
 
 const dataDir = env["REACH_DATA_DIR"] ?? join(process.cwd(), "data");
 let writable = false;

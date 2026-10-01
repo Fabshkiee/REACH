@@ -54,7 +54,7 @@ const SKIP_DIRS = new Set([
 /** User-facing locations first — depth-first order would otherwise let giant
  *  subtrees (conda pkgs, caches) exhaust the visit budget before Documents
  *  is ever entered. */
-const PRIORITY_DIRS = ["desktop", "documents", "downloads"];
+const PRIORITY_DIRS = ["desktop", "documents", "downloads", "pictures"];
 
 function sortEntries<T extends { name: string; isDirectory: () => boolean }>(entries: T[]): T[] {
   const rank = (e: T): number => {

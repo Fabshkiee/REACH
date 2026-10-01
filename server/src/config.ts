@@ -94,7 +94,7 @@ export function requireBedrockConfig(): { region: string; modelId: string } {
   }
   return {
     region: process.env.AWS_REGION ?? "us-east-1",
-    modelId: process.env.BEDROCK_MODEL_ID ?? "amazon.nova-lite-v1:0",
+    modelId: process.env.BEDROCK_MODEL_ID ?? "amazon.nova-pro-v1:0",
   };
 }
 

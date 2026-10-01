@@ -7,7 +7,7 @@ import {
 import { ConfigurationError } from "../config.js";
 import type { HistoryEntry, PlannerBackend, PlannerToolCall, PlannerToolDef } from "./backend.js";
 
-export const DEFAULT_MODEL_ID = "amazon.nova-lite-v1:0";
+export const DEFAULT_MODEL_ID = "amazon.nova-pro-v1:0";
 
 /**
  * Bedrock tool names allow [a-zA-Z0-9_-] only — our dotted names
