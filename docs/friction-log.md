@@ -467,6 +467,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): the prompt now says the answer is usually already in the snapshot, that `browser.find` takes a distinctive TEXT term and at most one call, and that a failed find must not be retried with another structural word. The demo goal was changed to the one that is boringly reliable.
 * Suggestion: when a tool returns a bounded slice of a large page, the model needs to be told how to narrow it — and the goal itself should be chosen so the first snapshot answers it.
 
+## 2026-10-22 — The agent wrote minutes about a meeting nobody had
+* Task: build the meeting hero — transcribe a recording with Amazon Transcribe and write the minutes.
+* Steps: the pipeline worked (105-second clip → 1595 characters in 11.5s), and the task completed. But the document it produced said **"John Doe", "Jane Smith", and "Decided to launch the new feature in Q3"** — none of which is in the recording. The real meeting was about a sync conflict resolver, an accessibility audit and a database migration.
+* Expected vs actual: expected the minutes to come from the transcript; actual the model had **no transcript**. The action paused for approval (uploading a recording to AWS is confirm-tier), and when the loop resumed it was rebuilt from the *trace summary* — one line per action, e.g. "transcribed 1595 chars". The transcript itself was gone from the model's context, and the model filled the gap with the **shape** of a meeting rather than the meeting.
+* Severity: **Critical** (a plausible, fluent, completely fictional document. It would have looked perfect on camera.)
+* Workaround (kept): the executor now records each action's result payload (clipped) in the trace, and a resumed task replays those results verbatim into its context. Regression test included. After the fix, 3/3 live runs produced minutes containing the real content — the conflict resolver, the 200-session target, the accessibility audit's 7 contrast and 4 focus-order findings — and none invented anything.
+* Suggestion: a resume that keeps only summaries of what happened is a resume that throws away what was learned. If the model's next decision depends on a payload, that payload has to survive the pause.
+
 ## Template for new entries
 * Task:
 * Steps:

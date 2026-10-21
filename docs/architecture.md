@@ -106,13 +106,18 @@ issues), (3) safety: clean `CANNOT` or exact approval boundary. Demo spine:
   agent 46/46 green 2026-10-21, live Bedrock Q&A proven over HTTP).
   Next: one rehearsed hero run, then the video. Sim approval/question cards are built;
   v1 hero is local-only.
-* **Deliberately not built (and therefore not claimed):** audio capture and
-  transcription (no `audio.*` capability exists), long-running jobs (a task is
-  capped at `TASK_MAX_ELAPSED_MS`, default 10 minutes — a one-hour meeting needs
-  the Phase 9 checkpoint-and-resume execution model, not a flag), push delivery
-  (no notify code; results are polled), live Alexa+ integration (toolkit is
-  partner-gated — the sim is the demo client), external MCP connectors,
-  smart-home, scheduling.
+* **Deliberately not built (and therefore not claimed):** audio capture is
+  built (ffmpeg), and transcription is built (Amazon Transcribe + S3) — but
+  a task is still capped at `TASK_MAX_ELAPSED_MS` (default 10 minutes) of
+  *planner* time, with external waits (a cloud job) excluded from that
+  budget. A multi-hour meeting would need the Phase 9 checkpoint-and-resume
+  execution model, not a flag. There is no push delivery (no notify code;
+  results are polled), no live Alexa+ integration (the toolkit is
+  partner-gated — the sim is the demo client), no external MCP connectors,
+  no smart-home, no scheduling.
+* **Data leaving the machine is a first-class policy case.** The `upload`
+  action class always confirms, quoting the exact file, and the transcript is
+  the deliverable — the recording is deleted from S3 afterwards.
 * **Evidence is this task's evidence.** A `complete` claim must cite actions
   that ran in *this* task. Prior-task outcomes are injected into the planner's
   context as background reading, but they are never citable — with them

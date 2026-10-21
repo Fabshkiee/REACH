@@ -17,7 +17,10 @@ Target feel: product demo, not lecture. Film real artifacts on one machine.
 4. Clear task history: `rm -f server/data/tasks/*.json` — the panel reads
    clean on camera.
 5. Fixtures in place:
-   * `~/Downloads/standup-transcript.txt` — the ~30-line standup transcript.
+   * `~/Downloads/product-sync-2026-10-21.mp3` — **the 105-second meeting
+     recording** (four voices). This is beat 1's input.
+   * `~/Downloads/standup-transcript.txt` — the same meeting as text, for the
+     fallback beat 1b.
    * `~/Downloads/standup-notes-old.txt` — the throwaway file beat 3 deletes.
      **Every take deletes it — restore it between takes.**
 6. Close Pages and any open document from a previous take (it steals focus).
@@ -27,7 +30,8 @@ Measured timings, so you know what you are watching:
 
 | Beat | Wall time | Planner calls | Actions |
 |---|---|---|---|
-| 1 hero | 11–13s | 4 | search → read → create_document |
+| 1 hero (transcribe) | ~27s, incl. your approval | 5 | search → transcribe (paused) → create_document |
+| 1b fallback (transcript) | 11–13s | 4 | search → read → create_document |
 | 2 browser | ~9s | 3 | goto → observe → finish |
 | 3 approval | ~7s to the card, then it waits for you | 3 | verify (miss) → search → delete (paused) |
 
@@ -35,7 +39,8 @@ Measured timings, so you know what you are watching:
 
 | # | Goal (type this in `/sim`) | What it proves |
 |---|---|---|
-| 1 | `Find the standup transcript in my Downloads and turn it into meeting minutes saved on my laptop.` | The hero: **search → read → reason → draft → real `.docx` → verified**. The model writes the minutes; the executor verifies the file exists. |
+| 1 | `Transcribe the product sync recording in my Downloads and write the meeting minutes to my laptop` | **The hero — the thing REACH was built for.** A real recording on the laptop → read by the agent → uploaded to S3 → transcribed by **Amazon Transcribe** → reasoned over by **Bedrock** → written as a real `.docx` → opened. Three AWS services, one engine. It also asks before it uploads your recording to a cloud service. |
+| 1b | *(fallback)* `Find the standup transcript in my Downloads and turn it into meeting minutes saved on my laptop` | The same engine with the audio already transcribed — if S3 or Transcribe is unhappy on the day, use this. |
 | 2 | `Go to my GitHub profile and tell me my display name and how many public repositories I have` | A **different domain** (web) on the same engine, and the identity grounding: REACH uses the handle from the local environment (`git config user.name`) instead of inventing `yourusername`. Measured: 8.7s, 3 planner calls, correct answer. |
 | 3 | `Delete the old standup notes file in my Downloads.` | **Policy on camera**: a consequential action pauses, quotes the exact target, and asks. Ordinary actions never ask. |
 | 4 | `Read the contents of /etc/passwd.` | **Honest refusal** (15s): a clean `CANNOT` with a reason. Safe failure beats a silent hang. |
@@ -45,15 +50,21 @@ Measured timings, so you know what you are watching:
 Voiceover: "Alexa+ understands requests, but it can't reach the scattered capabilities on your machines."
 Closing tease: "Alexa+ understands what you want. REACH gives that intent somewhere to go."
 
-## 0:20–1:25 Beat 1 — the hero (minutes from a transcript)
+## 0:20–1:25 Beat 1 — the hero (a meeting recording becomes minutes)
 
 * Type beat 1 in `/sim`.
 * Show, in this order, on camera:
-  * the **plan** filling in (`files.search` → `files.read` → `files.create_document` → `files.verify`);
+  * the **plan** filling in (`files.search` → `audio.transcribe` → `files.create_document`);
+  * the **approval card**: *"this sends /Users/…/product-sync-2026-10-21.mp3 to a third-party service"* — it asks before your recording leaves the machine. **Press Approve.**
   * the **activity trail** ticking over — each step with its policy verdict;
-  * the **result**: a real `.docx` on the laptop, opened on screen, with real minutes in it;
+  * the **result**: a real `.docx` on the laptop, opened on screen, with real minutes in it — attendees, decisions, action items **with owners**, open questions, all from the recording;
   * the **evidence** panel: the cited action IDs, the outcome kind (`complete`), and the token usage.
-* Narrate one line: "It found the file, read it, wrote the minutes, and checked the file was really there. Nobody wrote a route for this sentence."
+* Narrate one line: "It transcribed the meeting with Amazon Transcribe, wrote the minutes with Bedrock, and checked the file was really there. Nobody wrote a route for this sentence."
+
+> Measured: ~27s, 5 planner calls, 3 actions. Three live runs, all three produced
+> minutes containing the real content (the conflict resolver, the 200-session
+> target, the accessibility audit's 7 contrast and 4 focus-order findings) and
+> none of them invented anything.
 
 ## 1:25–1:55 Beat 2 — a different domain, same engine
 

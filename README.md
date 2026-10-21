@@ -160,11 +160,16 @@ event trail and the approval card for the same engine.
   (`complete` / `partial` / `unverified` / `failed` / `cannot`), event trail,
   resumable tasks with cumulative budgets — all live and tested. A success
   claim must cite evidence from *that* task: a task that executed nothing
-  cannot report success.
+  cannot report success. A task that pauses and resumes keeps the **results**
+  of its earlier actions, not just a summary of them.
 * **Agent**: files (search/read/list/write/move/delete/verify), real `.docx`
   creation from **Markdown** (headings, lists, tables, emphasis — the model
   plans the document's structure, the agent renders it), browser adapter
-  (Playwright MCP), web search, app/document openers.
+  (Playwright MCP), web search, app/document openers, microphone recording.
+* **Audio**: `audio.transcribe` reads a recording from the laptop, uploads it
+  to S3 and runs **Amazon Transcribe**; the audio is deleted from S3
+  afterwards. Uploading is confirm-tier — REACH asks before your recording
+  leaves the machine.
 * **Cross-platform**: the agent and the policy engine run on macOS, Linux and
   Windows. Windows-only primitives (window focus, keystrokes, clipboard) are
   advertised on Windows only.
