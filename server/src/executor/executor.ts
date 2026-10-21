@@ -409,11 +409,14 @@ async function runAllowed(
     }, timeout);
   });
   try {
+    const startedMs = Date.now();
     const data = await Promise.race([
       def.handler(args, { taskId, actionId: action.id, policyCtx, signal: ctrl.signal }),
       timeoutGate,
     ]);
     clearTimeout(timer);
+    // Time spent waiting on a third party is not the agent's own elapsed time.
+    if (def.externalWait) record.waitedMs = Date.now() - startedMs;
     let verified = true;
     let summary = truncate(data);
     if (def.verify) {
@@ -435,10 +438,18 @@ async function runAllowed(
     record.ok = true;
     record.verified = verified;
     record.resultSummary = summary;
+    // Keep the payload (clipped) so a task that pauses and resumes can
+    // still see WHAT the earlier action returned.
+    record.resultData = clipResultData(data);
     audit(taskId, record);
     return { outcome: "ran", taskId, actionId: action.id, data, verified };
   } catch (err) {
     clearTimeout(timer);
+    // The wait happened either way — record it even on failure, so the
+    // task's budget is not charged for a third party's clock twice.
+    if (def.externalWait && !record.waitedMs) {
+      record.waitedMs = Date.now() - Date.parse(record.startedAt);
+    }
     const timedOut = err instanceof Error && err.message.startsWith("timed out after");
     record.endedAt = new Date().toISOString();
     record.ok = false;
@@ -459,5 +470,37 @@ function truncate(data: unknown, max = 500): string {
     return s.length > max ? s.slice(0, max) + "…" : s;
   } catch {
     return String(data).slice(0, max);
+  }
+}
+
+/**
+ * The payload kept in the trace for a resumed task. Long strings are clipped
+ * in place so the flags at the end of the payload survive — a plain slice of
+ * the serialised JSON eats exactly the fields that say the result was
+ * truncated.
+ */
+export const MAX_TRACE_RESULT_CHARS = 4000;
+
+function clipResultData(data: unknown, budget = MAX_TRACE_RESULT_CHARS): string | undefined {
+  const clip = (v: unknown, max: number): unknown => {
+    if (typeof v === "string") return v.length > max ? `${v.slice(0, max)} …[clipped]` : v;
+    if (Array.isArray(v)) return v.map((x) => clip(x, max));
+    if (v && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = clip(x, max);
+      return out;
+    }
+    return v;
+  };
+  try {
+    let max = Math.floor(budget / 2);
+    let text = JSON.stringify(clip(data, max)) ?? String(data);
+    while (text.length > budget && max > 200) {
+      max = Math.floor(max / 2);
+      text = JSON.stringify(clip(data, max)) ?? String(data);
+    }
+    return text;
+  } catch {
+    return undefined;
   }
 }

@@ -7,6 +7,30 @@
 
 Target feel: product demo, not lecture. Film real artifacts on one machine.
 
+## Film checklist (before the first take)
+
+1. `npm run doctor` → **all green**, especially `bedrock reachable`.
+2. Kill stale processes: `pkill -f "tsx src/index.ts"` — a stale server on
+   :3000 silently serves the OLD code (this happened during the build).
+3. `npm run dev:server` and `npm run dev:agent`; wait for the heartbeat. The
+   sim's device panel must read **Laptop Agent · Online · 12 capabilities**.
+4. Clear task history: `rm -f server/data/tasks/*.json` — the panel reads
+   clean on camera.
+5. Fixtures in place:
+   * `~/Downloads/standup-transcript.txt` — the ~30-line standup transcript.
+   * `~/Downloads/standup-notes-old.txt` — the throwaway file beat 3 deletes.
+     **Every take deletes it — restore it between takes.**
+6. Close Pages and any open document from a previous take (it steals focus).
+7. Open `/sim`; the two suggested goals should be beats 1 and 2.
+
+Measured timings, so you know what you are watching:
+
+| Beat | Wall time | Planner calls | Actions |
+|---|---|---|---|
+| 1 hero | 11–13s | 4 | search → read → create_document |
+| 2 browser | ~9s | 3 | goto → observe → finish |
+| 3 approval | ~7s to the card, then it waits for you | 3 | verify (miss) → search → delete (paused) |
+
 ## The beats
 
 | # | Goal (type this in `/sim`) | What it proves |

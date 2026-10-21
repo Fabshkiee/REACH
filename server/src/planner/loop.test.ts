@@ -195,6 +195,53 @@ describe("planner loop", () => {
     assert.equal(await pollDone(t.id), "completed");
   });
 
+  it("a resumed task still has the results of the actions that already ran", async () => {
+    // The trace summary is one line per action, so a resumed task knows THAT
+    // something ran but not WHAT it returned. Measured: a task that read a
+    // transcript, paused for approval, and resumed then wrote minutes about
+    // "John Doe" — invented, because the transcript was gone from its
+    // context. The results are replayed verbatim now.
+    const t = createTask("read something then do something consequential");
+    const mock = new ScriptedPlannerBackend([
+      { toolCalls: [{ name: "test.step", args: { label: "THE-TEXT-THAT-MUST-SURVIVE" } }] },
+      { toolCalls: [{ name: "test.doomed", args: {} }] },
+    ]);
+    await runPlannerLoop(t.id, { backend: mock });
+    const paused = getTask(t.id)!;
+    assert.equal(paused.status, "awaiting_approval");
+    const approvalId = paused.pendingApproval!.id;
+
+    let resumedHistory = "";
+    setPlannerBackendFactory(
+      () =>
+        new ScriptedPlannerBackend([
+          {
+            toolCalls: [
+              {
+                name: "reach.finish",
+                args: () => ({
+                  kind: "complete",
+                  summary: "done",
+                  evidenceActionIds: (getTask(t.id)?.trace ?? []).filter((r) => r.ok && r.verified).map((r) => r.actionId),
+                }),
+              },
+            ],
+          },
+        ]),
+    );
+    await decideApproval({ approvalId, decision: "approve" }, "test");
+    assert.equal(await pollDone(t.id), "completed");
+
+    // The resumed planner call must have been given the earlier result.
+    const calls = mock.calls;
+    const last = calls[calls.length - 1];
+    resumedHistory = JSON.stringify(last?.history ?? []);
+    assert.ok(
+      resumedHistory.includes("THE-TEXT-THAT-MUST-SURVIVE"),
+      "the resumed task must still see what the earlier action returned",
+    );
+  });
+
   it("pauses for ask_user and resumes with the answer", async () => {
     const mock = new ScriptedPlannerBackend([
       { toolCalls: [{ name: "reach.ask_user", args: { question: "Which file?" } }] },

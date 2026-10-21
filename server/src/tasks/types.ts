@@ -65,8 +65,15 @@ export interface ActionRecord {
   endedAt?: string;
   ok?: boolean;
   resultSummary?: string;
+  /** The action's result payload, clipped. A resumed task needs the DATA an
+   *  earlier action returned, not just a one-line summary of it — without
+   *  it the model loses the file it read and invents the content. */
+  resultData?: string;
   verified?: boolean;
   approvalId?: string;
+  /** Milliseconds spent waiting on an external service (excluded from the
+   *  task's elapsed budget). */
+  waitedMs?: number;
 }
 
 /** A paused confirmation: single-action, quoted, expiring. */

@@ -82,8 +82,34 @@ function verifiedRecords(taskId: string): ActionRecord[] {
   return succeededRecords(taskId).filter((r) => r.verified === true);
 }
 
-function budgetOf(taskId: string): { maxPlannerCalls: number; maxElapsedMs: number; maxActions: number } {
-  const task = getTask(taskId);
+/**
+ * The payloads of the actions that already ran, replayed verbatim into the
+ * resumed task's context.
+ *
+ * The trace summary is one line per action, so a resumed task knows THAT
+ * something ran but not WHAT it returned. Measured: a task that transcribed
+ * a 105-second meeting, paused for approval, and resumed then wrote
+ * minutes about "John Doe" and a Q3 launch — none of it in the recording.
+ * It had the summary ("transcribed 1595 chars") and nothing else, so it
+ * filled the gap with the shape of a meeting rather than the meeting.
+ */
+function replayedResults(taskId: string): string | undefined {
+  const records = (getTask(taskId)?.trace ?? []).filter((r) => r.ok === true && r.resultData);
+  if (records.length === 0) return undefined;
+  const lines = records.slice(-6).map((r) => `[${r.name}${r.target ? ` on "${r.target}"` : ""}]\n${r.resultData}`);
+  return lines.join("\n\n");
+}
+
+/**
+ * Milliseconds this task spent waiting on external services. That time is
+ * the third party's, not the planner's, so it does not count against the
+ * task's elapsed budget — a long transcription is work, not a stuck agent.
+ */
+function externalWaitMs(taskId: string): number {
+  return (getTask(taskId)?.trace ?? []).reduce((sum, r) => sum + (r.waitedMs ?? 0), 0);
+}
+
+function budgetOf(taskId: string): { maxPlannerCalls: number; maxElapsedMs: number; maxActions: number } {  const task = getTask(taskId);
   return {
     maxPlannerCalls: task?.budget?.maxPlannerCalls ?? 24,
     maxElapsedMs: task?.budget?.maxElapsedMs ?? 10 * 60_000,
@@ -332,6 +358,14 @@ export async function runPlannerLoop(
       role: "user",
       text: `Context from earlier in this task (audit-trace summary, not verbatim):\n${traceSummary(taskId)}\n${opts.resumeNote}`,
     });
+    // The RESULTS of the actions that already ran, verbatim. Without them a
+    // resumed task has only one-line summaries: the model loses the file it
+    // read, or the transcript it transcribed, and — measured — invents
+    // plausible filler instead ("John Doe" in a meeting about nobody).
+    const results = replayedResults(taskId);
+    if (results) {
+      history.push({ role: "user", text: `Results of the actions already run in this task:\n${results}` });
+    }
   } else {
     const recentTasks = listRecentTasks(5).filter((t) => t.id !== taskId && t.status === "completed");
     if (recentTasks.length > 0) {
@@ -404,7 +438,7 @@ export async function runPlannerLoop(
       });
       return;
     }
-    if (Date.now() - startedMs >= budget.maxElapsedMs) {
+    if (Date.now() - startedMs - externalWaitMs(taskId) >= budget.maxElapsedMs) {
       const ids = succeededRecords(taskId).map((r) => r.actionId);
       exit("failed", {
         plan,

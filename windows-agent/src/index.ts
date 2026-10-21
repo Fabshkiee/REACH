@@ -13,6 +13,8 @@ import {
 } from "./capabilities/apps.js";
 import {
   ALLOWED_CAPABILITIES,
+  AudioCaptureSchema,
+  AudioReadSchema,
   CreateDocumentSchema,
   DeleteFileSchema,
   DownloadAssetSchema,
@@ -27,6 +29,7 @@ import {
   SetClipboardSchema,
   TypeTextSchema,
   WriteFileSchema,
+  captureAudio,
   createDocument,
   deleteFile,
   downloadAsset,
@@ -36,6 +39,7 @@ import {
   isAllowed,
   listFiles,
   moveFile,
+  readAudioBytes,
   readFile,
   searchFiles,
   sendHotkey,
@@ -94,6 +98,14 @@ const DISPATCH: Record<string, DispatchEntry> = {
   download_asset: {
     schema: DownloadAssetSchema,
     run: async (a) => ({ ...(await downloadAsset(a as never)) }),
+  },
+  read_audio: {
+    schema: AudioReadSchema,
+    run: async (a) => ({ ...(await readAudioBytes(a as never)) }),
+  },
+  capture_audio: {
+    schema: AudioCaptureSchema,
+    run: async (a) => ({ ...(await captureAudio(a as never)) }),
   },
   inspect_windows: {
     schema: InspectWindowsSchema,

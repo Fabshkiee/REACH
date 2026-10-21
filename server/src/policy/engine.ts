@@ -113,6 +113,7 @@ const ALWAYS_CONFIRM: ReadonlySet<ActionClass> = new Set([
   "publish",
   "purchase",
   "configure",
+  "upload",
 ]);
 
 /**
@@ -230,6 +231,15 @@ export function classify(action: ProposedAction, ctx: PolicyContext = defaultPol
         verdict: "confirm",
         reason: "confirm.unknown-binary",
         message: `Confirmation needed: "${action.target ?? "unnamed program"}" is not a known-safe application. Confirm the exact program.`,
+      };
+    }
+
+    case "upload": {
+      // Data is leaving this machine. The user approves the exact scope.
+      return {
+        verdict: "confirm",
+        reason: "confirm.cloud-egress",
+        message: `Confirmation needed: this sends "${action.target ?? "the selected file"}" to a third-party service. Confirm the exact file and destination.`,
       };
     }
 

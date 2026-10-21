@@ -11,6 +11,8 @@ export const ALLOWED_CAPABILITIES = [
   "verify_file",
   "list_files",
   "download_asset",
+  "read_audio",
+  "capture_audio",
   "inspect_windows",
   "focus_window",
   "type_text",
@@ -19,6 +21,15 @@ export const ALLOWED_CAPABILITIES = [
   "get_clipboard",
 ] as const;
 export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number];
+
+export {
+  AudioCaptureSchema,
+  AudioReadSchema,
+  captureAudio,
+  readAudioBytes,
+  MAX_AUDIO_BYTES,
+} from "./audio.js";
+export type { AudioCaptureInput, AudioReadInput } from "./audio.js";
 
 export function isAllowed(capability: string): capability is AllowedCapability {
   return (ALLOWED_CAPABILITIES as readonly string[]).includes(capability);

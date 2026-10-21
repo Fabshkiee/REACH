@@ -16,6 +16,13 @@ export interface ActionDefinition {
   schema: z.ZodTypeAny;
   timeoutMs: number;
   /**
+   * This action waits on a third party (a cloud job, a long transcription).
+   * The time spent waiting does NOT count against the task's elapsed budget:
+   * a one-hour meeting transcribing for twenty minutes is legitimate work,
+   * not a stuck agent. The action's own timeout still bounds it.
+   */
+  externalWait?: boolean;
+  /**
    * The agent capability this action dispatches to (e.g. "read_file").
    * Device-backed actions only: the planner is offered these ONLY while a
    * connected device advertises that capability, so the model never plans

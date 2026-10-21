@@ -8,6 +8,7 @@ import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks, cancelTas
 import { registerAgentActions } from "./actions/agent.js";
 import { registerBrowserActions } from "./actions/browser.js";
 import { registerWebActions } from "./actions/web.js";
+import { registerAudioActions } from "./actions/audio.js";
 import { toolsForPlanner } from "./planner/tools.js";
 import { getTask } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
@@ -195,6 +196,7 @@ if (process.env.NODE_ENV !== "test") {
   registerAgentActions();
   registerBrowserActions();
   registerWebActions();
+  registerAudioActions();
   // Fail at BOOT, not at the first task. The planner rebuilds its tool list
   // from the live registry on every turn, so one action whose schema the
   // Nova converter cannot express makes every task fail with a planner

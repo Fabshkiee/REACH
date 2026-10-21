@@ -19,6 +19,9 @@ export const ACTION_CLASSES = [
   "publish",
   "purchase",
   "configure",
+  /** Data leaves this machine (uploaded to a third-party service). Always
+   *  confirmed: the user must approve the exact cloud-processing scope. */
+  "upload",
   "ask",
 ] as const;
 export type ActionClass = (typeof ACTION_CLASSES)[number];
