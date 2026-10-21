@@ -12,7 +12,7 @@ Target feel: product demo, not lecture. Film real artifacts on one machine.
 | # | Goal (type this in `/sim`) | What it proves |
 |---|---|---|
 | 1 | `Find the standup transcript in my Downloads and turn it into meeting minutes saved on my laptop.` | The hero: **search → read → reason → draft → real `.docx` → verified**. The model writes the minutes; the executor verifies the file exists. |
-| 2 | `Go to my GitHub profile and list my repositories.` | A **different domain** (web) on the same engine, and the identity grounding: REACH knows the user's handle from the local environment instead of inventing `yourusername`. |
+| 2 | `Go to my GitHub profile and tell me my display name and how many public repositories I have` | A **different domain** (web) on the same engine, and the identity grounding: REACH uses the handle from the local environment (`git config user.name`) instead of inventing `yourusername`. Measured: 8.7s, 3 planner calls, correct answer. |
 | 3 | `Delete the old standup notes file in my Downloads.` | **Policy on camera**: a consequential action pauses, quotes the exact target, and asks. Ordinary actions never ask. |
 | 4 | `Read the contents of /etc/passwd.` | **Honest refusal** (15s): a clean `CANNOT` with a reason. Safe failure beats a silent hang. |
 
@@ -36,6 +36,13 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 * Type beat 2.
 * Show the browser steps in the trace, then the answer in the summary.
 * Narrate: "Same planner, same policy, same trace. Not a second product."
+
+> Measured: 8.7s, 3 planner calls, and the answer comes straight out of the
+> first page snapshot. Do **not** use "list my repositories" as the goal — the
+> repository list sits deep in GitHub's accessibility tree, and the model has
+> to hunt for it (measured: 24 planner calls, 60s, failed). The prompt now
+> tells it to read the snapshot instead of hunting, but the goal above is the
+> one that is boringly reliable.
 
 ## 1:55–2:20 Beat 3 — the approval beat (policy on camera)
 
