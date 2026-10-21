@@ -426,6 +426,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): the converter now renders a record (and a union containing one) as a JSON string, and the executor's zod schema accepts either the JSON string or the object, so the wire format and the validator agree. Two guards so it can never recur silently: a regression test that registers **all** real action groups and asserts every tool converts to a Nova-compatible schema, and a **boot-time check** that builds the tool list once at startup and refuses to boot with a clear message instead of accepting traffic it cannot serve.
 * Suggestion: a feature that cannot be exercised end-to-end is not shipped, no matter how many unit tests pass. "121/121 green" measured the tests, not the product. **Always register the real registry before building the real planner input** — the gap between the two is where the failure lived.
 
+## 2026-10-21 — A browser profile with cookies landed in the git history
+* Task: verify the Playwright browser adapter works on macOS.
+* Steps: ran a probe script **from the repo root** that booted the adapter. `dataDir()` resolved against `process.cwd()`, so the browser profile was written to `<repo>/data/browser-profile` instead of `<repo>/server/data`. A later `git add -A` swept it in: **356 files** of Chrome cache, cookies and account data, committed to the repository.
+* Expected vs actual: expected runtime state to land in the gitignored `server/data/`; expected it there because that is where the server puts it. Actual the *directory the server happens to use* depended on the caller's working directory, and `.gitignore` only covered `server/data/`.
+* Severity: **High** (a browser profile in a public repo is a privacy problem, not just untidiness — and it was in the *history*, so deleting the files later would not have been enough).
+* Workaround (kept): the profile was removed from the index and from disk, and `dataDir()` now resolves to `<repo>/server/data` **regardless of cwd** — runtime state can no longer land in the working tree because a script was started from the wrong directory. The root-level `data/` is gitignored as a second line of defence.
+* Suggestion: gitignore the *paths your code can write to*, not the one path it writes to today. And treat `git add -A` after a script that touches disk as a review step, not a formality.
+
 ## Template for new entries
 * Task:
 * Steps:

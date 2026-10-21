@@ -1,5 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { findRepoRoot } from "../config.js";
 
 /**
  * Synchronous atomic JSON file helpers. Sync is deliberate: REACH Core is a
@@ -30,9 +31,18 @@ export function listJsonBasenames(dir: string): string[] {
   }
 }
 
-/** Root for all runtime state. Overridable per-env (tests point it at a temp dir). */
+/**
+ * Root for all runtime state. Overridable per-env (tests point it at a temp dir).
+ *
+ * Pinned to the repo's server package, NOT to process.cwd(): a task store and
+ * a Playwright browser profile must never land in the working tree just
+ * because a script was started from a different directory.
+ */
 export function dataDir(): string {
-  return process.env.REACH_DATA_DIR ?? join(process.cwd(), "data");
+  const override = process.env.REACH_DATA_DIR;
+  if (override) return override;
+  const root = findRepoRoot(process.cwd());
+  return root ? join(root, "server", "data") : join(process.cwd(), "data");
 }
 
 export function ensureDir(dir: string): void {

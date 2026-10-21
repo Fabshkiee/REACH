@@ -23,6 +23,22 @@ function findRoot(startDir: string): string {
   return startDir;
 }
 
+/**
+ * Repo root, or undefined when the cwd is not inside a REACH checkout.
+ * Runtime state is pinned to the repo so it never lands in the working tree
+ * because a script happened to run from a different directory.
+ */
+export function findRepoRoot(startDir: string): string | undefined {
+  let dir = startDir;
+  for (let i = 0; i < 6; i++) {
+    if (existsSync(join(dir, "package.json")) && existsSync(join(dir, "server"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+
 function parseDotEnv(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const line of text.split("\n")) {
