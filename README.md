@@ -151,9 +151,11 @@ event trail and the approval card for the same engine.
 * License: MIT at repo root (Devpost-detectable).
 * Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`,
   live Bedrock planner (`server/src/planner/bedrock.ts`, default `amazon.nova-pro-v1:0`).
-* Video (`docs/demo-script.md`): `<3min` — one hero workflow (turn a meeting
-  transcript into verified minutes on the laptop) + a read-only browser task +
-  an approval beat, all on one engine. Sim locked, simulated — not live Alexa+.
+* Video (`docs/demo-script.md`): `<3min` — a meeting recording transcribed by
+  Amazon Transcribe into verified minutes on the laptop, a read-only browser
+  task, and an approval beat, all on one engine. Sim locked, simulated — not
+  live Alexa+.
+* **Submission text is written and ready to paste**: `docs/devpost-submission.md`.
 * Friction log (bonus up to 10%): `docs/friction-log.md` — updated continuously.
 * Checklist: `docs/submission-checklist.md`.
 
