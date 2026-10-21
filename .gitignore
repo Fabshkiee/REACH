@@ -6,3 +6,4 @@ dist/
 Thumbs.db
 # Runtime state (task + device JSON) — local only, never committed.
 server/data/
+data/
