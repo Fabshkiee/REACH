@@ -88,7 +88,7 @@ cd /path/to/REACH
 nvm use 24               # or install Node 24 LTS
 npm install
 npm run typecheck
-npm run doctor           # preflight: .env, AWS keys, ports, data dir
+npm run doctor           # preflight: .env, AWS keys, live Bedrock probe, ports, data dir
 npm test                 # server suite (123 tests)
 npm run test:agent       # laptop agent suite (46 tests)
 npm run test:e2e         # 4-tier black-box suite (187 tests)

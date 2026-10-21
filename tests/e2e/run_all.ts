@@ -56,7 +56,10 @@ async function runTier(
   verbose: boolean,
 ): Promise<TierResult> {
   const start = Date.now();
-  const args = ["--test", "--test-timeout=60000", tier.file];
+  // 180s, not 60s: tier 3 drives live search endpoints and its suite (not a
+  // single test) can exceed 60s even when every test inside passes. A suite
+  // timeout was reported as a tier failure with zero failed tests.
+  const args = ["--test", "--test-timeout=180000", tier.file];
 
   return new Promise((resolve) => {
     let output = "";

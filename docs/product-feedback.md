@@ -65,7 +65,9 @@ Devpost requires this per tool/API/SDK used. Written against the shipped code.
   access is already enabled; the first attempt at `npm install` on a fresh clone is where
   people lose time, and `npm run doctor` (in `server/`) names the missing piece.
 * `npm run doctor` is the preflight: it checks Node ≥24, `.env`, the AWS keys, the data dir
-  and the two ports, and prints a fix line per failure.
+  and the two ports, prints a fix line per failure, and — the part that matters — makes one
+  real Converse call to Bedrock. Present keys are not working access: the model also needs
+  Bedrock model access enabled for the account, and that only shows up at call time.
 
 ## Rebuild again? Yes.
 * The load-bearing idea — *the model proposes, the executor decides, every success claim

@@ -58,6 +58,43 @@ record("AWS_SECRET_ACCESS_KEY set", !!env["AWS_SECRET_ACCESS_KEY"], presence(env
 record("AWS_REGION", true, env["AWS_REGION"] ?? "unset (defaults to us-east-1)");
 record("BEDROCK_MODEL_ID", true, env["BEDROCK_MODEL_ID"] ?? "unset (defaults to amazon.nova-pro-v1:0)");
 
+/**
+ * Live Bedrock probe.
+ *
+ * Present keys are not working access: the model also needs Bedrock model
+ * access enabled for this account, and a wrong region fails at call time.
+ * One tiny Converse call is the only check that tells the truth — and it is
+ * the difference between "it works" and "it works at 10pm the night before a
+ * demo".
+ */
+if (env["AWS_ACCESS_KEY_ID"] && env["AWS_SECRET_ACCESS_KEY"]) {
+  const region = env["AWS_REGION"] ?? "us-east-1";
+  const modelId = env["BEDROCK_MODEL_ID"] ?? "amazon.nova-pro-v1:0";
+  try {
+    const { BedrockRuntimeClient, ConverseCommand } = await import("@aws-sdk/client-bedrock-runtime");
+    const client = new BedrockRuntimeClient({
+      region,
+      credentials: { accessKeyId: env["AWS_ACCESS_KEY_ID"], secretAccessKey: env["AWS_SECRET_ACCESS_KEY"] },
+    });
+    const res = await client.send(
+      new ConverseCommand({
+        modelId,
+        messages: [{ role: "user", content: [{ text: "Reply with the single word: ready" }] }],
+        inferenceConfig: { maxTokens: 16 },
+      }),
+    );
+    const reply = res.output?.message?.content?.[0];
+    const text = reply && "text" in reply ? reply.text : "";
+    record("bedrock reachable", true, `${modelId} answered: ${String(text).slice(0, 40).trim()}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const access = /access|not authorized|not enabled|model/i.test(msg)
+      ? " — enable Bedrock model access for this model in the AWS console (or set BEDROCK_MODEL_ID to a model your account has enabled)"
+      : "";
+    record("bedrock reachable", false, `${modelId} in ${region}: ${msg.slice(0, 180)}${access}`);
+  }
+}
+
 const dataDir = env["REACH_DATA_DIR"] ?? join(process.cwd(), "data");
 let writable = false;
 try {
