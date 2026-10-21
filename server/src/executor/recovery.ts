@@ -54,6 +54,11 @@ const HINTS: Array<{ code: string; when: (actionClass: string, error: string) =>
     hint: "That capability does not exist here. Finish cannot naming it; never invent a replacement tool.",
   },
   {
+    code: "search_empty",
+    when: (_cls, err) => /returned no results|rate-limited|bot-challenged/i.test(err),
+    hint: "The search engine returned nothing — that is a blocked request, not an empty world. Retry once, narrow the query, or use browser.* / web.request. Never conclude the subject does not exist.",
+  },
+  {
     code: "denied",
     when: (_cls, err) => /denied|refus|blocked|escapes|outside user-owned space/i.test(err),
     hint: "Policy refused this. Do not rephrase the same action to dodge the refusal — narrow the scope, pick a user-owned target, or finish cannot.",

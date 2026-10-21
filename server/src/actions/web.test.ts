@@ -235,4 +235,26 @@ describe("web.search with mock HTTP server (offline fixtures)", () => {
     const res = await webSearch({ query: "Node.js docs", mode: "text", limit: 1 });
     assert.equal(res.results.length, 1);
   });
+
+  it("fails honestly when the engine returns nothing (blocked request, not an empty world)", async () => {
+    // A rate-limited or bot-challenged engine must NOT be reported as a
+    // successful search with zero results — that would tell the planner
+    // "I looked and there is nothing there", which is a confident falsehood.
+    const prior = globalThis.fetch;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (urlStr.includes("duckduckgo.com")) {
+        return new Response("<html><body>bot challenge</body></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        });
+      }
+      return prior(input, init);
+    };
+    try {
+      await assert.rejects(() => webSearch({ query: "blocked query", mode: "text", limit: 3 }), /returned no results/);
+    } finally {
+      globalThis.fetch = prior;
+    }
+  });
 });

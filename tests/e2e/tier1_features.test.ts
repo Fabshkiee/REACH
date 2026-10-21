@@ -9,7 +9,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { getTestHarness } from "./harness/serverHarness.js";
 import { startMockAssetServer, MockAssetServer, SAMPLE_PNG } from "./harness/mockAssetServer.js";
-import { assertIsoDate, assertBuildStamp, assertDocxContainsImage } from "./harness/assertions.js";
+import { assertIsoDate, assertBuildStamp, assertDocxContainsImage, withNetworkRetry } from "./harness/assertions.js";
 import { CONFIG } from "./harness/config.js";
 
 // Ensure clean test data directory
@@ -510,7 +510,12 @@ describe("Tier 1: Feature Coverage (>=5 tests per inventoried feature)", () => {
       const mod = await import("../../server/src/actions/web.js").catch(() => null);
       if (!mod) assert.fail("web.ts not implemented");
       const searchFn = mod.webSearch || mod.search;
-      const res = await searchFn({ query: "James Webb Space Telescope", mode: "text" });
+      // Live scraper: automated traffic gets rate-limited, so retry.
+      const res = await withNetworkRetry(async () => {
+        const r = await searchFn({ query: "James Webb Space Telescope", mode: "text" });
+        assert.ok(r.results.length > 0);
+        return r;
+      });
       assert.equal(res.ok, true);
       assert.ok(res.results.length > 0);
     });

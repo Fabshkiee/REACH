@@ -9,6 +9,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { getTestHarness } from "./harness/serverHarness.js";
 import { startMockAssetServer, MockAssetServer, SAMPLE_PNG } from "./harness/mockAssetServer.js";
+import { withNetworkRetry } from "./harness/assertions.js";
 import { CONFIG } from "./harness/config.js";
 
 process.env.NODE_ENV = "test";
@@ -494,7 +495,12 @@ describe("Tier 2: Boundary & Corner Cases (>=5 tests per inventoried feature)", 
       const mod = await import("../../server/src/actions/web.js").catch(() => null);
       if (!mod) assert.fail("web.ts not implemented");
       const searchFn = mod.webSearch || mod.search;
-      const res = await searchFn({ query: "node", mode: "text", limit: 1 });
+      // Live scraper: a single miss is a rate-limit, not a broken capability.
+      const res = await withNetworkRetry(async () => {
+        const r = await searchFn({ query: "node", mode: "text", limit: 1 });
+        assert.equal(r.results.length, 1);
+        return r;
+      });
       assert.equal(res.results.length, 1);
     });
 
@@ -600,11 +606,15 @@ describe("Tier 2: Boundary & Corner Cases (>=5 tests per inventoried feature)", 
     it("12.4 should block directory traversal in destinationDir parameter", async () => {
       const mod = await import("../../windows-agent/src/capabilities/downloadAsset.js").catch(() => null);
       if (!mod) assert.fail("downloadAsset missing");
+      // The traversal must land in a REAL system root for this platform, so
+      // the refusal proves the deny rule fired — not that a fake path was absent.
+      const systemDir =
+        process.platform === "win32" ? "../../../../Windows/System32" : "../../../../System/Library";
       await assert.rejects(
         async () => {
           await mod.downloadAsset({
             url: `${mockAssets.url}/sample.png`,
-            destinationDir: "../../../../Windows/System32",
+            destinationDir: systemDir,
           });
         },
         /sandbox|refused|escapes|allowed/i,

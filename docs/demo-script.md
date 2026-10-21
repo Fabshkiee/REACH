@@ -1,52 +1,99 @@
 # Demo Script (<3min — judges may stop at 3:00)
 
-> **Parked for rewrite to local DOCX hero (Slice 0 decision 2026-09-24).** Current truth (v2) below
-> is the old 3-proof cut; v1 hero is find → create local DOCX → verify, plus read-only
-> browser + CANNOT/approval beats, sim locked (simulated — not live Alexa+).
-> v1 history: `docs/v1-retired.md`.
+> One engine, three beats, one refusal. Sim is the demo client (the Alexa+
+> toolkit is partner-gated — **no live Alexa+ is claimed**; the video says so).
+> Every beat runs on the same planner → executor → policy → primitives pipeline.
+> No mocks, no bespoke routing, no special cases.
 
-Target feel: product demo, not lecture. Film real artifacts on one engine; no mocks,
-no special cases. Prep first: "Film prep" section below.
+Target feel: product demo, not lecture. Film real artifacts on one machine.
+
+## The beats
+
+| # | Goal (type this in `/sim`) | What it proves |
+|---|---|---|
+| 1 | `Find the standup transcript in my Downloads and turn it into meeting minutes saved on my laptop.` | The hero: **search → read → reason → draft → real `.docx` → verified**. The model writes the minutes; the executor verifies the file exists. |
+| 2 | `Go to my GitHub profile and list my repositories.` | A **different domain** (web) on the same engine, and the identity grounding: REACH knows the user's handle from the local environment instead of inventing `yourusername`. |
+| 3 | `Delete the old standup notes file in my Downloads.` | **Policy on camera**: a consequential action pauses, quotes the exact target, and asks. Ordinary actions never ask. |
+| 4 | `Read the contents of /etc/passwd.` | **Honest refusal** (15s): a clean `CANNOT` with a reason. Safe failure beats a silent hang. |
 
 ## 0:00–0:20 Hook (Impact + Idea)
-Voiceover: “Alexa+ understands requests, but can't reach your scattered personal capabilities.”
-Closing line tease: “Alexa+ understands what you want. REACH gives that intent somewhere to go.”
 
-## 0:20–1:00 Proof 1 — browser + file (agentic, cross-domain)
-* Type in `/sim`: “In Canva, find my homework design and save it on my laptop.”
-* Show: plan forming → browser steps → download → evidence chain (plan + per-step trace + file path).
-* Narrate one line: same engine as everything after this.
+Voiceover: "Alexa+ understands requests, but it can't reach the scattered capabilities on your machines."
+Closing tease: "Alexa+ understands what you want. REACH gives that intent somewhere to go."
 
-## 1:00–1:40 Proof 2 — local organize + approval beat (policy on camera)
-* Type: “Find the PDF invoice in my downloads, rename it with vendor and date, put it in my tax folder, delete the old copies.”
-* Show: find/rename/move running automatically → task pausing on the delete step →
-  approval card quoting the exact target → Approve → done.
-* This is the security story in 20 seconds: consequential actions ask, ordinary ones don't.
+## 0:20–1:25 Beat 1 — the hero (minutes from a transcript)
 
-## 1:40–2:10 Proof 3 — application inspect + report (different domain, same engine)
-* Type: “Open the spreadsheet, check which rows are missing emails, and make a report.”
-* Show: app opened + data inspected + report `.docx` saved. Third unrelated goal, zero new routes.
+* Type beat 1 in `/sim`.
+* Show, in this order, on camera:
+  * the **plan** filling in (`files.search` → `files.read` → `files.create_document` → `files.verify`);
+  * the **activity trail** ticking over — each step with its policy verdict;
+  * the **result**: a real `.docx` on the laptop, opened on screen, with real minutes in it;
+  * the **evidence** panel: the cited action IDs, the outcome kind (`complete`), and the token usage.
+* Narrate one line: "It found the file, read it, wrote the minutes, and checked the file was really there. Nobody wrote a route for this sentence."
 
-## 2:10–2:30 Refusal beat (30 seconds, high value)
-* Type something unplannable or forbidden (e.g. a system-directory read).
-* Show: clean failure/denial with reason. Safe failure beats silent hang — judges notice.
+## 1:25–1:55 Beat 2 — a different domain, same engine
 
-## 2:30–2:55 Technical reveal + close (Tech + Impact)
-Diagram: goal → planner → executor → policy → primitives → verified evidence.
-“Goals, not devices. Anything authorized, nothing else.” + repo + AWS Bedrock credit.
+* Type beat 2.
+* Show the browser steps in the trace, then the answer in the summary.
+* Narrate: "Same planner, same policy, same trace. Not a second product."
+
+## 1:55–2:20 Beat 3 — the approval beat (policy on camera)
+
+* Type beat 3.
+* Show the task **pausing**: the approval card quoting the exact file to be deleted.
+* Press **Approve**. Show the deletion and the completion.
+* Narrate: "Delete asks. Finding a file doesn't. That's the whole security model in twenty seconds."
+
+## 2:20–2:35 Refusal beat (15s)
+
+* Type beat 4.
+* Show the clean refusal with its reason.
+* Narrate: "It says no, and says why."
+
+## 2:35–2:55 Technical reveal + close
+
+Diagram: goal → planner (Bedrock) → executor + policy → laptop primitives → verified evidence.
+"Goals, not devices. Anything authorized, nothing else." + repo link.
 
 ## Film prep (do immediately before every take)
 
-* Close Word (it locks auto-opened files) and clear `~/Documents/REACH` test files.
+* `npm run doctor` → all green (`.env`, AWS keys, ports free, data dir writable).
+* Boot: `npm run dev:server` and `npm run dev:agent`. Wait for the agent heartbeat —
+  confirm the sim's device panel shows **Online** before typing anything.
+* Confirm the fixtures exist and read well (see below). One clean transcript, one throwaway file.
 * Clear task history so the panel reads clean on camera: delete `server/data/tasks/*.json`
-  (keep `server/data/devices/` — registration re-beats on its own, or restart the agent).
-* Boot core + agent, wait ~10s for first heartbeat, confirm `/sim` devices panel shows Online.
-* Canva: agent browser profile logged in once beforehand; one homework design findable.
-* Film proofs in order 1→2→3, then refusal; one unbroken browser take each.
+  (keep `server/data/devices/` — registration re-beats on its own).
+* Close any open document from a previous take (it locks the file on Windows; on macOS
+  it steals focus).
+* **Browser profile logged in once beforehand** if any beat needs a logged-in session.
+  Beats 1–4 do not.
+* Film the beats in order 1→2→3→4, one unbroken take each.
+
+## Demo fixtures
+
+Seed these before filming (they live in the user's real Downloads, so the search
+finds them the way it would for a real user):
+
+| File | Purpose |
+|---|---|
+| `~/Downloads/standup-transcript.txt` | A ~30-line meeting transcript with names, decisions, action items and one ambiguous item. Beat 1 reads it. |
+| `~/Downloads/standup-notes-old.txt` | A throwaway file. Beat 3 deletes it. |
+
+Beat 1's transcript should contain a line that is *not* in the user's control —
+a decision with no owner — so the planner has something real to summarize rather
+than a list to copy.
 
 ## Shot list
-* [ ] `/sim` plan + trace + evidence chain (proof 1).
-* [ ] Approval card → Approve → completion (proof 2).
-* [ ] Report `.docx` opened on laptop (proof 3).
-* [ ] Refusal with reason (refusal beat).
-* [ ] Architecture overlay (reveal).
+
+- [ ] `/sim` plan + trace + evidence chain (beat 1).
+- [ ] The `.docx` open on the laptop with real minutes inside (beat 1).
+- [ ] Browser steps in the trace + the answer in the summary (beat 2).
+- [ ] Approval card quoting the exact target → Approve → deletion → completion (beat 3).
+- [ ] Clean refusal with a reason (beat 4).
+- [ ] Architecture overlay (reveal).
+
+## If you are running late
+
+**Cut beat 2 (browser).** A two-beat video (hero + approval) is a complete
+argument; a three-beat video with a broken browser step is not. Never cut beat 3 —
+the approval beat is what separates REACH from a script runner.

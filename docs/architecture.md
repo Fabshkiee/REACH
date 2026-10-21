@@ -82,24 +82,37 @@ issues), (3) safety: clean `CANNOT` or exact approval boundary. Demo spine:
   constructed without token — boot gate is the enforcement layer), `.env` + `doctor`, sim UI shell,
   Inspector + SDK-client validation, policy engine + action framework + executor
   with audit trace, approvals/input model with single-use expiring nonces,
-  `decide_approval` tool, `npm test` green (both workspaces), agent file/app
-  primitives (search/read/write/move/verify/delete/open/launch) with sandbox +
-  shell-free open, executor action defs for all of them, browser adapter live
+  `decide_approval` tool, agent file/app primitives (search/read/write/move/verify/delete/open/launch)
+  with sandbox + shell-free open, executor action defs for all of them, browser adapter live
   (navigate/observe/download proven end-to-end; whitelist enforced; `browser_tabs`
   allowed at MCP gate but unwired to planner; `package.json` uses `^0.0.82`, exact
-  pin enforced by test + lockfile; Canva
-  rehearsal pending your one-time login), **Bedrock planner loop live on
-  `amazon.nova-lite-v1:0` (ReAct, registry-generated tools, resume, uniform routing — keyword
+  pin enforced by test + lockfile), **Bedrock planner loop live on
+  `amazon.nova-pro-v1:0` (ReAct, registry-generated tools, resume, uniform routing — keyword
   router deleted, proven by structural test), approve-executes semantics,
   narrated-only finishes fail, per-plan token accounting**.
+* **Cross-platform (2026-10-21):** the agent and the policy engine now run on
+  macOS, Linux and Windows from one codebase. Path handling is separator- and
+  drive-aware (Windows drive paths keep their own root; the system deny-roots
+  are per-platform, with the Windows roots denied everywhere). The Windows-only
+  desktop primitives are advertised on Windows only, and the planner is offered
+  **only the capabilities a connected device advertises** — so it cannot plan
+  against a primitive this machine cannot run. The agent directory is still
+  named `windows-agent` (v1 leftover).
 * **Planned next (finished v1, single-user local, laptop-only):** Slices B–E DONE
   (B: honest outcomes/budgets/cancel; C: mandatory verifiers, event trail,
   full-detail approvals, sim timeline; D: no-phantom graph, pause/revoke,
   127.0.0.1 bind, fail-closed middleware, approval guards; E: teaching errors,
-  reflect-and-retry loop, files.list, paged files.read; server 96/96 + agent
-  24/24 green 2026-09-24, live Bedrock Q&A proven over HTTP).
-  Next: one local DOCX hero rehearsal. Sim approval/question cards are built;
+  reflect-and-retry loop, files.list, paged files.read; server 123/123 +
+  agent 46/46 green 2026-10-21, live Bedrock Q&A proven over HTTP).
+  Next: one rehearsed hero run, then the video. Sim approval/question cards are built;
   v1 hero is local-only.
+* **Deliberately not built (and therefore not claimed):** audio capture and
+  transcription (no `audio.*` capability exists), long-running jobs (a task is
+  capped at `TASK_MAX_ELAPSED_MS`, default 10 minutes — a one-hour meeting needs
+  the Phase 9 checkpoint-and-resume execution model, not a flag), push delivery
+  (no notify code; results are polled), live Alexa+ integration (toolkit is
+  partner-gated — the sim is the demo client), external MCP connectors,
+  smart-home, scheduling.
 * Anything in this doc without a "planned" mark describes intent shared by both
   layers only where the built code already supports it; when in doubt, the code
   wins and the doc gets fixed.

@@ -36,3 +36,25 @@ export function assertDocxContainsImage(filePath: string): void {
   const hasMedia = rawStr.includes("word/media/") || rawStr.includes("image") || rawStr.includes("drawing") || rawStr.includes("graphic");
   assert.ok(hasMedia, `DOCX archive at ${filePath} does not contain embedded image media entries`);
 }
+
+/**
+ * Retry an assertion that depends on a live external service.
+ *
+ * `web.search` scrapes a public engine; automated traffic gets rate-limited
+ * or bot-challenged, so a single miss is a flaky network, not a broken
+ * capability. Retry with a short backoff before failing the test.
+ */
+export async function withNetworkRetry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 1500): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        await new Promise((r) => setTimeout(r, delayMs * attempt));
+      }
+    }
+  }
+  throw lastError;
+}

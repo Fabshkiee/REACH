@@ -298,6 +298,16 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
     }
   }
 
+  // An empty result set from a live engine is NOT a successful search: it
+  // means the request was rate-limited or bot-challenged. Reporting
+  // ok:true with zero results would tell the planner "I looked and there is
+  // nothing there" — a confident falsehood. Fail honestly instead.
+  if (results.length === 0) {
+    throw new Error(
+      `web.search returned no results for "${parsed.query}" — the search engine most likely rate-limited or bot-challenged the request. Do not conclude the topic does not exist; retry once, narrow the query, or use browser.* / web.request instead.`,
+    );
+  }
+
   return {
     ok: true,
     query: parsed.query,

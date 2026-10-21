@@ -12,9 +12,13 @@ REACH uses **Bedrock as the planner brain** (plus drafted document content from 
   structured drafting for `create_document` sections. (`server/src/aws/bedrock.stub.ts`
   is legacy only.) Wire mapping handles Bedrock tool-name rules; unmappable names
   fall through to unknown-tool recovery.
-* Model: `BEDROCK_MODEL_ID` env, default `amazon.nova-lite-v1:0`
-  (fast/cheap, strong tool use), `AWS_REGION` default `us-east-1` (confirm model
-  access in console once credits land). Live evidence: 2026-09-20 full run
+* Model: `BEDROCK_MODEL_ID` env, default `amazon.nova-pro-v1:0`
+  (`server/src/config.ts` + `server/src/planner/bedrock.ts` agree). Nova Pro
+  replaced Nova Lite on 2026-10-01: Lite looped on unexpected 404s and
+  obstacles, Pro does not (see the friction log). Fallback if Pro access is
+  not granted: `amazon.nova-lite-v1:0`.
+  Region default `us-east-1` (confirm model access in the console once
+  credits land). Live evidence: 2026-09-20 full run
   `3678 in / 91 out` — fractions of a cent at Nova pricing (see friction log).
 * Meeting-transcription hero (Transcribe + S3) is **parked**, not cut — minutes-style
   drafting happens through the planner instead.

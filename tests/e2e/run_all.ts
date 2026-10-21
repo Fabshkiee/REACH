@@ -81,19 +81,18 @@ async function runTier(
     child.on("close", (code) => {
       const durationMs = Date.now() - start;
 
-      // Extract TAP / Node test runner statistics
-      // # tests 85
-      // # pass 49
-      // # fail 36
-      const testsMatch = output.match(/# tests (\d+)/);
-      const passMatch = output.match(/# pass (\d+)/);
-      const failMatch = output.match(/# fail (\d+)/);
-      const cancelMatch = output.match(/# cancelled (\d+)/);
-
-      const total = testsMatch ? parseInt(testsMatch[1], 10) : 0;
-      const passed = passMatch ? parseInt(passMatch[1], 10) : 0;
-      const failed = failMatch ? parseInt(failMatch[1], 10) : (code === 0 ? 0 : 1);
-      const cancelled = cancelMatch ? parseInt(cancelMatch[1], 10) : 0;
+      // Extract the test runner's statistics.
+      // Node's default reporter prints "ℹ tests 85"; the TAP reporter prints
+      // "# tests 85". Both must parse — matching only one made the scorecard
+      // report 0% on a suite that was passing.
+      const stat = (label: string): number => {
+        const m = output.match(new RegExp(`(?:#|\\u2139|ℹ)\\s*${label}\\s+(\\d+)`));
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const total = stat("tests");
+      const passed = stat("pass");
+      const failed = stat("fail");
+      const cancelled = stat("cancelled");
 
       resolve({
         tierNumber: tier.tierNumber,

@@ -12,16 +12,17 @@ through Alexa. Truth: `docs/architecture.md`. v1 history: `docs/v1-retired.md`.
 REACH is a general-purpose, Jarvis-like agent for your connected computing
 environment — with a load-bearing boundary: it acts only through a capability
 that is installed, reachable, and authorized for the exact target and scope.
-Unlike Aura+ (household concierge + memory) or KinSwitch (reassignment between people),
-REACH drives **goals through capabilities in your computing environment** via a
-planner over an explicitly authorized, pluggable capability set. Unlike
-Dwell/SHIFT/RELAY/HomeKeeper (domain planners), REACH is **infrastructure for
-arbitrary user goals**: observe → plan → act → verify, with policy enforcement.
+Unlike Aura+ (household concierge + memory) or KinSwitch (reassignment between
+people), REACH drives **goals through capabilities in your computing
+environment** via a planner over an explicitly authorized, pluggable capability
+set. Unlike Dwell/SHIFT/RELAY/HomeKeeper (domain planners), REACH is
+**infrastructure for arbitrary user goals**: observe → plan → act → verify,
+with policy enforcement.
 
 ## Track / prizes
 
 * Primary: **Alexa+** (self-hosted MCP server, MCP spec `2025-11-25` minimum, **Streamable HTTP**).
-* Mini-challenge: **AWS Builder** (Bedrock as planner brain — Nova Lite, planning + drafting).
+* Mini-challenge: **AWS Builder** (Bedrock as planner brain — Nova Pro, planning + drafting).
 * Deadline: **Oct 23, 2026 12:00 PM PDT**. Video `<3min` showing real functioning.
 * Demo client: **sim locked** (Alexa+ toolkit partner-gated, no live integration in video). REACH is Alexa+-compatible MCP (simulated in video): `execute_on_my_devices → get_task_status → decide_approval`. No Amazon marks in REACH UI.
 
@@ -44,15 +45,17 @@ arbitrary user goals**: observe → plan → act → verify, with policy enforce
               │ Agent  │          │ agents  │
               └────┬───┘          └─────────┘
                    │
-        files / browser / apps primitives
+       files / browser / apps primitives
 ```
 
 * Agent-facing surface: `execute_on_my_devices(task)` → async `taskId` (<500ms);
   `get_task_status` → status + plan + trace + evidence (`queued → running →
   completed/failed`, plus `awaiting_approval` / `awaiting_input`);
   `decide_approval` → resolve action-specific approvals.
-* No raw shell in v2 (lands in A-series: today's opener still shells out — see Build status in `docs/architecture.md`); no per-goal routes in v2 (keyword router deleted in A3).
+* No raw shell in v2; no per-goal routes in v2 (keyword router deleted in A3).
 * Device is `available` = authenticated + recent heartbeat + reachable. Fail safely when offline.
+* The planner is only offered capabilities a connected device **advertises** —
+  a primitive the machine cannot run is never on the table.
 
 ## Repo shape
 
@@ -62,96 +65,107 @@ reach/
 ├── windows-agent/    # Laptop agent: file/browser/app primitives, heartbeat
 ├── addon-package/    # Alexa+ addon.json stub (fill icons/privacy URLs before deploy)
 ├── docs/             # architecture (truth), contract, security, checklists, demo script
+├── tests/e2e/        # independent 4-tier black-box suite (187 tests)
 └── README.md
 ```
 
+> The folder is still called `windows-agent` — a v1 leftover. The agent itself
+> runs on **macOS, Linux and Windows**: the file primitives are cross-platform,
+> and the Windows-only desktop-control primitives are advertised on Windows only.
+
 ## Prerequisites
 
-* Windows 10/11 + **WSL2 + Ubuntu** (build env): `wsl --status` → Ubuntu, version 2.
-* **Node.js 24+** in BOTH Windows and WSL: `node --version` must be ≥24.
-  * Current repo pins `24` in `.nvmrc`. With nvm: `nvm install 24 && nvm use 24`.
-  * Repo was scaffolded on Node 22.19.0 — upgrade required before `alexa-ai` work.
-* Git, MCP Inspector (`npx @modelcontextprotocol/inspector`), `cloudflared` (tunnel for local MCP dev).
-* Accounts: Amazon/Alexa developer + **Alexa+ Private Preview request**, AWS account (+ $150 credit request by Oct 21 12pm PT), GitHub.
+* **Node.js 24+** on the machine that runs the core and the agent. Repo pins `24` in `.nvmrc`.
+* Git; MCP Inspector (`npx @modelcontextprotocol/inspector`) for protocol checks.
+* Accounts: Amazon/Alexa developer (+ Alexa+ Private Preview request), AWS account
+  with **Bedrock model access enabled** for `amazon.nova-pro-v1:0`, GitHub.
+* macOS: `npx playwright install chromium` once, for the browser adapter.
 
 ## Setup / run
 
 ```bash
-# WSL2 Ubuntu (recommended)
-cd /mnt/o/Coding/REACH   # adjust to your mount
+cd /path/to/REACH
 nvm use 24               # or install Node 24 LTS
 npm install
 npm run typecheck
+npm run doctor           # preflight: .env, AWS keys, ports, data dir
+npm test                 # server suite (123 tests)
+npm run test:agent       # laptop agent suite (46 tests)
+npm run test:e2e         # 4-tier black-box suite (187 tests)
 
 # Terminal 1 — REACH Core (MCP on :3000, sim UI, device mesh)
 npm run dev:server       # → http://localhost:3000/health → 200 {"ok":true}
 
-# Terminal 2 — Windows agent (registers + heartbeats, does the real work on :3001)
+# Terminal 2 — Laptop agent (registers + heartbeats, does the real work on :3001)
 npm run dev:agent        # → http://localhost:3001/health → 200 {"ok":true}
 
 # Browser — simulated Alexa+ interaction (text stand-in for voice, real backend)
 # → http://localhost:3000/sim
 ```
 
-Windows PowerShell equivalents work for quick checks, but use WSL for `alexa-ai` CLI later:
-`alexa-ai configure` (after Preview granted) → `alexa-ai new mcp` / `deploy` → web simulator test.
+## Configuration
 
-## Proven so far (v1 milestones — engine since replaced, see `docs/v1-retired.md`)
+`.env` at the repo root (copy `.env.example`). **Never commit it** — it is gitignored.
 
-> “Create a document on my laptop for my biology homework.”
-> → `My Biology Homework.docx` created + opened in `~/Documents/REACH`,
-> via Inspector, SDK client, and sim UI; tasks survive restarts; presence via
-> heartbeat; MCP 2025-11-25 over Streamable HTTP.
+* `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (default `us-east-1`),
+  `BEDROCK_MODEL_ID` (default `amazon.nova-pro-v1:0`) — live planning.
+* `AGENT_TOKEN` — **required**; the core and the agent refuse to boot without it
+  (test env is exempt). Same value on both sides.
+* Knobs: `DEVICE_TIMEOUT_MS` (90000), `HEARTBEAT_INTERVAL_MS` (30000),
+  `REACH_DATA_DIR` (default `<server-cwd>/data`), `DISPATCH_TIMEOUT_MS` (60000),
+  `APPROVAL_TTL_MS` (600000), `PLANNER_MAX_STEPS` (8), `TASK_MAX_ELAPSED_MS` (600000).
+
+## Working with it
 
 ```bash
-# Terminal 1 — REACH Core
-npm run dev:server
-
-# Terminal 2 — Windows agent (auto-registers + heartbeats every 30s)
-npm run dev:agent
-
-# Auth today: set the SAME AGENT_TOKEN on both sides to enforce Bearer auth.
-# Boot is fail-closed: server and agent refuse to start without it (test exempt).
-# Note: auth middleware still skips if constructed without a token, so the boot
-# gate is the enforcement layer — do not expose ports remotely; bind 127.0.0.1
-# and use a tunnel for any remote judge access. Never commit secrets — see docs/security.md.)
-#   $env:AGENT_TOKEN="dev-secret"  (PowerShell) / AGENT_TOKEN=dev-secret (bash)
-# Test knobs: DEVICE_TIMEOUT_MS (default 90000), HEARTBEAT_INTERVAL_MS (default 30000),
-#   REACH_DATA_DIR (default <server-cwd>/data), DISPATCH_TIMEOUT_MS (default 60000).
-
-# Terminal 3 — direct capability test
-curl -X POST localhost:3001/capabilities/create_document `
-  -H "content-type: application/json" `
-  -d '{"title":"Biology Homework","body":"Cell structure"}'
-
-# End-to-end (same routing Alexa will use)
-curl -X POST localhost:3000/tools/execute_on_my_devices `
-  -H "content-type: application/json" `
+# End-to-end through the same routing Alexa uses
+curl -X POST localhost:3000/tools/execute_on_my_devices \
+  -H "content-type: application/json" \
   -d '{"task":"Create a document on my laptop for my biology homework"}'
 # → {"taskId":"task_..."} in ~200ms, then:
 curl localhost:3000/tools/task/<taskId>
-# → {"status":"completed","evidence":{"deviceId":"windows-laptop",
-#     "capabilityId":"create_document","artifactUri":"...\\My Biology Homework.docx"}}
+# → {"status":"completed","outcome":{...},"evidence":{...}}
 ```
+
+The sim at `http://localhost:3000/sim` shows the plan, the per-step trace, the
+event trail and the approval card for the same engine.
 
 ## AWS Builder plan (Bedrock as the planner brain)
 
-* Bedrock (Converse, Nova Lite default `amazon.nova-lite-v1:0` via `BEDROCK_MODEL_ID`, `us-east-1`) drives the
-  ReAct loop — goal → plan → proposed actions — and drafts structured document
-  content. Live planner loop is checked in (`server/src/planner/bedrock.ts` + `loop.ts`);
-  meeting-transcription hero is parked.
-* Meeting-transcription hero parked; content drafting folded into the planner.
+* Bedrock (Converse, `amazon.nova-pro-v1:0` by default, `BEDROCK_MODEL_ID` to
+  change, `us-east-1`) drives the ReAct loop — goal → plan → proposed actions —
+  and drafts the body of every generated document. Live planner loop is checked
+  in (`server/src/planner/bedrock.ts` + `loop.ts`).
+* Nova Pro replaced Nova Lite on 2026-10-01: Lite looped on unexpected 404s
+  and obstacles. Fallback: `amazon.nova-lite-v1:0`.
+* Meeting-transcription hero is parked — the transcript→minutes *reasoning* is
+  live in the planner, the audio capture and Transcribe are the next adapters.
 * Document model + usage in `docs/aws-builder.md` + Product Feedback at submission.
 
 ## Submission pointers
 
 * License: MIT at repo root (Devpost-detectable).
-* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`, live Bedrock planner (`server/src/planner/bedrock.ts`, default `amazon.nova-lite-v1:0`).
-* Video (TODO): `<3min` — one local DOCX hero + read-only browser + CANNOT/approval beats (sim locked, simulated — not live Alexa+). Script: `docs/demo-script.md` (to be rewritten to hero).
+* Runtime hook: `McpServer` created per request in `server/src/mcp/server.ts`,
+  live Bedrock planner (`server/src/planner/bedrock.ts`, default `amazon.nova-pro-v1:0`).
+* Video (`docs/demo-script.md`): `<3min` — one hero workflow (turn a meeting
+  transcript into verified minutes on the laptop) + a read-only browser task +
+  an approval beat, all on one engine. Sim locked, simulated — not live Alexa+.
 * Friction log (bonus up to 10%): `docs/friction-log.md` — updated continuously.
 * Checklist: `docs/submission-checklist.md`.
 
 ## Status
 
-Docs sprint: v2 truth written (`docs/architecture.md` + `docs/v1-retired.md`).
-Build order: A1 policy+executor → A2 primitives → A3 planner loop → A4 sim approvals + acceptance → film.
+* **Engine**: planner loop, policy engine, executor with mandatory verifiers,
+  approvals (single-use, expiring, approve-executes), honest outcomes
+  (`complete` / `partial` / `unverified` / `failed` / `cannot`), event trail,
+  resumable tasks with cumulative budgets — all live and tested.
+* **Agent**: files (search/read/list/write/move/delete/verify), real `.docx`
+  creation, browser adapter (Playwright MCP), web search, app/document openers.
+* **Cross-platform**: the agent and the policy engine run on macOS, Linux and
+  Windows. Windows-only primitives (window focus, keystrokes, clipboard) are
+  advertised on Windows only.
+* **Not built**: audio capture and transcription, long-running (>10 min) jobs,
+  push delivery, live Alexa+ integration (partner-gated), external MCP
+  connectors, smart-home.
+* Next: rehearse the hero end to end, film it, then build the long-running
+  execution model that the meeting use case needs.

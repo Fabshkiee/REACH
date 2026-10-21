@@ -378,6 +378,30 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Result: 121/121 server unit tests pass; 44/44 agent unit tests pass; 187/187 E2E tests pass across all 4 tiers; strict typechecks pass with 0 errors.
 * Suggestion: Real-world desktop AI assistants must separate "process launching" from "active window GUI interaction" (window focusing, keyboard input, hotkeys, and clipboard) to support modern desktop applications that do not expose command-line or URL-based message injection.
 
+## 2026-10-21 — The project moved to macOS; backslash paths silently broke every path guard
+* Task: run the suite on the new (macOS) machine after three weeks away from a Windows repo.
+* Steps: `npm install` → `npm run typecheck` clean → `npm test` **server 116/121, agent 20/44**; traced every failure. The agent resolved relative paths through POSIX `path.resolve`, so `"notes\a.txt"` became ONE literal file named `notes\a.txt` instead of `notes/a.txt` — tests that wrote and re-read by backslash path missed their own fixtures, and `mkdir(dirname(...))` never created the subdirectory the test expected. Worse, the "another user's data" guard compared a backslash-normalised path against a `/`-suffixed prefix, so it **never fired on any POSIX host**: a sibling directory of the user's home was reachable.
+* Expected vs actual: expected a green suite after a straight checkout; actual 29 failures and one silently disabled security check — on a machine where the product was about to be filmed.
+* Severity: High (a security path that never executes reads as "working" — the test suite was the only thing that noticed).
+* Workaround (kept): one unifying fix in `windows-agent/src/sandbox.ts` + `server/src/policy/engine.ts` — unify separators to `/` *before* resolving, detect drive-letter absolute paths and resolve them with `path.win32` so they keep their own root, and derive the system deny-roots per platform (Windows roots stay denied everywhere, because a Windows path can still reach a POSIX core). Server 123/123, agent 44/44 green.
+* Suggestion: any OS assumption inside a path or policy function needs a platform matrix in CI, and the matrix must include "the platform the team is not sitting in front of" — an agent that only ever ran on the developer's machine will pass its own tests there.
+
+## 2026-10-21 — The E2E scorecard reported 0% on a suite that was 97% green
+* Task: verify the 187-test 4-tier E2E suite still passed on the new machine.
+* Steps: `npm run test:e2e` printed `Total: 0 | Passed: 0 | Failed: 1` for every tier. The runner parsed `# tests (\d+)`; Node's default reporter emits `ℹ tests 85`. Every count fell back to 0 and `failed` fell back to 1 because the process exited non-zero.
+* Expected vs actual: expected a pass/fail scorecard; actual a hardcoded-looking "0% pass rate" that looked like a catastrophic regression and was purely a regex mismatch.
+* Severity: Medium (verification integrity — the same class of false negative as the 2026-09-18 stale-process entry).
+* Workaround (kept): the parser now accepts both the TAP (`# tests`) and spec (`ℹ tests`) reporters; the scorecard reports real counts. Separately, three tier-2 cases asserted refusals against paths that do not exist on the host (`C:\Windows`, `../../../../Windows/System32`) — they now target a REAL system root for the platform, so a refusal proves the deny rule fired rather than that a fake path was missing.
+* Suggestion: a reporting tool that cannot fail is worse than no reporting tool. Parse the runner's own JSON/TAP output, and assert the parser against a known fixture.
+
+## 2026-10-21 — The planner was offered Windows-only primitives on a Mac
+* Task: confirm the model cannot plan against a capability this machine cannot run.
+* Steps: read the planner's tool list (`server/src/planner/tools.ts`) — it came from the **static** action registry, not from what any device advertised; and `server/src/policy/engine.ts` had an unconditional `allow.desktop-interaction` branch for every `desktop.*` action. The six desktop primitives drive Win32/PowerShell APIs, so on macOS the model was told to use `desktop.focus_window`, was offered the tool, was allowed by policy — and it would have failed **on camera**, in the middle of a filmed take.
+* Expected vs actual: expected the planner's tool list to reflect the connected machine; actual it reflected the build, and the core had no idea what the machine could do.
+* Severity: High (a guaranteed on-camera failure, and the exact failure the product exists to prevent — REACH acting as if an absent capability were present).
+* Workaround (kept): the agent now advertises only what the host can run (`advertisedCapabilities()` — the Windows-only desktop primitives are offered on Windows only), action definitions carry the agent capability they dispatch to (`deviceCapability`), and the planner is offered only capabilities a connected device advertises. The duplicated hardcoded known-app list in the planner was deleted in favour of the device's own advertisement.
+* Suggestion: "capability availability is truthful" is a product principle and a code invariant — make the registry the only source of truth for what exists, and make the advertised set the only source of truth for what is offered.
+
 ## Template for new entries
 * Task:
 * Steps:
