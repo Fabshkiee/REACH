@@ -29,13 +29,18 @@ describe("agent desktop capabilities", () => {
     assert.ok(SetClipboardSchema.safeParse({ text: "clipboard test" }).success);
   });
 
-  it("inspects open windows without error", async () => {
+  // The desktop adapter drives the live Windows desktop through Win32 APIs.
+  // On other platforms the agent does not advertise these capabilities, so
+  // there is nothing to exercise — skip rather than fake a pass.
+  const windowsOnly = process.platform === "win32" ? it : it.skip;
+
+  windowsOnly("inspects open windows without error", async () => {
     const res = await inspectWindows();
     assert.equal(res.ok, true);
     assert.ok(Array.isArray(res.windows));
   });
 
-  it("sets and gets clipboard text round-trip", async () => {
+  windowsOnly("sets and gets clipboard text round-trip", async () => {
     const testPayload = `REACH_TEST_${Date.now()}_CLIPBOARD`;
     const setRes = await setClipboard({ text: testPayload });
     assert.equal(setRes.ok, true);

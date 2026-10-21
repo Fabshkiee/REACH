@@ -16,6 +16,14 @@ export interface ActionDefinition {
   schema: z.ZodTypeAny;
   timeoutMs: number;
   /**
+   * The agent capability this action dispatches to (e.g. "read_file").
+   * Device-backed actions only: the planner is offered these ONLY while a
+   * connected device advertises that capability, so the model never plans
+   * against a primitive this machine cannot run. Core-side actions (browser,
+   * web) omit it and are always available.
+   */
+  deviceCapability?: string;
+  /**
    * Extract the policy target from validated args. The loop passes this to
    * policy — definitions that omit it leave targeting to raw input (rare).
    */

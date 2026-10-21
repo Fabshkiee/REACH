@@ -1,14 +1,15 @@
-import { ALLOWED_CAPABILITIES, KNOWN_APPS } from "./capabilities/index.js";
+import { advertisedCapabilities, KNOWN_APPS } from "./capabilities/index.js";
 
-export const AGENT_ID = process.env.AGENT_ID ?? "windows-laptop";
+export const AGENT_ID = process.env.AGENT_ID ?? "laptop";
 export const CORE_URL = process.env.CORE_URL ?? "http://localhost:3000";
 export const HEARTBEAT_INTERVAL_MS = Number(process.env.HEARTBEAT_INTERVAL_MS ?? 30_000);
 
 export function registrationPayload() {
   return {
     id: AGENT_ID,
-    name: "Windows Laptop Agent",
-    capabilities: [...ALLOWED_CAPABILITIES],
+    name: "Laptop Agent",
+    // Only what this host can actually run (see advertisedCapabilities).
+    capabilities: [...advertisedCapabilities()],
     knownApps: Object.keys(KNOWN_APPS),
   };
 }

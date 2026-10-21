@@ -24,6 +24,32 @@ export function isAllowed(capability: string): capability is AllowedCapability {
   return (ALLOWED_CAPABILITIES as readonly string[]).includes(capability);
 }
 
+/**
+ * Capabilities that exist only on a Windows host (they drive Win32/PowerShell
+ * APIs). On other platforms the agent does not have them at all.
+ */
+const WINDOWS_ONLY = new Set<AllowedCapability>([
+  "inspect_windows",
+  "focus_window",
+  "type_text",
+  "send_hotkey",
+  "set_clipboard",
+  "get_clipboard",
+]);
+
+/**
+ * What THIS host can actually run.
+ *
+ * ALLOWED_CAPABILITIES above is the security boundary (what the agent may be
+ * asked to do). This is the truth-telling boundary (what the machine can
+ * do). Advertising a capability the host cannot execute makes REACH plan
+ * against a phantom primitive — the exact failure this product exists to
+ * prevent — so Windows-only capabilities are advertised on Windows only.
+ */
+export function advertisedCapabilities(): AllowedCapability[] {
+  return ALLOWED_CAPABILITIES.filter((c) => process.platform === "win32" || !WINDOWS_ONLY.has(c));
+}
+
 export { DownloadAssetSchema, downloadAsset, reachDownloadsDir } from "./downloadAsset.js";
 export type { DownloadAssetInput, DownloadAssetResult } from "./downloadAsset.js";
 export { CreateDocumentSchema, createDocument } from "./createDocument.js";

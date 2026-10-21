@@ -245,11 +245,14 @@ describe("windows-agent download_asset capability", () => {
   });
 
   it("blocks directory traversal in destinationDir escaping sandbox", async () => {
+    // The escape must land in a REAL system root for this platform, so the
+    // refusal proves the deny rule fired — not that a fake path was missing.
+    const systemDir = process.platform === "win32" ? "../../../../Windows/System32" : "../../../../System/Library";
     await assert.rejects(
       async () => {
         await downloadAsset({
           url: `${serverUrl}/sample.png`,
-          destinationDir: "../../../../Windows/System32",
+          destinationDir: systemDir,
         });
       },
       /refused: (path escapes sandbox|allowed|system location)/i,

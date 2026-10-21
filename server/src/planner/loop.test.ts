@@ -9,6 +9,7 @@ import { z } from "zod";
 process.env.REACH_DATA_DIR = mkdtempSync(join(tmpdir(), "reach-a3-loop-"));
 
 import { clearActionRegistry, defineAction } from "../executor/registry.js";
+import { registerDevice } from "../registry/deviceStore.js";
 import { ScriptedPlannerBackend } from "./mock.js";
 import { getTask, createTask } from "../tasks/taskStore.js";
 import { decideApproval, executeOnMyDevices } from "../mcp/tools.js";
@@ -243,6 +244,14 @@ describe("planner loop", () => {
       verify: () => "launched",
       handler: async (args) => ({ launched: args["app"] }),
     });
+    // The known-safe app set is the DEVICE's advertisement, not a second
+    // hardcoded list in the planner — so the test models a real device.
+    registerDevice({
+      id: "test-laptop",
+      name: "Test Laptop",
+      capabilities: ["launch_application"],
+      knownApps: ["notepad", "calc"],
+    });
 
     const t = createTask("grounding rejection test");
     const mock = new ScriptedPlannerBackend([
@@ -275,7 +284,7 @@ describe("planner loop", () => {
     const history = mock.calls[3].history;
     const historyText = JSON.stringify(history);
     assert.ok(historyText.includes("Web browsing must use web.* or browser.* tools"));
-    assert.ok(historyText.includes("apps.launch is restricted to known desktop utilities"));
+    assert.ok(historyText.includes("apps.launch is restricted to the apps this device advertises"));
     assert.equal(task.outcome?.kind, "cannot");
   });
 

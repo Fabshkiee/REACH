@@ -7,38 +7,47 @@ import { verifyFile } from "./files.js";
 /**
  * Known-safe launch targets. Names only — never raw paths or binaries.
  * Anything outside this map reaches the user as a confirmation, never silent.
+ *
+ * Each entry lists how to open the app on each platform: `win` (executable),
+ * `mac` (application name for `open -a`), `uri` (custom scheme — works
+ * everywhere). The KEY is the stable public name advertised to the core.
  */
-export const KNOWN_APPS: Record<string, { bin: string } | { uri: string }> = {
-  calculator: { bin: "calc.exe" },
-  calc: { bin: "calc.exe" },
-  notepad: { bin: "notepad.exe" },
-  paint: { bin: "mspaint.exe" },
-  mspaint: { bin: "mspaint.exe" },
-  snipping: { bin: "SnippingTool.exe" },
+export interface KnownApp {
+  win?: string;
+  mac?: string;
+  uri?: string;
+}
+
+export const KNOWN_APPS: Record<string, KnownApp> = {
+  calculator: { win: "calc.exe", mac: "Calculator" },
+  calc: { win: "calc.exe", mac: "Calculator" },
+  notepad: { win: "notepad.exe", mac: "TextEdit" },
+  paint: { win: "mspaint.exe" },
+  mspaint: { win: "mspaint.exe" },
+  snipping: { win: "SnippingTool.exe" },
   settings: { uri: "ms-settings:" },
+  finder: { win: "explorer.exe", mac: "Finder" },
+  explorer: { win: "explorer.exe", mac: "Finder" },
+  terminal: { win: "wt.exe", mac: "Terminal" },
+  wt: { win: "wt.exe", mac: "Terminal" },
+  safari: { mac: "Safari" },
+  chrome: { win: "chrome.exe", mac: "Google Chrome" },
+  edge: { win: "msedge.exe" },
+  msedge: { win: "msedge.exe" },
+  opera: { win: "opera.exe" },
+  textedit: { mac: "TextEdit" },
+  notes: { mac: "Notes" },
+  mail: { mac: "Mail" },
+  messages: { mac: "Messages" },
+  preview: { mac: "Preview" },
+  music: { mac: "Music" },
+  photos: { uri: "ms-photos:", mac: "Photos" },
   figma: { uri: "figma:" },
-  vscode: { bin: "code.cmd" },
-  code: { bin: "code.cmd" },
-  chrome: { bin: "chrome.exe" },
-  edge: { bin: "msedge.exe" },
-  msedge: { bin: "msedge.exe" },
-  opera: { bin: "opera.exe" },
+  vscode: { win: "code.cmd", mac: "Visual Studio Code" },
+  code: { win: "code.cmd", mac: "Visual Studio Code" },
   spotify: { uri: "spotify:" },
   slack: { uri: "slack:" },
   discord: { uri: "discord:" },
-  explorer: { bin: "explorer.exe" },
-  terminal: { bin: "wt.exe" },
-  wt: { bin: "wt.exe" },
-  powershell: { bin: "powershell.exe" },
-  pwsh: { bin: "pwsh.exe" },
-  cmd: { bin: "cmd.exe" },
-  word: { bin: "WINWORD.EXE" },
-  winword: { bin: "WINWORD.EXE" },
-  excel: { bin: "EXCEL.EXE" },
-  powerpoint: { bin: "POWERPNT.EXE" },
-  outlook: { bin: "OUTLOOK.EXE" },
-  vlc: { bin: "vlc.exe" },
-  photos: { uri: "ms-photos:" },
   obsidian: { uri: "obsidian:" },
   notion: { uri: "notion:" },
   steam: { uri: "steam:" },
@@ -46,6 +55,15 @@ export const KNOWN_APPS: Record<string, { bin: string } | { uri: string }> = {
   whatsapp: { uri: "whatsapp:" },
   zoom: { uri: "zoommtg:" },
   teams: { uri: "msteams:" },
+  word: { win: "WINWORD.EXE", mac: "Microsoft Word" },
+  winword: { win: "WINWORD.EXE", mac: "Microsoft Word" },
+  excel: { win: "EXCEL.EXE", mac: "Microsoft Excel" },
+  powerpoint: { win: "POWERPNT.EXE", mac: "Microsoft PowerPoint" },
+  outlook: { win: "OUTLOOK.EXE", mac: "Microsoft Outlook" },
+  vlc: { win: "vlc.exe", mac: "VLC" },
+  powershell: { win: "powershell.exe" },
+  pwsh: { win: "pwsh.exe" },
+  cmd: { win: "cmd.exe" },
 };
 
 export const OpenDocumentSchema = z.object({
@@ -63,52 +81,90 @@ export const LaunchApplicationSchema = z.object({
 });
 export type LaunchApplicationInput = z.infer<typeof LaunchApplicationSchema>;
 
-/**
- * Open with the default handler WITHOUT a shell. PowerShell's Start-Process
- * calls ShellExecuteEx directly (no cmd.exe parsing). The script is a static
- * file (`Start-Process -FilePath $args[0]`) and the target travels as a
- * process argument — argv elements are never shell-parsed, so no injection is
- * possible at any level. (Note: Start-Process has no -LiteralPath parameter
- * on any PowerShell version; -FilePath with a single argv element is exact.
- * Brackets in generated titles are sanitized at creation for the same reason.)
- */
-function startVerb(pathOrUri: string): Promise<void> {
+/** Spawn a command and wait for it to exit. Never uses a shell. */
+function spawnAndWait(cmd: string, args: string[], timeoutMs: number): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const run = async () => {
-      const { mkdtemp, writeFile: wf, rm } = await import("node:fs/promises");
-      const { tmpdir } = await import("node:os");
-      const { join } = await import("node:path");
-      const dir = await mkdtemp(join(tmpdir(), "reach-open-"));
-      const script = join(dir, "open.ps1");
-      try {
-        await wf(script, "Start-Process -FilePath $args[0]", "utf8");
-        const child = spawn(
-          "powershell.exe",
-          ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, pathOrUri],
-          { windowsHide: true, stdio: "ignore" },
-        );
-        await new Promise<void>((res, rej) => {
-          const timer = setTimeout(() => {
-            child.kill();
-            rej(new Error("open timed out after 15s"));
-          }, 15_000);
-          timer.unref?.();
-          child.once("error", (err) => {
-            clearTimeout(timer);
-            rej(new Error(`open failed to start: ${err.message}`));
-          });
-          child.once("exit", (code) => {
-            clearTimeout(timer);
-            if (code === 0) res();
-            else rej(new Error(`open failed: powershell exit ${code}`));
-          });
-        });
-      } finally {
-        await rm(dir, { recursive: true, force: true });
-      }
-    };
-    void run().then(resolve, reject);
+    const child = spawn(cmd, args, { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr?.on("data", (d) => {
+      stderr += String(d);
+    });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`${cmd} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    child.once("error", (err) => {
+      clearTimeout(timer);
+      reject(new Error(`${cmd} failed to start: ${err.message}`));
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      resolve({ code: code ?? 0, stderr: stderr.trim() });
+    });
   });
+}
+
+/**
+ * Open with the default handler WITHOUT a shell.
+ *
+ * - Windows: PowerShell's Start-Process calls ShellExecuteEx directly (no
+ *   cmd.exe parsing). The script is a static file (`Start-Process -FilePath
+ *   $args[0]`) and the target travels as a process argument — argv elements
+ *   are never shell-parsed, so no injection is possible at any level.
+ *   (Note: Start-Process has no -LiteralPath parameter on any PowerShell
+ *   version; -FilePath with a single argv element is exact.)
+ * - macOS: `open` (LaunchServices). A file type with no registered handler
+ *   (e.g. .docx with no Pages/Word installed) falls back to Quick Look,
+ *   which every macOS ships.
+ * - Linux: `xdg-open`.
+ */
+async function startVerb(pathOrUri: string): Promise<void> {
+  if (process.platform === "darwin") {
+    const first = await spawnAndWait("open", [pathOrUri], 15_000);
+    if (first.code === 0) return;
+    const fallback = await spawnAndWait("qlmanage", ["-p", pathOrUri], 15_000);
+    if (fallback.code !== 0) {
+      throw new Error(`open failed: ${first.stderr || `exit ${first.code}`}`);
+    }
+    return;
+  }
+  if (process.platform === "linux") {
+    const r = await spawnAndWait("xdg-open", [pathOrUri], 15_000);
+    if (r.code !== 0) throw new Error(`open failed: ${r.stderr || `exit ${r.code}`}`);
+    return;
+  }
+
+  const { mkdtemp, writeFile: wf, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "reach-open-"));
+  const script = join(dir, "open.ps1");
+  try {
+    await wf(script, "Start-Process -FilePath $args[0]", "utf8");
+    const child = spawn(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, pathOrUri],
+      { windowsHide: true, stdio: "ignore" },
+    );
+    await new Promise<void>((res, rej) => {
+      const timer = setTimeout(() => {
+        child.kill();
+        rej(new Error("open timed out after 15s"));
+      }, 15_000);
+      timer.unref?.();
+      child.once("error", (err) => {
+        clearTimeout(timer);
+        rej(new Error(`open failed to start: ${err.message}`));
+      });
+      child.once("exit", (code) => {
+        clearTimeout(timer);
+        if (code === 0) res();
+        else rej(new Error(`open failed: powershell exit ${code}`));
+      });
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 /** Shared by create_document and open_document. Best-effort: never fails the task. */
@@ -186,15 +242,26 @@ export async function launchApplication(input: LaunchApplicationInput): Promise<
   if (!entry) {
     throw new Error(`unknown application "${parsed.app}": known-safe set is [${Object.keys(KNOWN_APPS).join(", ")}]`);
   }
-  if ("uri" in entry) {
+  // 1. URL scheme — identical on every platform (opens the registered handler).
+  if (entry.uri) {
     await startVerb(entry.uri);
     return { app: key, launched: true };
   }
+  // 2. Native launcher for THIS platform. An app with no launcher here is a
+  //    truthful refusal, never a silent success.
+  if (process.platform === "darwin") {
+    if (!entry.mac) throw new Error(`application "${parsed.app}" has no macOS launcher`);
+    const r = await spawnAndWait("open", ["-a", entry.mac], 15_000);
+    if (r.code !== 0) throw new Error(`launch failed: ${r.stderr || `exit ${r.code}`}`);
+    return { app: key, launched: true };
+  }
+  const bin = entry.win;
+  if (!bin) throw new Error(`application "${parsed.app}" has no launcher on ${process.platform}`);
   // GUI apps never exit on their own, so execFile-style waiting would report
   // every launch as a timeout. Spawn detached instead: success = the OS
   // accepted the process (spawn event), failure = immediate spawn error.
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(entry.bin, [], { detached: true, stdio: "ignore", windowsHide: true });
+    const child = spawn(bin, [], { detached: true, stdio: "ignore", windowsHide: true });
     child.once("error", (err) => reject(new Error(`launch failed: ${(err as Error).message}`)));
     child.once("spawn", () => {
       child.unref();

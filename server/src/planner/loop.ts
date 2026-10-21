@@ -29,27 +29,10 @@ const SYSTEM = [
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
-  "- Universal Desktop Dispatch: When the user asks to open, view, or show a service, website, app, or file on their screen:",
-  "  * For websites, web apps, or web services (e.g. Figma, GitHub, YouTube, Google Docs): call apps.open_url with the URL so it opens directly in their logged-in desktop browser.",
-  "  * For composing or sending emails (e.g. 'send to my mom's Gmail', 'email this file'): construct a Gmail web compose link https://mail.google.com/mail/?view=cm&fs=1&to=<recipient>&su=<subject>&body=<body> and call apps.open_url so their email compose opens prefilled and ready to send.",
-  "  * For desktop applications (e.g. figma, code, vscode, calc, notepad, explorer, spotify, slack, discord, obsidian, notion, steam): call apps.launch with the application name.",
-  "  * For local folders or files (e.g. family photos in Pictures, document files, code repos): call apps.open_document with the path to open them in their native desktop viewer or File Explorer.",
-  "- Desktop Computer Use & Active Windows (desktop.*):",
-  "  * Use desktop.inspect_windows to discover which application windows are currently open on the desktop.",
-  "  * Use desktop.focus_window to bring a specific app (e.g. 'Discord', 'Figma', 'Spotify', 'Slack') to the foreground.",
-  "  * Use desktop.type_text to type into the active window (set submit:true to press Enter / send message).",
-  "  * Use desktop.send_hotkey for keyboard shortcuts (e.g. ['ctrl', 'k'] for quick channel switcher in Discord/Slack, ['ctrl', 'o'] for open, ['space'] for pause/play).",
-  "  * Use desktop.set_clipboard to copy text, code, or URLs to the Windows clipboard for fast, reliable pasting.",
-  "  * For Discord or chat tasks (e.g. 'send a message in Discord'): call apps.launch({ app: 'discord' }) or desktop.focus_window({ title: 'Discord' }), navigate with desktop.send_hotkey({ keys: ['ctrl', 'k'] }), type channel/message with desktop.type_text({ text: '...', submit: true }).",
-  "- Universal Web & API Dispatch (web.request):",
-  "  * For webhooks (Discord webhook, Slack webhook, IFTTT, Zapier) or arbitrary REST API queries, call web.request({ url, method, headers, body }).",
-  "- Finding photos & files: User photo folders live in Pictures (e.g. Pictures or Pictures/Family). Code repositories live in O:\\Coding. Use files.search (with root='Pictures' or query) and files.list to discover them.",
-  "- Directories are explored via files.list (names + sizes) and opened in File Explorer via apps.open_document. Never read or verify a directory as a file.",
-  "- apps.launch is strictly restricted to known desktop utilities (notepad, calc, cmd, powershell, explorer, figma, vscode, spotify, discord).",
-  "- Never invent placeholder usernames (such as 'yourusername', 'username', 'example', 'myuser', etc.) in URLs or commands. If the user refers to 'my profile', 'my repo', or 'my account', use the provided gitUser/systemUser environment context. If the username is still unknown, call reach.ask_user to ask for their username/profile URL, or use web.search to locate it (e.g. searching the repo name).",
   "- Web information extraction: When the user asks for information from a web page (e.g. 'tell me the issues', 'what does the page say', 'read the title'): once the relevant text or item titles appear in browser.observe or browser.find snapshots, do not click randomly; extract the answer directly and call reach.finish complete with the substantive summary in the summary argument.",
   "- In browser.click, 'target' must be the exact snapshot ref identifier (e.g. 'f1e36', 'e4') from browser.observe, never a CSS selector, element name, or empty string.",
-  "- Two-tier planning: For composite or multi-step goals, break the goal into 2–4 verifiable milestones. Allocate a dedicated 6-step horizon per sub-goal. Call reach.checkpoint_milestone upon completing each milestone before advancing to the next, maintaining verified evidence at each step.",
+  "- Never invent placeholder usernames (such as 'yourusername', 'username', 'example', 'myuser', etc.) in URLs or commands. If the user refers to 'my profile', 'my repo', or 'my account', use the provided gitUser/systemUser environment context. If the username is still unknown, call reach.ask_user to ask for their username/profile URL, or use web.search to locate it.",
+  "- Two-tier planning: For composite or multi-step goals, break the goal into 2–4 verifiable milestones. Call reach.checkpoint_milestone upon completing each milestone before advancing to the next, maintaining verified evidence at each step.",
   "- Keep reasoning brief. Temperature is 0; be decisive.",
 ].join("\n");
 
@@ -266,7 +249,6 @@ function localUserContextNote(): string {
     parts.push(`userHome="${home}"`);
     parts.push(`picturesDir="${join(home, "Pictures")}"`);
     parts.push(`documentsDir="${join(home, "Documents")}"`);
-    parts.push(`codingDir="O:\\Coding"`);
   } catch {}
   return parts.length > 0 ? `[Local environment identity & paths: ${parts.join(", ")}]` : "";
 }
@@ -494,11 +476,6 @@ export async function runPlannerLoop(
       const appName = String((first.args as { app?: unknown })?.app ?? "").trim().toLowerCase();
       const cleanApp = appName.replace(/\.exe$/i, "");
       const BROWSER_NAMES = new Set(["chrome", "msedge", "edge", "firefox", "brave", "opera", "safari", "browser"]);
-      const KNOWN_UTILITIES = new Set([
-        "notepad", "calc", "calculator", "cmd", "powershell", "pwsh", "explorer", "mspaint", "paint", "snipping", "settings",
-        "figma", "vscode", "code", "spotify", "slack", "discord", "terminal", "wt", "word", "winword", "excel", "powerpoint", "outlook", "vlc", "photos",
-        "obsidian", "notion", "steam", "telegram", "whatsapp", "zoom", "teams",
-      ]);
       if (BROWSER_NAMES.has(appName) || BROWSER_NAMES.has(cleanApp)) {
         history.push({
           role: "user",
@@ -512,12 +489,16 @@ export async function runPlannerLoop(
         saveUsage();
         continue;
       }
-      if (!KNOWN_UTILITIES.has(appName) && !KNOWN_UTILITIES.has(cleanApp)) {
+      // The known-safe app set comes from the DEVICE advertisement, not from a
+      // second hardcoded list here (that copy drifted and rejected apps the
+      // machine could run). Unknown binaries are the policy's call.
+      const knownApps = new Set((policyCtx.knownApps ?? []).map((a) => a.toLowerCase()));
+      if (knownApps.size > 0 && !knownApps.has(appName) && !knownApps.has(cleanApp)) {
         history.push({
           role: "user",
           toolResults: [{
             toolCallId: first.id,
-            content: `ERROR: apps.launch is restricted to known desktop utilities (notepad, calc, cmd, powershell, explorer). "${appName}" is not permitted.`,
+            content: `ERROR: apps.launch is restricted to the apps this device advertises: [${[...knownApps].join(", ")}]. "${appName}" is not permitted.`,
           }],
         });
         plan.push(`step ${stepBase + step}: rejected apps.launch for unknown utility "${appName}"`);

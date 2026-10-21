@@ -18,7 +18,12 @@ describe("policy engine", () => {
   });
 
   it("denies system locations even with traversal spelling", () => {
-    for (const t of ["C:\\Windows\\System32\\x.dll", "..\\..\\Windows\\System32\\x.dll", "C:\\Program Files\\app\\x.exe"]) {
+    // Each spelling must land in a REAL system root for this platform, so the
+    // denial proves the deny rule fired — not that a fake path was missing.
+    const sysRoot = process.platform === "win32" ? "C:\\Windows\\System32" : "/System/Library";
+    const traversal =
+      process.platform === "win32" ? "..\\..\\Windows\\System32\\x.dll" : "../../System/Library/x.dll";
+    for (const t of [join(sysRoot, "x.dll"), traversal, join(sysRoot, "..", "x.dll")]) {
       const d = classify(action({ actionClass: "read", target: t }), ctx);
       assert.equal(d.verdict, "deny", t);
       assert.match(d.reason, /deny\./);
@@ -88,11 +93,14 @@ describe("policy engine", () => {
   });
 
   it("drive-letter paths are local, not URIs", () => {
-    // homedir() is drive-lettered on Windows — must judge as path (allow),
-    // not as a URI scheme (would confirm/deny wrongly).
+    // homedir() must be judged as a path (allow), never as a URI scheme
+    // (which would confirm/deny wrongly).
     const p = home("doc.txt");
-    assert.match(p, /^[a-zA-Z]:[\\/]/);
     assert.equal(classify(action({ actionClass: "read", target: p }), ctx).verdict, "allow");
+    // An explicit drive-letter path is a path too, not a "c:" URI scheme.
+    const driveStyle =
+      process.platform === "win32" ? ctx.userRoot.replace(/\//g, "\\") + "\\doc.txt" : "C:\\Users\\x\\doc.txt";
+    assert.equal(classify(action({ actionClass: "read", target: driveStyle }), ctx).verdict, "allow");
   });
 
   it("named web targets allow; odd URLs confirm; unsafe schemes deny", () => {

@@ -1,5 +1,5 @@
 import { homedir, userInfo } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, win32 } from "node:path";
 import type { ActionClass, PolicyContext, PolicyDecision, ProposedAction } from "./types.js";
 
 export function defaultPolicyContext(): PolicyContext {
@@ -10,16 +10,34 @@ export function defaultPolicyContext(): PolicyContext {
   };
 }
 
-/** Lexical normalization for policy comparison (no fs access — pure). */
+/** Windows drive-letter absolute path: "C:\Users\x" or "C:/Users/x". */
+const DRIVE_ABS = /^[a-zA-Z]:[\\/]/;
+
+/**
+ * Lexical normalization for policy comparison (no fs access — pure).
+ * Separators are unified to "/" so one set of rules judges POSIX paths
+ * ("/Users/me/x") and Windows paths ("C:\Users\me\x") identically.
+ */
 export function normalizeTarget(target: string): string {
-  return target.replace(/\//g, "\\").replace(/\0/g, "").trim().toLowerCase();
+  return target.replace(/\\/g, "/").replace(/\0/g, "").trim().toLowerCase();
+}
+
+/**
+ * Resolve a target against a base. A Windows drive path keeps its OWN root
+ * (resolved with win32 rules) so it can never be mistaken for a location
+ * inside the local user root; everything else resolves natively.
+ */
+export function resolveTarget(base: string, target: string): string {
+  const unified = target.replace(/\\/g, "/");
+  if (DRIVE_ABS.test(target)) return win32.resolve(unified).replace(/\\/g, "/");
+  return resolve(base, unified);
 }
 
 /** True when `target` stays inside `root` after resolving `..` lexically. */
 export function isWithinRoot(root: string, target: string): boolean {
   const r = normalizeTarget(resolve(root));
-  const t = normalizeTarget(resolve(root, target));
-  return t === r || t.startsWith(r.endsWith("\\") ? r : r + "\\");
+  const t = normalizeTarget(resolveTarget(root, target));
+  return t === r || t.startsWith(r.endsWith("/") ? r : r + "/");
 }
 
 const SECRET_BASENAMES = new Set([
@@ -36,19 +54,30 @@ const SECRET_BASENAMES = new Set([
 const SECRET_EXTENSIONS = new Set([".pem", ".key", ".pfx", ".p12"]);
 const SECRET_DIR_SEGMENTS = new Set([".ssh", "gnupg", "user data", "mozilla"]);
 
-function windowsDenyRoots(): string[] {
+/**
+ * System locations that policy denies outright, per platform. The core may
+ * run on a different OS than the agent, so Windows drive roots stay on the
+ * list everywhere (a Windows path can still arrive at a POSIX core).
+ */
+export function systemDenyRoots(): string[] {
   const roots: string[] = [];
-  const sys = process.env.SystemRoot ?? process.env.windir ?? "C:\\Windows";
-  roots.push(sys);
+  // Windows roots are always denied: the core and the agent may run on
+  // different machines, so a Windows path can still arrive here.
+  roots.push(process.env.SystemRoot ?? process.env.windir ?? "C:\\Windows");
   if (process.env.ProgramFiles) roots.push(process.env.ProgramFiles);
   if (process.env["ProgramFiles(x86)"]) roots.push(process.env["ProgramFiles(x86)"]);
   if (process.env.ProgramData) roots.push(process.env.ProgramData);
+  if (process.platform === "darwin") {
+    roots.push("/System", "/Library", "/usr", "/bin", "/sbin", "/etc", "/private/etc", "/private/var/db", "/dev", "/cores");
+  } else if (process.platform !== "win32") {
+    roots.push("/usr", "/bin", "/sbin", "/etc", "/boot", "/dev", "/proc", "/sys", "/var/lib");
+  }
   return roots.map(normalizeTarget);
 }
 
 function hitsSecretLocation(target: string): string | undefined {
   const t = normalizeTarget(target);
-  const segments = t.split("\\").filter(Boolean);
+  const segments = t.split("/").filter(Boolean);
   const base = segments[segments.length - 1] ?? "";
   if (SECRET_BASENAMES.has(base)) return `secret filename "${base}"`;
   const dot = base.lastIndexOf(".");
@@ -62,15 +91,17 @@ function hitsSecretLocation(target: string): string | undefined {
 function hitsSystemRoot(target: string, ctx: PolicyContext): string | undefined {
   const t = normalizeTarget(target);
   void ctx;
-  for (const root of windowsDenyRoots()) {
-    if (t === root || t.startsWith(root.endsWith("\\") ? root : root + "\\")) {
+  for (const root of systemDenyRoots()) {
+    const edge = root.endsWith("/") ? root : root + "/";
+    if (t === root || t.startsWith(edge)) {
       return `system location "${root}"`;
     }
   }
-  // Another user's profile: under C:\Users\<someone-else>.
+  // Another user's profile: under /Users/<someone-else> (macOS/Linux) or
+  // C:\Users\<someone-else> (Windows).
   const usersDir = normalizeTarget(dirname(ctx.userRoot));
   const mine = normalizeTarget(ctx.userRoot);
-  if (t.startsWith(usersDir + "\\") && !(t === mine || t.startsWith(mine + "\\"))) {
+  if (t.startsWith(usersDir + "/") && !(t === mine || t.startsWith(mine + "/"))) {
     return "another user's data";
   }
   return undefined;
@@ -99,7 +130,7 @@ export function classify(action: ProposedAction, ctx: PolicyContext = defaultPol
   // Resolve paths first (against userRoot) so `..\..` escapes are judged by
   // where they LAND, not by how they're spelled. URIs are never resolved —
   // they are judged as remote targets, never as local paths.
-  const target = rawTarget && !isUri ? normalizeTarget(resolve(ctx.userRoot, rawTarget)) : normalizeTarget(rawTarget);
+  const target = rawTarget && !isUri ? normalizeTarget(resolveTarget(ctx.userRoot, rawTarget)) : normalizeTarget(rawTarget);
 
   const secret = target ? hitsSecretLocation(target) : undefined;
   if (secret) {

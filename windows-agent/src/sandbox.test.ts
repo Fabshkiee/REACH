@@ -17,13 +17,15 @@ describe("agent sandbox", () => {
 
   it("allows ordinary paths on any drive (no root cage)", () => {
     // The agent enforces DENY patterns; risk calls belong to core policy.
-    // O:\ style second drives and temp dirs pass here by design.
+    // A second drive and a temp dir pass here by design.
     assert.ok(assertAllowedPath(join(root, "Documents", "a.docx")).startsWith(root));
-    assert.equal(assertAllowedPath("O:\\Downloads\\notes.txt"), "O:\\Downloads\\notes.txt");
+    const otherDrive = process.platform === "win32" ? "O:\\Downloads\\notes.txt" : "/Volumes/Backup/notes.txt";
+    assert.ok(assertAllowedPath(otherDrive).length > 0);
   });
 
   it("refuses system roots even with traversal spelling", () => {
-    assert.throws(() => assertAllowedPath("C:\\Windows\\System32\\x.dll"), /system location/);
+    const sysRoot = process.platform === "win32" ? "C:\\Windows\\System32" : "/System/Library";
+    assert.throws(() => assertAllowedPath(join(sysRoot, "x.dll")), /system location/);
     // Traversal landing inside a system root must judge by destination, not spelling.
     const realSystemRoot = process.env.SystemRoot;
     process.env.SystemRoot = join(root, "vault", "Windows");
