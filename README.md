@@ -95,7 +95,7 @@ npm run test:agent       # laptop agent suite (51 tests)
 npm run test:e2e         # 4-tier black-box suite (187 tests, all offline)
 
 # The demo input — the hero workflow transcribes this recording
-cp assets/sample-meeting.mp3 ~/Downloads/product-sync-2026-10-21.mp3
+cp assets/sample-meeting.mp3 ~/Downloads/product-sync-recording.mp3
 
 # Terminal 1 — REACH Core (MCP on :3000, sim UI, device mesh)
 npm run dev:server       # → http://localhost:3000/health → 200 {"ok":true}

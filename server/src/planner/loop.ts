@@ -28,6 +28,7 @@ const SYSTEM = [
   "- Plain-text replies with no tool calls are deprecated: every turn must call a tool (an action tool, reach.ask_user, or reach.finish with evidence).",
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
+  "- When you need a file the user referred to by DESCRIPTION, call files.search first — do not guess its exact path. Search matches by word, so 'the product sync recording' finds 'product-sync-recording.mp3'. A guessed path that misses wastes a turn and a step.",
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
   "- Creating a document: write the FINISHED document — your own structured summary of the source (sections, decisions, action items with owners), never a copy of the source text. Give each section its own '#' heading line and use '- ' for bullets.",
   "- Directories are explored via files.list (names + sizes) and opened with apps.open_document. Never read or verify a directory as a file.",

@@ -22,7 +22,7 @@ and open questions.
 ### Using it
 
 ```bash
-cp assets/sample-meeting.mp3 ~/Downloads/product-sync-2026-10-21.mp3
+cp assets/sample-meeting.mp3 ~/Downloads/product-sync-recording.mp3
 ```
 
 Then, in the sim at <http://localhost:3000/sim>, type the goal above. REACH

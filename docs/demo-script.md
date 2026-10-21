@@ -17,7 +17,7 @@ Target feel: product demo, not lecture. Film real artifacts on one machine.
 4. Clear task history: `rm -f server/data/tasks/*.json` — the panel reads
    clean on camera.
 5. Fixtures in place:
-   * `~/Downloads/product-sync-2026-10-21.mp3` — **the 105-second meeting
+   * `~/Downloads/product-sync-recording.mp3` — **the 105-second meeting
      recording** (four voices). This is beat 1's input. It ships with the repo
      as `assets/sample-meeting.mp3`; copy it into `~/Downloads` before the take.
    * `~/Downloads/standup-transcript.txt` — the same meeting as text, for the
@@ -31,10 +31,10 @@ Measured timings, so you know what you are watching:
 
 | Beat | Wall time | Planner calls | Actions |
 |---|---|---|---|
-| 1 hero (transcribe) | ~27s, incl. your approval | 5 | search → transcribe (paused) → create_document |
+| 1 hero (transcribe) | ~22–25s, incl. your approval | 4 | search → transcribe (paused) → create_document |
 | 1b fallback (transcript) | 11–13s | 4 | search → read → create_document |
-| 2 browser | ~9s | 3 | goto → observe → finish |
-| 3 approval | ~7s to the card, then it waits for you | 3 | verify (miss) → search → delete (paused) |
+| 2 browser | ~9–12s | 3 | goto → observe → finish |
+| 3 approval | ~15s to the card, then it waits for you | 6 | verify (miss) → search → delete (paused) |
 
 ## The beats
 
@@ -56,7 +56,7 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 * Type beat 1 in `/sim`.
 * Show, in this order, on camera:
   * the **plan** filling in (`files.search` → `audio.transcribe` → `files.create_document`);
-  * the **approval card**: *"this sends /Users/…/product-sync-2026-10-21.mp3 to a third-party service"* — it asks before your recording leaves the machine. **Press Approve.**
+  * the **approval card**: *"this sends /Users/…/product-sync-recording.mp3 to a third-party service"* — it asks before your recording leaves the machine. **Press Approve.**
   * the **activity trail** ticking over — each step with its policy verdict;
   * the **result**: a real `.docx` on the laptop, opened on screen, with real minutes in it — attendees, decisions, action items **with owners**, open questions, all from the recording;
   * the **evidence** panel: the cited action IDs, the outcome kind (`complete`), and the token usage.
