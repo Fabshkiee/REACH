@@ -22,6 +22,9 @@ export const ACTION_CLASSES = [
   /** Data leaves this machine (uploaded to a third-party service). Always
    *  confirmed: the user must approve the exact cloud-processing scope. */
   "upload",
+  /** Captures the environment (microphone). Always confirmed: the scope of
+   *  what a recording captures is broader than any named file. */
+  "record",
   "ask",
 ] as const;
 export type ActionClass = (typeof ACTION_CLASSES)[number];

@@ -68,6 +68,16 @@ describe("policy engine", () => {
     }
   });
 
+  it("always confirms data leaving the machine and recording the room", () => {
+    // Uploading a recording to Transcribe, and capturing the microphone, are
+    // both broader than any named file — the user approves the scope.
+    const up = classify(action({ actionClass: "upload", name: "audio.transcribe", target: home("meeting.mp3") }), ctx);
+    assert.equal(up.verdict, "confirm");
+    assert.match(up.reason, /confirm\./);
+    const rec = classify(action({ actionClass: "record", name: "audio.record", target: "the microphone" }), ctx);
+    assert.equal(rec.verdict, "confirm");
+  });
+
   it("launch: known-safe allows, unknown confirms", () => {
     assert.equal(classify(action({ actionClass: "launch", target: "calculator" }), ctx).verdict, "allow");
     assert.equal(classify(action({ actionClass: "launch", target: "Calculator" }), ctx).verdict, "allow");

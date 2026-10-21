@@ -114,6 +114,7 @@ const ALWAYS_CONFIRM: ReadonlySet<ActionClass> = new Set([
   "purchase",
   "configure",
   "upload",
+  "record",
 ]);
 
 /**

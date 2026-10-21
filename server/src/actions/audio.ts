@@ -60,9 +60,9 @@ export function registerAudioActions(): void {
   try {
     defineAction({
       name: "audio.record",
-      actionClass: "interact",
+      actionClass: "record",
       description:
-        "Record from this laptop's microphone and save the recording locally. Use it when the user asks you to record a meeting, a voice note or an interview — then transcribe it with audio.transcribe and write the minutes. The recording stays on the laptop unless the user approves uploading it.",
+        "Record from this laptop's microphone and save the recording locally. Use it when the user asks you to record a meeting, a voice note or an interview — then transcribe it with audio.transcribe and write the minutes. The recording stays on the laptop unless the user approves uploading it. Recording captures the room, so the user is asked to approve it first.",
       schema: z.object({
         seconds: z.number().int().min(1).max(3600).optional().describe("How long to record (default 60s)"),
         path: z.string().max(2000).optional().describe("Where to save the recording (defaults to Documents/REACH/recordings)"),
