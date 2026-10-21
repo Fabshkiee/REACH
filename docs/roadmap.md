@@ -1,10 +1,20 @@
 # REACH — Product and Build Roadmap
 
-Status date: 2026-09-23. This roadmap is based on the checked-out repository on
-`main` at `f992245`. It separates current implementation from the product
-direction so a proposed capability is never described as already built.
+Status date: 2026-10-21. This roadmap is based on the checked-out repository on
+`main` at `984fb57` (engine) plus the 2026-10-21 cross-platform work. It
+separates current implementation from the product direction so a proposed
+capability is never described as already built.
 
 Implementation blueprint: [`implementation-guide.md`](./implementation-guide.md).
+
+> **Where the hackathon build stands (2026-10-21).** Phases 0–2 are DONE and
+> verified; the hero workflow (one dependable task, rehearsed and filmed) is
+> the remaining work before the Oct 23 submission. The agent and the policy
+> engine now run on macOS, Linux and Windows from one codebase — the old
+> "Windows-only" constraint is gone, which also removes the platform excuse
+> for not having built a desktop adapter. Audio capture and long-running
+> execution are still unbuilt, and the meeting-minutes use case needs both.
+>
 
 ## Product direction
 
@@ -73,9 +83,17 @@ MCP connection replaces the REACH planner or bypasses its policy.
 
 ### Not present yet
 
-* General desktop UI control, image understanding or image search, camera or
-  microphone actions, mobile control, smart-home/TV/Matter adapters, and a
-  general external-MCP connector.
+* Audio capture and transcription — **no `audio.*` capability exists**. This is
+  the first adapter the meeting-minutes use case needs.
+* Long-running tasks: a task is capped at `TASK_MAX_ELAPSED_MS` (default 10
+  minutes), so a one-hour meeting cannot be one agent loop. Phase 9's
+  checkpoint-and-resume execution model is the real gap, not a timeout value.
+* Push delivery of results: nothing notifies the user when a task ends; results
+  are polled via `get_task_status`.
+* General desktop UI control beyond the Windows-only window/keystroke
+  primitives (those exist on Windows only and are advertised on Windows only).
+* Image understanding or image search, camera actions, mobile control,
+  smart-home/TV/Matter adapters, and a general external-MCP connector.
 * Browser upload is deliberately blocked. There are no general browser
   screenshot, arbitrary page-code, or unsafe evaluation actions exposed to the
   planner.

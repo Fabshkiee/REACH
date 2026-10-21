@@ -88,7 +88,7 @@ so confirm this account's program access before planning a live demo. See
 [Alexa+ developer access](https://developer.amazon.com/docs/alexaplus/add-ons/home.html).
 
 The repository's current device flow is development plumbing, not user
-pairing: the Windows agent sends `AGENT_ID`, an explicit capability list, and
+pairing: the laptop agent sends `AGENT_ID`, an explicit capability list, and
 the shared `AGENT_TOKEN`; it registers with the core and heartbeats every 30
 seconds. The core dispatches to a fixed `AGENT_URL`. There is no per-user
 enrollment, per-device credential, revoke UI, phone agent, or TV agent.
@@ -210,7 +210,7 @@ Trust rules:
 
 Keep the runtime registry as the single source of planner tool schemas. Extend
 `ActionDefinition` rather than creating an unrelated second planner registry.
-The Windows agent has its own runtime allowlist; core metadata binds its
+The laptop agent has its own runtime allowlist; core metadata binds its
 advertised IDs to the corresponding known action definitions.
 
 ```ts
@@ -634,7 +634,9 @@ or fail closed. No keystroke macro may type into an unverified foreground app.
 
 ### 8.3 Files, documents, and media
 
-Keep path normalization and sandbox checks on the Windows agent. Extend artifact
+Keep path normalization and sandbox checks on the laptop agent (they are
+platform-aware now: separators unified, Windows drive paths resolved with win32
+rules, per-platform system deny-roots). Extend artifact
 results so downstream actions can reference prior outputs by opaque ID.
 
 For image search, add `media.search_images` over a user-selected directory:

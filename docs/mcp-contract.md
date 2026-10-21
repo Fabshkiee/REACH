@@ -49,9 +49,14 @@ behind it — see `docs/architecture.md`.
 
 ## Resources & prompts
 
-* `reach://capabilities` — advertised capabilities across online devices.
-* `reach://tasks/recent` — recent tasks with statuses.
-* `make-meeting-minutes` prompt — parked with the meeting-transcription hero.
+* `reach://capabilities` — what this installation can actually do right now:
+  every capability a connected device advertises, with its device and whether
+  it is available. Registered in `server/src/mcp/server.ts`.
+* `reach://tasks/recent` — the most recent tasks with their statuses.
+* `make-meeting-minutes` prompt — takes a transcript path and returns the
+  user turn that asks REACH to write verified minutes from it. It starts from
+  a **transcript file**: the audio capture and transcription adapters are not
+  built (see `docs/architecture.md`), and the prompt does not pretend they are.
 
 ## Core ↔ agent (executor channel, Bearer-authed)
 

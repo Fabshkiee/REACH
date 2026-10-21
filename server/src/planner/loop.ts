@@ -33,7 +33,7 @@ const SYSTEM = [
   "- Web information extraction: When the user asks for information from a web page (e.g. 'tell me the issues', 'what does the page say', 'read the title'): once the relevant text or item titles appear in browser.observe or browser.find snapshots, do not click randomly; extract the answer directly and call reach.finish complete with the substantive summary in the summary argument.",
   "- In browser.click, 'target' must be the exact snapshot ref identifier (e.g. 'f1e36', 'e4') from browser.observe, never a CSS selector, element name, or empty string.",
   "- Never invent placeholder usernames (such as 'yourusername', 'username', 'example', 'myuser', etc.) in URLs or commands. If the user refers to 'my profile', 'my repo', or 'my account', use the provided gitUser/systemUser environment context. If the username is still unknown, call reach.ask_user to ask for their username/profile URL, or use web.search to locate it.",
-  "- Two-tier planning: For composite or multi-step goals, break the goal into 2–4 verifiable milestones. Call reach.checkpoint_milestone upon completing each milestone before advancing to the next, maintaining verified evidence at each step.",
+  "- Two-tier planning: For composite or multi-step goals, break the goal into 2–4 verifiable milestones. Allocate a dedicated 6-step horizon per sub-goal. Call reach.checkpoint_milestone upon completing each milestone before advancing to the next, maintaining verified evidence at each step.",
   "- Keep reasoning brief. Temperature is 0; be decisive.",
 ].join("\n");
 
