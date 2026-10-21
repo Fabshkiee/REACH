@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { getActionDef, listActionDefs } from "../executor/registry.js";
+import { toFlatJsonSchema } from "../planner/schema.js";
 import { registerWebActions, WebSearchSchema, webSearch, search } from "./web.js";
 
 // Ensure actions are registered
@@ -50,6 +51,32 @@ describe("web actions and web.search primitive", () => {
 
     assert.throws(() => dlDef.verify!({ ok: false, error: "bad url" }), /bad url/);
     assert.throws(() => dlDef.verify!({}), /did not report ok/);
+  });
+
+  it("web.request accepts the JSON-string form its tool schema advertises", () => {
+    // Nova's tool schemas have no object type, so the converter advertises
+    // `headers` and `body` as STRINGS. The executor validates the model's
+    // args against the zod schema — if that schema only accepts objects,
+    // the model is told to send something the executor then rejects.
+    const def = getActionDef("web.request")!;
+    const advertised = toFlatJsonSchema(def.schema);
+    const props = advertised["properties"] as Record<string, { type?: string }>;
+    assert.equal(props["headers"]?.type, "string");
+    assert.equal(props["body"]?.type, "string");
+
+    // What the model is told to send must validate.
+    const parsed = def.schema.parse({
+      url: "https://example.com/x",
+      method: "POST",
+      headers: '{"x-test":"1"}',
+      body: '{"a":1}',
+    }) as { headers?: unknown; body?: unknown };
+    assert.ok(parsed.headers);
+    assert.ok(parsed.body);
+
+    // And the object form still validates, for direct API callers.
+    const objForm = def.schema.parse({ url: "https://example.com/x", headers: { "x-test": "1" } });
+    assert.ok(objForm);
   });
 
   it("schema enforces query boundaries and default limits", () => {

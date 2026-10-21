@@ -395,8 +395,18 @@ export function registerWebActions(): void {
       schema: z.object({
         url: z.string().url().max(2000).describe("HTTP(S) URL to request"),
         method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET").describe("HTTP method (default GET)"),
-        headers: z.record(z.string()).optional().describe("Optional HTTP headers"),
-        body: z.union([z.string(), z.record(z.unknown())]).optional().describe("Optional request body string or JSON object"),
+        // Nova tool schemas have no object type, so the converter advertises
+        // these two fields as STRINGS. The validator must therefore accept a
+        // JSON string as well as the object form — otherwise the model is
+        // told to send something the executor rejects.
+        headers: z
+          .union([z.record(z.string()), z.string()])
+          .optional()
+          .describe("Optional HTTP headers — a JSON object, or a JSON-encoded string"),
+        body: z
+          .union([z.string(), z.record(z.unknown())])
+          .optional()
+          .describe("Optional request body — raw text, a JSON object, or a JSON-encoded string"),
         timeoutMs: z.number().int().positive().max(60_000).optional().default(15_000),
       }),
       timeoutMs: 30_000,
