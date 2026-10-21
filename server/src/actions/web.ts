@@ -78,6 +78,22 @@ function extractDestinationUrl(rawHref: string): string {
 }
 
 /**
+ * Nova tool schemas carry no object type, so a map or a JSON body travels as
+ * a JSON string. Decode it back to an object when it parses; leave anything
+ * else (a plain text body) exactly as it is.
+ */
+function parseJsonMaybe(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+/**
  * Execute web search via DuckDuckGo without external paid API keys.
  * Text mode uses DuckDuckGo HTML scraper.
  * Image mode uses DuckDuckGo VQD + /i.js JSON endpoint.
@@ -396,16 +412,20 @@ export function registerWebActions(): void {
         const url = String(args["url"]);
         const method = String(args["method"] ?? "GET").toUpperCase();
         const timeout = Number(args["timeoutMs"] ?? 15_000);
+        // Nova tool schemas carry objects as JSON strings, so a JSON-encoded
+        // map arrives here as a string. Normalise before use.
+        const rawHeaders = parseJsonMaybe(args["headers"]);
         const headers: Record<string, string> = {
           "user-agent": "REACH-Agent/1.0",
-          ...((args["headers"] as Record<string, string>) ?? {}),
+          ...(rawHeaders && typeof rawHeaders === "object" ? (rawHeaders as Record<string, string>) : {}),
         };
         let body: string | undefined;
         if (args["body"] !== undefined && method !== "GET") {
-          if (typeof args["body"] === "string") {
-            body = args["body"];
+          const parsedBody = parseJsonMaybe(args["body"]);
+          if (typeof parsedBody === "string") {
+            body = parsedBody;
           } else {
-            body = JSON.stringify(args["body"]);
+            body = JSON.stringify(parsedBody);
             if (!headers["content-type"]) headers["content-type"] = "application/json";
           }
         }

@@ -8,6 +8,9 @@ import { join } from "node:path";
 process.env.REACH_DATA_DIR = mkdtempSync(join(tmpdir(), "reach-tools-"));
 
 import { clearActionRegistry, defineAction } from "../executor/registry.js";
+import { registerAgentActions } from "../actions/agent.js";
+import { registerBrowserActions } from "../actions/browser.js";
+import { registerWebActions } from "../actions/web.js";
 import { registerDevice } from "../registry/deviceStore.js";
 import { toolsForPlanner } from "./tools.js";
 
@@ -76,5 +79,30 @@ describe("planner tool set", () => {
     // executor fail closed on dispatch.
     const names = toolsForPlanner().map((t) => t.name);
     assert.ok(names.includes("files.read"));
+  });
+
+  it("every REAL registered action produces a Nova-compatible tool schema", () => {
+    // The planner builds its tool list from the live registry on every turn.
+    // One action whose schema the converter cannot express made that call
+    // THROW — so every task failed at the first planner turn, while the unit
+    // suites stayed green because none of them registered all three action
+    // groups. Register them all and prove the whole set converts.
+    clearActionRegistry();
+    registerAgentActions();
+    registerBrowserActions();
+    registerWebActions();
+
+    const tools = toolsForPlanner();
+    assert.ok(tools.length > 10, `expected the full action set, got ${tools.length}`);
+    for (const tool of tools) {
+      assert.equal(tool.inputSchema["type"], "object", tool.name);
+      const props = tool.inputSchema["properties"] as Record<string, { type?: string }>;
+      for (const [key, spec] of Object.entries(props)) {
+        assert.ok(
+          ["string", "number", "boolean", "array"].includes(String(spec.type)),
+          `${tool.name}.${key} has unsupported type "${String(spec.type)}"`,
+        );
+      }
+    }
   });
 });

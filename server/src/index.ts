@@ -8,6 +8,7 @@ import { decideApproval, executeOnMyDevices, getTaskStatus, listTasks, cancelTas
 import { registerAgentActions } from "./actions/agent.js";
 import { registerBrowserActions } from "./actions/browser.js";
 import { registerWebActions } from "./actions/web.js";
+import { toolsForPlanner } from "./planner/tools.js";
 import { getTask } from "./tasks/taskStore.js";
 import { createMcpServer } from "./mcp/server.js";
 import { createMcpTransport } from "./mcp/transport.js";
@@ -194,6 +195,20 @@ if (process.env.NODE_ENV !== "test") {
   registerAgentActions();
   registerBrowserActions();
   registerWebActions();
+  // Fail at BOOT, not at the first task. The planner rebuilds its tool list
+  // from the live registry on every turn, so one action whose schema the
+  // Nova converter cannot express makes every task fail with a planner
+  // crash — after the server happily accepted connections. Building the list
+  // once here turns that into a startup error with a usable message.
+  try {
+    toolsForPlanner();
+  } catch (err) {
+    console.error(
+      `[reach-server] FATAL: the planner tool set could not be built — ${err instanceof Error ? err.message : String(err)}\n` +
+        `Every task would fail at its first planner turn. This is a schema/registry bug, not a runtime condition.`,
+    );
+    process.exit(1);
+  }
   app.listen(port, "127.0.0.1", () => console.log(`reach-server on 127.0.0.1:${port} (mcp: streamable-http stateless)`));
 }
 

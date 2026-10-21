@@ -418,6 +418,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): the E2E harness now serves DuckDuckGo-shaped HTML, Lite, VQD and image-JSON fixtures locally and redirects the search calls to it, so the suite needs no network at all (187/187, deterministic). In the product, `web.search` now **fails** with an explicit "rate-limited or bot-challenged" reason plus a recovery hint instead of reporting an empty success.
 * Suggestion: a test that asserts against a live public scraper is a test of the scraper's availability. Serve the shape locally and assert on the parsing; keep the live call for a separate, explicitly-networked check.
 
+## 2026-10-21 — One schema made EVERY task fail, and 125 green tests never noticed
+* Task: rehearse the demo on macOS before filming.
+* Steps: built the planner's tool list from the live registry — and it **threw**: `unsupported schema field "headers": Nova tool schemas accept flat primitives and enums only`. The planner rebuilds that list on every turn, so **every task would have failed at its first planner turn**, with the server happily accepting connections the whole time. The culprit was `web.request`, added on 2026-10-01: its schema has `headers: z.record(...)` and `body: z.union([z.string(), z.record(...)])`, and Nova's tool schemas have no object type.
+* Expected vs actual: expected the feature that shipped with "121/121 server unit tests pass" to work live; actual it made the whole product unusable. The reason the tests missed it: **no unit test ever registered all three action groups before calling `toolsForPlanner()`** — the registry was only ever populated with test-local defs, so the converter was never asked to express the real schema.
+* Severity: **Critical** (every task fails; the demo would have died on the first filmed take).
+* Workaround (kept): the converter now renders a record (and a union containing one) as a JSON string, and the executor's zod schema accepts either the JSON string or the object, so the wire format and the validator agree. Two guards so it can never recur silently: a regression test that registers **all** real action groups and asserts every tool converts to a Nova-compatible schema, and a **boot-time check** that builds the tool list once at startup and refuses to boot with a clear message instead of accepting traffic it cannot serve.
+* Suggestion: a feature that cannot be exercised end-to-end is not shipped, no matter how many unit tests pass. "121/121 green" measured the tests, not the product. **Always register the real registry before building the real planner input** — the gap between the two is where the failure lived.
+
 ## Template for new entries
 * Task:
 * Steps:

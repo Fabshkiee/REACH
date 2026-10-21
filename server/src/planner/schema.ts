@@ -7,7 +7,9 @@ import {
   ZodNumber,
   ZodObject,
   ZodOptional,
+  ZodRecord,
   ZodString,
+  ZodUnion,
   type ZodTypeAny,
 } from "zod";
 
@@ -71,6 +73,29 @@ function fieldSchema(key: string, field: ZodTypeAny): Record<string, unknown> {
   }
   if (field instanceof ZodBoolean) return { type: "boolean" };
   if (field instanceof ZodEnum) return { type: "string", enum: [...(field._def.values as unknown[])] };
+  if (field instanceof ZodRecord) {
+    // Nova tool schemas have no object type. A flat map of strings travels
+    // as a JSON string instead; the executor's zod schema accepts either
+    // the JSON string or the object, so the wire format and the validator
+    // agree.
+    const out: Record<string, unknown> = { type: "string" };
+    const desc = (field._def as { description?: unknown }).description;
+    if (typeof desc === "string") out.description = desc;
+    return out;
+  }
+  if (field instanceof ZodUnion) {
+    // A union that includes a record must be carried as a JSON string;
+    // otherwise render the first member (the wire sees one flat type).
+    const options = field.options as ZodTypeAny[];
+    const carriesObject = options.some((o) => o instanceof ZodRecord || o instanceof ZodObject);
+    if (carriesObject) {
+      const out: Record<string, unknown> = { type: "string" };
+      const desc = (field._def as { description?: unknown }).description;
+      if (typeof desc === "string") out.description = desc;
+      return out;
+    }
+    return options.length > 0 ? fieldSchema(key, options[0]!) : { type: "string" };
+  }
   if (field instanceof ZodArray) {
     let itemType = field.element;
     while (itemType instanceof ZodOptional || itemType instanceof ZodDefault) {
