@@ -5,7 +5,7 @@ import { Document, Footer, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } 
 import { z } from "zod";
 import { openWithDefaultApp } from "./apps.js";
 import { assertAllowedPath } from "../sandbox.js";
-import { markdownToDocx, reachNumbering } from "./markdownDocx.js";
+import { markdownToDocx, parseMarkdown, blocksToDocx, reachNumbering } from "./markdownDocx.js";
 
 export const CreateDocumentSchema = z.object({
   title: z.string().min(1).max(200),
@@ -207,13 +207,22 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
     }
   }
 
+  // The body is Markdown: headings, lists, tables and emphasis become real
+  // Word structure. Anything unrecognised stays a paragraph.
+  const blocks = parseMarkdown(parsed.body);
+  // The document title is already the H1. Models often repeat it as the
+  // first heading of the body — drop that duplicate.
+  const first = blocks[0];
+  if (first && first.kind === "heading" && first.text.trim().toLowerCase() === safeTitle.trim().toLowerCase()) {
+    blocks.shift();
+  }
+
   const doc = new Document({
     creator: "REACH",
     title: safeTitle,
     description: `Created by REACH: ${safeTitle}`,
     styles: REACH_STYLES,
-    numbering: reachNumbering(),
-    sections: [
+    numbering: reachNumbering(),    sections: [
       {
         properties: {
           page: { size: { width: LETTER_WIDTH_DXA, height: LETTER_HEIGHT_DXA } },
@@ -240,7 +249,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
           }),
           // The body is Markdown: headings, lists, tables and emphasis become
           // real Word structure. Anything unrecognised stays a paragraph.
-          ...markdownToDocx(parsed.body),
+          ...blocksToDocx(blocks),
           ...imageParagraphs,
         ],
       },

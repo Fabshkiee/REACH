@@ -77,12 +77,33 @@ function audit(taskId: string, record: ActionRecord): void {
   }
 }
 
+/** Longest single argument kept in the audit trail (the body of a document
+ *  can be 20k characters; the trace stays readable and the file stays small). */
+const MAX_TRACE_ARG_CHARS = 600;
+
+function traceArgs(action: ProposedAction): Record<string, unknown> | undefined {
+  if (!action.args || typeof action.args !== "object") return undefined;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(action.args)) {
+    if (typeof v === "string") {
+      out[k] = v.length > MAX_TRACE_ARG_CHARS ? `${v.slice(0, MAX_TRACE_ARG_CHARS)} …[${v.length} chars]` : v;
+    } else if (v === undefined) {
+      continue;
+    } else {
+      out[k] = v;
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 function baseRecord(action: ProposedAction, verdict: ActionRecord["policyVerdict"], reason: string): ActionRecord {
+  const args = traceArgs(action);
   return {
     actionId: action.id,
     actionClass: action.actionClass,
     name: action.name,
     target: action.target,
+    ...(args ? { args } : {}),
     policyVerdict: verdict,
     policyReason: reason,
     startedAt: new Date().toISOString(),

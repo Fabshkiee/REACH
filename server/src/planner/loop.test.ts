@@ -84,6 +84,34 @@ describe("planner loop", () => {
   it("clipToolResult leaves small results untouched", () => {
     assert.equal(clipToolResult({ ok: true, count: 3 }), '{"ok":true,"count":3}');
   });
+  it("a task that executed nothing cannot complete by citing a previous task's actions", async () => {
+    // The prior-task context used to say "actions that can be cited", so a
+    // fresh task would cite the previous run's action IDs and finish in one
+    // turn having done nothing — a success claim with nothing behind it.
+    // Evidence is THIS task's evidence.
+    const a = createTask("first task, does real work");
+    const mockA = new ScriptedPlannerBackend(
+      [
+        { toolCalls: [{ name: "test.step", args: { label: "read" } }] },
+        { toolCalls: [{ name: "reach.finish", args: { kind: "complete", summary: "done", evidenceActionIds: ["test__step"] } }] },
+      ],
+      { strict: false },
+    );
+    await runPlannerLoop(a.id, { backend: mockA });
+    assert.equal(await pollDone(a.id), "completed");
+    const priorActionId = getTask(a.id)!.trace!.find((r) => r.ok)?.actionId;
+    assert.ok(priorActionId);
+
+    const b = createTask("second task, does nothing but claims the first one's work");
+    const mockB = new ScriptedPlannerBackend(
+      [{ toolCalls: [{ name: "reach.finish", args: { kind: "complete", summary: "claimed the work", evidenceActionIds: [priorActionId] } }] }],
+      { strict: false },
+    );
+    await runPlannerLoop(b.id, { backend: mockB });
+    const status = await pollDone(b.id);
+    assert.notEqual(status, "completed", "a task that executed nothing must not report success");
+  });
+
   it("runs multi-step plans to completion with trace", async () => {
     const t = createTask("scripted multi-step goal");
     const mock = new ScriptedPlannerBackend([

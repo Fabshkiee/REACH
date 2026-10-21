@@ -55,6 +55,10 @@ export interface ActionRecord {
   actionClass: string;
   name: string;
   target?: string;
+  /** What the model actually proposed, truncated. The audit trail should show
+   *  the request, not only its verdict — "what did it actually ask for?" is
+   *  the first question anyone asks of a trace. */
+  args?: Record<string, unknown>;
   policyVerdict: "allow" | "confirm" | "deny";
   policyReason: string;
   startedAt: string;

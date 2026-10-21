@@ -29,6 +29,7 @@ const SYSTEM = [
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence.",
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
+  "- Creating a document: write the FINISHED document — your own structured summary of the source (sections, decisions, action items with owners), never a copy of the source text. Give each section its own '#' heading line and use '- ' for bullets.",
   "- Directories are explored via files.list (names + sizes) and opened with apps.open_document. Never read or verify a directory as a file.",
   "- Web information extraction: When the user asks for information from a web page (e.g. 'tell me the issues', 'what does the page say', 'read the title'): once the relevant text or item titles appear in browser.observe or browser.find snapshots, do not click randomly; extract the answer directly and call reach.finish complete with the substantive summary in the summary argument.",
   "- In browser.click, 'target' must be the exact snapshot ref identifier (e.g. 'f1e36', 'e4') from browser.observe, never a CSS selector, element name, or empty string.",
@@ -141,14 +142,16 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   }
   const task = getTask(taskId);
   const trace = task?.trace ?? [];
-  const recent = listRecentTasks(5).filter((t) => t.id !== taskId && t.status === "completed");
-  const lastTask = recent.length > 0 && (Date.now() - Date.parse(recent[0].createdAt) < 15 * 60_000) ? recent[0] : undefined;
-  const combinedTrace = [...trace, ...(lastTask?.trace ?? [])];
-  
-  // Index by actionId, by tool name (e.g. files.read), and by sanitized name (files__read)
-  // When duplicate tool names exist, prefer the successful/verified one
+
+  // Evidence is THIS task's evidence. A previous task's actions are context
+  // the model may read, but they are never proof that THIS task did anything:
+  // with them allowed, a task that executed nothing could cite them and be
+  // marked complete — a success claim with nothing behind it.
+  // Index by actionId, by tool name (e.g. files.read), and by sanitized name
+  // (files__read). When duplicate tool names exist, prefer the
+  // successful/verified one.
   const byKey = new Map<string, ActionRecord>();
-  for (const r of combinedTrace) {
+  for (const r of trace) {
     byKey.set(r.actionId, r);
     const existing = byKey.get(r.name);
     if (!existing || (!existing.ok && r.ok) || (!existing.verified && r.verified)) {
@@ -168,7 +171,7 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   for (const item of rawCited) {
     const r = byKey.get(item);
     if (!r) {
-      const anyMatch = combinedTrace.find(
+      const anyMatch = trace.find(
         (x) => x.actionId === item || x.name === item || x.name.replace(/\./g, "__") === item,
       );
       if (anyMatch) {
@@ -334,13 +337,17 @@ export async function runPlannerLoop(
       const last = recentTasks[0];
       const lastMs = Date.parse(last.createdAt);
       if (!isNaN(lastMs) && Date.now() - lastMs < 15 * 60_000) {
-        const actions = (last.trace ?? [])
-          .filter((r) => r.ok && r.verified)
-          .map((r) => `${r.name}${r.target ? ` on "${r.target}"` : ""} (${r.actionId})`)
-          .join(", ");
         history.push({
           role: "user",
-          text: `[Prior completed task context: id=${last.id}, goal="${last.goal}", outcome="${last.outcome?.summary || last.outcome?.reason || "done"}"]${actions ? `\n[Prior verified actions that can be cited if answering follow-up questions: ${actions}]` : ""}`,
+          // Context, NOT permission. A previous task's outcome is background
+          // reading; it is never evidence for THIS task, and the model must
+          // still perform this task's actions itself. (When this line said
+          // "actions that can be cited", a fresh task would cite the previous
+          // run's action IDs and finish in one turn having done nothing —
+          // a success claim with nothing behind it.)
+          text:
+            `[Prior completed task context: id=${last.id}, goal="${last.goal}", outcome="${last.outcome?.summary || last.outcome?.reason || "done"}"]\n` +
+            `[That was a DIFFERENT task. It is background only. Do the current goal's actions yourself; prior actions are not evidence for this task.]`,
         });
       }
     }
