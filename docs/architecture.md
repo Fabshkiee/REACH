@@ -113,6 +113,21 @@ issues), (3) safety: clean `CANNOT` or exact approval boundary. Demo spine:
   (no notify code; results are polled), live Alexa+ integration (toolkit is
   partner-gated — the sim is the demo client), external MCP connectors,
   smart-home, scheduling.
+* **Evidence is this task's evidence.** A `complete` claim must cite actions
+  that ran in *this* task. Prior-task outcomes are injected into the planner's
+  context as background reading, but they are never citable — with them
+  citable, a task that executed nothing could cite the previous run and
+  report success (fixed 2026-10-22).
+* **The audit trail records the request, not only the verdict** — each action
+  carries the arguments the model proposed, truncated.
+* **Documents are Markdown in, Word structure out.** `files.create_document`
+  takes a Markdown body and a `documentType`; the agent renders headings,
+  lists, tables, emphasis, quotes and rules into real `.docx` structure with
+  REACH's own styles, so the model can plan a document's shape instead of
+  faking it with ASCII.
+* **Search matches words, not substrings.** The query is tokenised and
+  candidates are scored by coverage, so "standup transcript" finds
+  `standup-transcript.txt`; content search also opens `.docx`/`.pdf`/`.xlsx`.
 * Anything in this doc without a "planned" mark describes intent shared by both
   layers only where the built code already supports it; when in doubt, the code
   wins and the doc gets fixed.

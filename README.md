@@ -158,9 +158,13 @@ event trail and the approval card for the same engine.
 * **Engine**: planner loop, policy engine, executor with mandatory verifiers,
   approvals (single-use, expiring, approve-executes), honest outcomes
   (`complete` / `partial` / `unverified` / `failed` / `cannot`), event trail,
-  resumable tasks with cumulative budgets — all live and tested.
+  resumable tasks with cumulative budgets — all live and tested. A success
+  claim must cite evidence from *that* task: a task that executed nothing
+  cannot report success.
 * **Agent**: files (search/read/list/write/move/delete/verify), real `.docx`
-  creation, browser adapter (Playwright MCP), web search, app/document openers.
+  creation from **Markdown** (headings, lists, tables, emphasis — the model
+  plans the document's structure, the agent renders it), browser adapter
+  (Playwright MCP), web search, app/document openers.
 * **Cross-platform**: the agent and the policy engine run on macOS, Linux and
   Windows. Windows-only primitives (window focus, keystrokes, clipboard) are
   advertised on Windows only.

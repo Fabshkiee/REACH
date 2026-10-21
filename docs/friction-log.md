@@ -435,6 +435,38 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): the profile was removed from the index and from disk, and `dataDir()` now resolves to `<repo>/server/data` **regardless of cwd** — runtime state can no longer land in the working tree because a script was started from the wrong directory. The root-level `data/` is gitignored as a second line of defence.
 * Suggestion: gitignore the *paths your code can write to*, not the one path it writes to today. And treat `git add -A` after a script that touches disk as a review step, not a formality.
 
+## 2026-10-22 — A task that did nothing reported success
+* Task: measure the hero goal's reliability (5 live runs against real Bedrock).
+* Steps: run 1 and run 3 produced a good minutes document. Run 2 finished in **3.3 seconds with ONE planner call, an empty trace** — and reported `kind: "complete"`, summarising "The standup transcript has been found, read, and converted into meeting minutes". Nothing had been found, read, or converted. The trace was empty; the cited `evidenceActionIds` belonged to the **previous task**.
+* Expected vs actual: expected the evidence check to refuse a claim with nothing behind it; actual the check resolved citations against the **previous completed task's** trace as well as the current one. That feature was added on 2026-09-26 to let follow-up questions ("summarise what you just said") cite the earlier run. The injected context said so explicitly: *"Prior verified actions that can be cited if answering follow-up questions"*. The model read that as permission, concluded the job was already done, and finished in one turn.
+* Severity: **Critical** (a success claim with nothing behind it is the exact failure this product exists to prevent — and it is the kind of thing a judge would never catch on camera, but the trace would show it).
+* Workaround (kept): evidence is **this task's** evidence. Prior-task actions stay in the model's context as background reading, but they are never citable, and the injected context now says the previous task was a different one and that the current goal's actions must still be performed. Regression test included. Measured after the fix: **5/5 live runs complete**, 4 planner calls, 3 actions, ~11-13s.
+* Suggestion: an allowance that lets one task claim another's evidence will eventually be used by a task that has done nothing. Context is not evidence — say so in the prompt AND in the validator.
+
+## 2026-10-22 — The model asked the user for a file it had been told the name of
+* Task: run the hero goal live for the first time on the new machine.
+* Steps: the planner searched `/Users/fabros/Downloads` for the standup transcript and found **nothing**, then asked the user to describe the file. The file was `standup-transcript.txt`; the model had searched for **"standup transcript"** — with a space.
+* Expected vs actual: expected a search to find a file whose name it knew; actual `files.search` did a raw substring match on the basename, so a hyphenated filename was invisible to a natural phrasing.
+* Severity: High (the demo's first action failed; the honest failure mode — asking the user — is exactly what must not happen on camera).
+* Workaround (kept): search now tokenises the query, drops stopwords, scores every candidate by word coverage, and matches the path as well as the name; results are ranked so the best match is first. "standup transcript" now finds `standup-transcript.txt` first. Content search also opens .docx/.pdf/.xlsx now — the extractor already existed, it was simply never wired in.
+* Suggestion: a search box that only accepts exact substrings is a file browser, not a search. People phrase things in words; match words.
+
+## 2026-10-22 — The document was a blue heading and a wall of plain lines
+* Task: look at what `files.create_document` actually produces.
+* Steps: unzipped the generated .docx: **11 paragraphs, 1 heading, 0 tables, 0 lists, 0 bold runs**. The model had no way to express structure, so it faked it with ASCII ("- item", a bare "DECISIONS" line) and Word's default theme made the title blue.
+* Expected vs actual: expected a document a person would keep; expected a flat paragraph-per-line body, because that is literally what the code did (`body.split("\n").map(line => new Paragraph(...))`).
+* Severity: High (this is the deliverable the user sees; it read as machine output).
+* Workaround (kept): the body is now **Markdown**, rendered into real Word structure — headings, bullet and numbered lists, tables, bold/italic/code, quotes, rules — with REACH's own styles instead of Word's theme blue, plus a `documentType` so the model declares the kind of document and plans the body to match. Three bugs surfaced while proving it: the table had no column widths (Pages rendered it as a vertical strip of letters), the document had no `Normal` style so the renderer fell back to a serif, and Calibri is not installed on macOS — now Arial, which exists on both platforms.
+* Suggestion: the tool schema cannot carry structure (Nova has no object type), but a Markdown string can carry all of it. Match the payload to the model's native output rather than flattening it.
+
+## 2026-10-22 — The planner hunted through a web page for 24 turns
+* Task: rehearse the browser beat ("list my GitHub repositories").
+* Steps: **24 planner calls, 60 seconds, failed** — the model called `browser.find` six times with structural words ("listitem", "heading", "link") that match nothing useful, because GitHub's repository list sits deep in an 11k-character accessibility tree and the snapshot handed to the model is clipped to 8k.
+* Expected vs actual: expected the answer to be in the first snapshot; expected a hunt. The same goal reworded to *"tell me my display name and how many public repositories I have"* is **8.7 seconds, 3 planner calls, correct answer**.
+* Severity: Medium (60 seconds of visible hunting is dead air on camera, and the run failed).
+* Workaround (kept): the prompt now says the answer is usually already in the snapshot, that `browser.find` takes a distinctive TEXT term and at most one call, and that a failed find must not be retried with another structural word. The demo goal was changed to the one that is boringly reliable.
+* Suggestion: when a tool returns a bounded slice of a large page, the model needs to be told how to narrow it — and the goal itself should be chosen so the first snapshot answers it.
+
 ## Template for new entries
 * Task:
 * Steps:
