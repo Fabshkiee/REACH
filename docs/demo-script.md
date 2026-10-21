@@ -18,7 +18,8 @@ Target feel: product demo, not lecture. Film real artifacts on one machine.
    clean on camera.
 5. Fixtures in place:
    * `~/Downloads/product-sync-2026-10-21.mp3` — **the 105-second meeting
-     recording** (four voices). This is beat 1's input.
+     recording** (four voices). This is beat 1's input. It ships with the repo
+     as `assets/sample-meeting.mp3`; copy it into `~/Downloads` before the take.
    * `~/Downloads/standup-transcript.txt` — the same meeting as text, for the
      fallback beat 1b.
    * `~/Downloads/standup-notes-old.txt` — the throwaway file beat 3 deletes.

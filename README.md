@@ -66,6 +66,7 @@ reach/
 ├── addon-package/    # Alexa+ addon.json stub (fill icons/privacy URLs before deploy)
 ├── docs/             # architecture (truth), contract, security, checklists, demo script
 ├── tests/e2e/        # independent 4-tier black-box suite (187 tests, no network needed)
+├── assets/           # sample-meeting.mp3 — the demo input, so the hero runs from a clean clone
 └── README.md
 ```
 
@@ -89,9 +90,12 @@ nvm use 24               # or install Node 24 LTS
 npm install
 npm run typecheck
 npm run doctor           # preflight: .env, AWS keys, live Bedrock probe, ports, data dir
-npm test                 # server suite (123 tests)
-npm run test:agent       # laptop agent suite (46 tests)
+npm test                 # server suite (130 tests)
+npm run test:agent       # laptop agent suite (51 tests)
 npm run test:e2e         # 4-tier black-box suite (187 tests, all offline)
+
+# The demo input — the hero workflow transcribes this recording
+cp assets/sample-meeting.mp3 ~/Downloads/product-sync-2026-10-21.mp3
 
 # Terminal 1 — REACH Core (MCP on :3000, sim UI, device mesh)
 npm run dev:server       # → http://localhost:3000/health → 200 {"ok":true}
