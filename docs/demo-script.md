@@ -39,10 +39,21 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 
 ## 1:55–2:20 Beat 3 — the approval beat (policy on camera)
 
-* Type beat 3.
-* Show the task **pausing**: the approval card quoting the exact file to be deleted.
-* Press **Approve**. Show the deletion and the completion.
+* Type beat 3 in `/sim`.
+* The task runs, then **pauses**: an approval card appears in the conversation
+  thread (not in the sidebar) reading *"Needs your approval"*, the consequence,
+  the exact action and target, a live expiry countdown, and an
+  **Exact action payload** disclosure.
+* Press **Approve**.
+* Show the file actually gone and the task completing. In the trace the same
+  action appears three times — *paused for approval*, *user-approved:
+  proceeding*, *delete_file ok* — which is the approve-executes semantics on
+  camera.
 * Narrate: "Delete asks. Finding a file doesn't. That's the whole security model in twenty seconds."
+
+> Verified on 2026-10-21: the card renders, Approve deletes the file, and the
+> trace shows all three states. The only part that needs Bedrock is the
+> planner resuming afterwards.
 
 ## 2:20–2:35 Refusal beat (15s)
 
@@ -61,6 +72,7 @@ Diagram: goal → planner (Bedrock) → executor + policy → laptop primitives 
 * Boot: `npm run dev:server` and `npm run dev:agent`. Wait for the agent heartbeat —
   confirm the sim's device panel shows **Online** before typing anything.
 * Confirm the fixtures exist and read well (see below). One clean transcript, one throwaway file.
+* **The throwaway file must still exist before the take** — beat 3 deletes it, so restore it after every take.
 * Clear task history so the panel reads clean on camera: delete `server/data/tasks/*.json`
   (keep `server/data/devices/` — registration re-beats on its own).
 * Close any open document from a previous take (it locks the file on Windows; on macOS
