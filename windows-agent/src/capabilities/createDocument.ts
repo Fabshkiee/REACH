@@ -13,6 +13,8 @@ export const CreateDocumentSchema = z.object({
   body: z.string().max(20000).default(""),
   /** The kind of document this is — the model plans the structure to match. */
   documentType: z.string().max(80).optional(),
+  /** Folder to save it in. Defaults to the REACH work folder (Documents/REACH). */
+  directory: z.string().max(2000).optional(),
   imagePaths: z.array(z.string().min(1).max(2000)).max(20).optional(),
 });
 
@@ -169,7 +171,9 @@ function getImageDimensions(buffer: Buffer): { width: number; height: number } {
 export async function createDocument(input: CreateDocumentInput): Promise<CreateDocumentResult> {
   const parsed = CreateDocumentSchema.parse(input);
   const safeTitle = sanitizeTitle(parsed.title);
-  const dir = reachDocumentsDir();
+  // The folder is the user's to choose; anything outside their own space is
+  // refused here and judged by policy on the core side.
+  const dir = parsed.directory ? assertAllowedPath(parsed.directory) : reachDocumentsDir();
   await mkdir(dir, { recursive: true });
   const path = assertAllowedPath(await resolveUniquePath(dir, safeTitle));
 

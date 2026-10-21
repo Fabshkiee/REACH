@@ -44,7 +44,8 @@ export function registerAgentActions(): void {
     {
       name: "files.search",
       actionClass: "search" as const,
-      description: "Search filenames (and optionally contents) under user space.",
+      description:
+        "Search filenames (and optionally contents) under user space. The query is matched by WORD, so 'standup transcript' finds 'standup-transcript.txt'. Results are ranked — the best match is first — and each hit carries a score (how many query words it covered). mode 'name' matches file names, 'content' matches what is inside files (.txt, .docx, .pdf, .xlsx). If timedOut is true the walk hit its budget and the list is PARTIAL; say so rather than concluding the file does not exist.",
       schema: z.object({ query: z.string().min(1).max(200), root: z.string().max(500).optional(), mode: z.enum(["name", "content"]).optional(), limit: z.number().int().min(1).max(50).optional() }),
       timeoutMs: 60_000,
       capability: "search_files",
@@ -52,7 +53,8 @@ export function registerAgentActions(): void {
     {
       name: "files.read",
       actionClass: "read" as const,
-      description: "Read a text/docx/pdf/xlsx file as text. Larger files: page with offsetChars (totalChars reports length, truncated says more remains).",
+      description:
+        "Read a text/docx/pdf/xlsx file as text. Larger files: page with offsetChars (totalChars reports the length, truncated says more remains). If truncated is true, read again with offsetChars to get the rest — do not treat the first page as the whole file.",
       schema: z.object({ path: PathArg, maxBytes: z.number().int().positive().max(2_097_152).optional(), offsetChars: z.number().int().min(0).max(200_000_000).optional() }),
       timeoutMs: 30_000,
       capability: "read_file",
@@ -60,8 +62,9 @@ export function registerAgentActions(): void {
     {
       name: "files.list",
       actionClass: "search" as const,
-      description: "List one directory: names, sizes, and types (directories first, files smallest-first). Use for 'what is here' or 'which files are small enough to read' — never verify a directory as a file.",
-      schema: z.object({ path: PathArg.optional(), limit: z.number().int().min(1).max(200).optional() }),
+      description:
+        "List one directory: names, sizes, and types (directories first). sorted smallest-first by default — pass sort:'name' for alphabetical or sort:'recent' for newest first. Use offset to page past the first `limit` entries; total and truncated say whether more exist. Use for 'what is here' or 'which files are small enough to read' — never verify a directory as a file.",
+      schema: z.object({ path: PathArg.optional(), limit: z.number().int().min(1).max(200).optional(), offset: z.number().int().min(0).max(10000).optional(), sort: z.enum(["size", "name", "recent"]).optional() }),
       timeoutMs: 15_000,
       capability: "list_files",
     },
@@ -82,6 +85,7 @@ export function registerAgentActions(): void {
         title: z.string().min(1).max(200),
         body: z.string().max(20000).default(""),
         documentType: z.string().max(80).optional().describe("The kind of document, e.g. 'meeting minutes', 'incident report', 'invoice summary'"),
+        directory: z.string().max(2000).optional().describe("Folder to save it in (defaults to the REACH work folder)"),
         imagePaths: z.array(z.string().min(1).max(2000)).max(20).optional(),
       }),
       timeoutMs: 60_000,
@@ -231,7 +235,13 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
     case "files.write":
       return typeof args["path"] === "string" ? args["path"] : undefined;
     case "files.create_document":
-      return typeof args["title"] === "string" ? args["title"] : undefined;
+      // Judge the folder the document will land in when one was named —
+      // that is what the user is really authorising.
+      return typeof args["directory"] === "string" && args["directory"]
+        ? args["directory"]
+        : typeof args["title"] === "string"
+          ? args["title"]
+          : undefined;
     case "files.move":
       return typeof args["to"] === "string" ? args["to"] : undefined;
     case "files.delete":

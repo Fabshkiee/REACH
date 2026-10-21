@@ -86,6 +86,12 @@ export const ListFilesSchema = z.object({
   /** Directory to list; empty means the user root. */
   path: z.string().max(2000).default(""),
   limit: z.number().int().min(1).max(200).default(50),
+  /** Skip this many entries — without it a folder with more than `limit`
+   *  entries can never be paged past the first page. */
+  offset: z.number().int().min(0).max(10000).default(0),
+  /** size = smallest first (useful for "what can I read?"), name = alphabetical,
+   *  recent = newest first. */
+  sort: z.enum(["size", "name", "recent"]).default("size"),
 });
 export type ListFilesInput = z.infer<typeof ListFilesSchema>;
 
@@ -435,6 +441,10 @@ export async function listFiles(input: z.input<typeof ListFilesSchema>): Promise
   path: string;
   entries: ListEntry[];
   truncated: boolean;
+  /** Total entries in the directory, before paging. */
+  total: number;
+  offset: number;
+  hint?: string;
 }> {
   const parsed = ListFilesSchema.parse(input);
   const abs = parsed.path ? assertAllowedPath(parsed.path) : userRoot();
@@ -460,11 +470,23 @@ export async function listFiles(input: z.input<typeof ListFilesSchema>): Promise
   }
   entries.sort((a, b) => {
     if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+    if (parsed.sort === "name") return a.name.localeCompare(b.name);
+    if (parsed.sort === "recent") {
+      return (b.modifiedAt ?? "").localeCompare(a.modifiedAt ?? "");
+    }
     if (!a.isDirectory && !b.isDirectory) return (a.size ?? 0) - (b.size ?? 0);
     return a.name.localeCompare(b.name);
   });
-  const sliced = entries.slice(0, parsed.limit);
-  return { path: abs, entries: sliced, truncated: entries.length > sliced.length };
+  const page = entries.slice(parsed.offset, parsed.offset + parsed.limit);
+  const total = entries.length;
+  return {
+    path: abs,
+    entries: page,
+    total,
+    offset: parsed.offset,
+    truncated: parsed.offset + page.length < total,
+    ...(parsed.sort === "size" ? { hint: "sorted smallest-first; pass sort:'name' for alphabetical or sort:'recent' for newest" } : {}),
+  };
 }
 
 export async function writeFile(input: z.input<typeof WriteFileSchema>): Promise<{ path: string; bytes: number; overwritten: boolean }> {
