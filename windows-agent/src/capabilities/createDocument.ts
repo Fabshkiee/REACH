@@ -5,10 +5,14 @@ import { Document, Footer, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } 
 import { z } from "zod";
 import { openWithDefaultApp } from "./apps.js";
 import { assertAllowedPath } from "../sandbox.js";
+import { markdownToDocx, reachNumbering } from "./markdownDocx.js";
 
 export const CreateDocumentSchema = z.object({
   title: z.string().min(1).max(200),
+  /** The document body, as Markdown. Headings, lists, tables and emphasis are all honoured. */
   body: z.string().max(20000).default(""),
+  /** The kind of document this is — the model plans the structure to match. */
+  documentType: z.string().max(80).optional(),
   imagePaths: z.array(z.string().min(1).max(2000)).max(20).optional(),
 });
 
@@ -18,11 +22,82 @@ export interface CreateDocumentResult {
   path: string;
   opened: boolean;
   openNote?: string;
+  documentType?: string;
 }
 
 // US Letter in DXA (1/1440 inch). docx defaults to A4 — set explicitly.
 const LETTER_WIDTH_DXA = 12240;
 const LETTER_HEIGHT_DXA = 15840;
+
+/**
+ * REACH's own heading styles. Word's built-in Heading 1 is the theme blue,
+ * which made every generated document look like a default export; these are
+ * deliberate, and the hierarchy is visible at a glance.
+ */
+const REACH_STYLES = {
+  default: {
+    document: { run: { font: "Arial", size: 21, color: "1B2430" } },
+    heading1: { run: { font: "Arial", size: 34, bold: true, color: "16324F" } },
+    heading2: { run: { font: "Arial", size: 26, bold: true, color: "16324F" } },
+    heading3: { run: { font: "Arial", size: 23, bold: true, color: "2E4A66" } },
+    heading4: { run: { font: "Arial", size: 21, bold: true, italics: true, color: "2E4A66" } },
+  },
+  paragraphStyles: [
+    {
+      // The base style. Without it the Heading styles below (basedOn:
+      // "Normal") dangle and the renderer falls back to its own default —
+      // which is why every REACH document rendered as a serif.
+      id: "Normal",
+      name: "Normal",
+      run: { font: "Arial", size: 21, color: "1B2430" },
+      paragraph: { spacing: { after: 120, line: 276 } },
+    },
+    {
+      id: "Heading1",
+      name: "Heading 1",
+      basedOn: "Normal",
+      next: "Normal",
+      quickFormat: true,
+      run: { font: "Arial", size: 34, bold: true, color: "16324F" },
+      paragraph: { spacing: { before: 320, after: 160 }, outlineLevel: 0 },
+    },
+    {
+      id: "Heading2",
+      name: "Heading 2",
+      basedOn: "Normal",
+      next: "Normal",
+      quickFormat: true,
+      run: { font: "Arial", size: 26, bold: true, color: "16324F" },
+      paragraph: { spacing: { before: 260, after: 120 }, outlineLevel: 1 },
+    },
+    {
+      id: "Heading3",
+      name: "Heading 3",
+      basedOn: "Normal",
+      next: "Normal",
+      quickFormat: true,
+      run: { font: "Arial", size: 23, bold: true, color: "2E4A66" },
+      paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 2 },
+    },
+    {
+      id: "Heading4",
+      name: "Heading 4",
+      basedOn: "Normal",
+      next: "Normal",
+      quickFormat: true,
+      run: { font: "Arial", size: 21, bold: true, italics: true, color: "2E4A66" },
+      paragraph: { spacing: { before: 160, after: 80 }, outlineLevel: 3 },
+    },
+    {
+      id: "Quote",
+      name: "Quote",
+      basedOn: "Normal",
+      next: "Normal",
+      run: { font: "Arial", size: 21, italics: true, color: "4A5A6A" },
+      paragraph: { spacing: { before: 120, after: 120 } },
+    },
+  ],
+};
 
 export function sanitizeTitle(title: string): string {
   const cleaned = title
@@ -53,15 +128,7 @@ async function resolveUniquePath(dir: string, base: string): Promise<string> {
   return candidate;
 }
 
-function bodyParagraphs(body: string): Paragraph[] {
-  // One Paragraph per line — never a literal \n inside a TextRun (docx gotcha).
-  return body.split(/\r?\n/).map(
-    (line) =>
-      new Paragraph({
-        children: [new TextRun({ text: line || " ", size: 24 })],
-      }),
-  );
-}
+// The body is rendered by markdownDocx (Markdown → structured Word content).
 
 function getImageType(absPath: string, buffer: Buffer): "jpg" | "png" | "gif" | "bmp" {
   const ext = extname(absPath).toLowerCase();
@@ -144,6 +211,8 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
     creator: "REACH",
     title: safeTitle,
     description: `Created by REACH: ${safeTitle}`,
+    styles: REACH_STYLES,
+    numbering: reachNumbering(),
     sections: [
       {
         properties: {
@@ -169,7 +238,9 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
             heading: HeadingLevel.HEADING_1,
             children: [new TextRun({ text: safeTitle })],
           }),
-          ...bodyParagraphs(parsed.body),
+          // The body is Markdown: headings, lists, tables and emphasis become
+          // real Word structure. Anything unrecognised stays a paragraph.
+          ...markdownToDocx(parsed.body),
           ...imageParagraphs,
         ],
       },
@@ -182,5 +253,10 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   // Best-effort open in the default app (shell-free). Never fails the task.
   const { opened, openNote } = await openWithDefaultApp(path);
 
-  return { path, opened, openNote };
+  return {
+    path,
+    opened,
+    openNote,
+    ...(parsed.documentType ? { documentType: parsed.documentType } : {}),
+  };
 }

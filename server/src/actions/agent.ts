@@ -77,10 +77,11 @@ export function registerAgentActions(): void {
       name: "files.create_document",
       actionClass: "write" as const,
       description:
-        "Create and open a real .docx Word document on the laptop. Draft the body text yourself (plain paragraphs, one per line). The file lands in the Documents/REACH folder and opens automatically.",
+        "Create and open a real .docx Word document on the laptop. The body is MARKDOWN: '#' headings, '- ' bullets, '1. ' numbered lists, '| a | b |' tables and **bold** all become real Word structure. Name the kind of document in documentType and plan the body to match — for meeting minutes that means attendees, decisions, action items WITH OWNERS, and anything left unresolved; for a report, a summary then sections; for a letter, a greeting then the body. The title is the document's top-level heading, so body headings sit one level below it. The file lands in the Documents/REACH folder and opens automatically.",
       schema: z.object({
         title: z.string().min(1).max(200),
         body: z.string().max(20000).default(""),
+        documentType: z.string().max(80).optional().describe("The kind of document, e.g. 'meeting minutes', 'incident report', 'invoice summary'"),
         imagePaths: z.array(z.string().min(1).max(2000)).max(20).optional(),
       }),
       timeoutMs: 60_000,

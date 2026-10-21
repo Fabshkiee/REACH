@@ -93,6 +93,41 @@ function asStringArray(raw: unknown): string[] {
   return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string").slice(0, 50) : [];
 }
 
+/** Tool results are bounded so one huge page snapshot cannot eat the context. */
+const TOOL_RESULT_BUDGET = 8000;
+
+/**
+ * Render a tool result within the budget WITHOUT losing its metadata.
+ *
+ * The old version sliced the serialized JSON. JSON.stringify puts the big
+ * field first and the flags last, so the slice ate exactly the fields that
+ * matter most — `truncated`, `totalChars`, `pages` — precisely when the
+ * result was too big to fit. The model was shown 8,000 characters with no
+ * indication that more existed.
+ *
+ * Now long strings are clipped in place and every non-string field (flags,
+ * counts, paths, booleans) survives.
+ */
+export function clipToolResult(data: unknown, budget = TOOL_RESULT_BUDGET): string {
+  const clip = (v: unknown, max: number): unknown => {
+    if (typeof v === "string") return v.length > max ? `${v.slice(0, max)} …[clipped]` : v;
+    if (Array.isArray(v)) return v.map((x) => clip(x, max));
+    if (v && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = clip(x, max);
+      return out;
+    }
+    return v;
+  };
+  let max = 4000;
+  let text = JSON.stringify(clip(data, max)) ?? String(data);
+  while (text.length > budget && max > 200) {
+    max = Math.floor(max / 2);
+    text = JSON.stringify(clip(data, max)) ?? String(data);
+  }
+  return text;
+}
+
 /**
  * Validate a reach.finish claim against the trace. Returns a terminal
  * status+patch when the claim is grounded, or an error string to feed back
@@ -560,7 +595,7 @@ export async function runPlannerLoop(
         toolResults: [
           {
             toolCallId: first.id,
-            content: `OK [actionId: ${proposed.actionId}]: ${JSON.stringify(proposed.data).slice(0, 8000)}${proposed.verified === false ? " (UNVERIFIED)" : " (verified)"}`,
+            content: `OK [actionId: ${proposed.actionId}]: ${clipToolResult(proposed.data)}${proposed.verified === false ? " (UNVERIFIED)" : " (verified)"}`,
           },
         ],
       });

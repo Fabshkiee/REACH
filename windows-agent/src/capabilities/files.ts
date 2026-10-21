@@ -112,6 +112,8 @@ export interface SearchHit {
   path: string;
   size: number;
   modifiedAt: string;
+  /** How many of the query's tokens this file covers. Higher is a better match. */
+  score: number;
 }
 
 async function walk(
@@ -179,6 +181,55 @@ async function smallestDirsFirst<T extends { name: string; isDirectory: () => bo
 }
 
 const TEXT_EXTS = new Set([".txt", ".md", ".json", ".csv", ".log", ".xml", ".html", ".yaml", ".yml", ".ini", ".cfg"]);
+
+/**
+ * Binary formats whose TEXT is searchable. A user looking for "my meeting
+ * notes" does not know whether they saved them as .docx, .pdf or .xlsx — the
+ * extractor for all three already exists (fileText), it was simply never
+ * wired into search.
+ */
+const SEARCHABLE_BINARY_EXTS = new Set([".docx", ".pdf", ".xlsx", ".xls"]);
+
+/**
+ * How many binary files one content search will open. Parsing a PDF or a
+ * .docx is orders of magnitude more expensive than reading a text file, and a
+ * profile-wide search would otherwise spend minutes in other people's
+ * documents. The count of what was skipped is reported to the caller.
+ */
+const MAX_BINARY_INSPECTIONS = 150;
+
+/**
+ * Words that carry no signal in a search phrase. "Find my meeting notes in
+ * Downloads" should look for {meeting, notes, downloads}, not for "find".
+ */
+const SEARCH_STOPWORDS = new Set([
+  "the", "a", "an", "and", "or", "but", "my", "me", "i", "our", "of", "in", "on", "at", "to", "for", "from",
+  "with", "is", "are", "was", "were", "it", "its", "this", "that", "these", "those", "be", "been", "am",
+  "file", "files", "folder", "folders", "doc", "docs", "document", "documents", "find", "show", "get", "give",
+  "please", "can", "you", "about", "there", "here", "all", "any", "some", "one", "two", "up", "out", "into",
+]);
+
+/**
+ * Split a search phrase into the words that actually carry signal.
+ *
+ * A raw substring match made "standup transcript" find nothing at all,
+ * because the file was called "standup-transcript.txt" — the model asked the
+ * user for the file it had already been told the name of. Splitting on
+ * word boundaries and scoring by coverage matches the way people phrase
+ * things.
+ */
+export function tokenizeQuery(query: string): string[] {
+  const raw = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const meaningful = raw.filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
+  return meaningful.length > 0 ? meaningful : raw;
+}
+
+/** How many of the query's tokens appear in the haystack. */
+function scoreTokens(haystack: string, tokens: string[]): number {
+  let n = 0;
+  for (const t of tokens) if (haystack.includes(t)) n++;
+  return n;
+}
 
 async function fileText(
   abs: string,
@@ -286,34 +337,71 @@ export async function searchFiles(input: z.input<typeof SearchFilesSchema>): Pro
   const parsed = SearchFilesSchema.parse(input);
   const root = parsed.root ? assertAllowedPath(parsed.root) : userRoot();
   const deadline = Date.now() + SEARCH_TIMEOUT_MS;
-  const q = parsed.query.toLowerCase();
+  const tokens = tokenizeQuery(parsed.query);
   const hits: SearchHit[] = [];
   const state = { visited: 0, stopped: false };
+  // Collect more than we return, then rank: "standup transcript" matches
+  // several files and only one of them is the transcript. The best match
+  // must be FIRST, not merely present.
+  const candidateCap = Math.max(parsed.limit * 10, 100);
+  let perfect = 0;
+  let binaryInspected = 0;
+  let binarySkipped = 0;
+
   await walk(root, deadline, state, async (abs) => {
-    const base = abs.split(/[\\/]/).pop()!.toLowerCase();
-    let match = base.includes(q);
-    if (!match && parsed.mode === "content") {
-      try {
-        const ext = extname(abs).toLowerCase();
-        if (TEXT_EXTS.has(ext)) {
+    // Score against the path RELATIVE to the search root, so the root's own
+    // name ("Downloads") does not give every file under it a free token.
+    const rel = abs.startsWith(root) ? abs.slice(root.length) : abs;
+    const hay = rel.toLowerCase();
+    const score = scoreTokens(hay, tokens);
+    let matched = score >= 1;
+    let contentMatched = false;
+    if (!matched && parsed.mode === "content" && tokens.length > 0) {
+      const ext = extname(abs).toLowerCase();
+      const isText = TEXT_EXTS.has(ext) || ext === "";
+      const isBinary = SEARCHABLE_BINARY_EXTS.has(ext);
+      if (isBinary && binaryInspected >= MAX_BINARY_INSPECTIONS) {
+        binarySkipped++;
+      } else if (isText || isBinary) {
+        if (isBinary) binaryInspected++;
+        try {
           const { text } = await fileText(abs, 20_000);
-          match = text.toLowerCase().includes(q);
+          const body = text.toLowerCase();
+          // Every token must be present: one common word inside a long
+          // document is noise, not a match.
+          contentMatched = tokens.every((t) => body.includes(t));
+          matched = contentMatched;
+        } catch {
+          matched = false;
         }
-      } catch {
-        match = false;
       }
     }
-    if (match) {
+    if (matched) {
       try {
         const st = await stat(abs);
-        hits.push({ path: abs, size: st.size, modifiedAt: st.mtime.toISOString() });
+        hits.push({
+          path: abs,
+          size: st.size,
+          modifiedAt: st.mtime.toISOString(),
+          score: contentMatched ? tokens.length : score,
+        });
       } catch {
         // vanished mid-walk; ignore
       }
+      if (score === tokens.length) perfect++;
     }
-    return hits.length < parsed.limit;
+    // Stop as soon as we have enough exact matches; otherwise keep gathering
+    // candidates so the ranking has something to work with.
+    return !(perfect >= parsed.limit) && hits.length < candidateCap;
   });
-  return { hits, timedOut: Date.now() > deadline, visited: state.visited };
+
+  hits.sort((a, b) => b.score - a.score || a.path.length - b.path.length || a.path.localeCompare(b.path));
+  return {
+    hits: hits.slice(0, parsed.limit),
+    timedOut: Date.now() > deadline,
+    visited: state.visited,
+    ...(binarySkipped > 0 ? { skippedBinaryFiles: binarySkipped } : {}),
+  };
 }
 
 export async function readFile(input: z.input<typeof ReadFileSchema>): Promise<{

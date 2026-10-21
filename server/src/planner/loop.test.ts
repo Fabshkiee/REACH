@@ -13,7 +13,7 @@ import { registerDevice } from "../registry/deviceStore.js";
 import { ScriptedPlannerBackend } from "./mock.js";
 import { getTask, createTask } from "../tasks/taskStore.js";
 import { decideApproval, executeOnMyDevices } from "../mcp/tools.js";
-import { resumeLoop, runPlannerLoop, setPlannerBackendFactory } from "./loop.js";
+import { resumeLoop, runPlannerLoop, setPlannerBackendFactory, clipToolResult } from "./loop.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -59,6 +59,31 @@ afterEach(() => {
 });
 
 describe("planner loop", () => {
+  it("clipToolResult keeps metadata when the payload is too big", () => {
+    // JSON.stringify puts the big field FIRST and the flags LAST, so slicing
+    // the serialized JSON ate `truncated`/`totalChars`/`pages` exactly when
+    // they mattered. They must survive.
+    const big = {
+      path: "/Users/x/notes.txt",
+      kind: "txt",
+      text: "A".repeat(50_000),
+      truncated: true,
+      totalChars: 50_000,
+      pages: 3,
+    };
+    const out = clipToolResult(big);
+    assert.ok(out.length <= 8000, `expected <= 8000 chars, got ${out.length}`);
+    const parsed = JSON.parse(out) as Record<string, unknown>;
+    assert.equal(parsed["truncated"], true);
+    assert.equal(parsed["totalChars"], 50_000);
+    assert.equal(parsed["pages"], 3);
+    assert.equal(parsed["path"], "/Users/x/notes.txt");
+    assert.ok(String(parsed["text"]).endsWith("…[clipped]"), "the clipped text must say so");
+  });
+
+  it("clipToolResult leaves small results untouched", () => {
+    assert.equal(clipToolResult({ ok: true, count: 3 }), '{"ok":true,"count":3}');
+  });
   it("runs multi-step plans to completion with trace", async () => {
     const t = createTask("scripted multi-step goal");
     const mock = new ScriptedPlannerBackend([
