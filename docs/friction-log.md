@@ -402,6 +402,22 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): the agent now advertises only what the host can run (`advertisedCapabilities()` — the Windows-only desktop primitives are offered on Windows only), action definitions carry the agent capability they dispatch to (`deviceCapability`), and the planner is offered only capabilities a connected device advertises. The duplicated hardcoded known-app list in the planner was deleted in favour of the device's own advertisement.
 * Suggestion: "capability availability is truthful" is a product principle and a code invariant — make the registry the only source of truth for what exists, and make the advertised set the only source of truth for what is offered.
 
+## 2026-10-21 — A security model that only lists what it got right is not a security model
+* Task: write the "known limits" section of `docs/security.md` honestly before submission.
+* Steps: audited the outbound-HTTP path (`web.request`). Policy confirms any target whose host is a bare IP or `localhost`, but a **public hostname that resolves to a loopback address** (`…nip.io`, `localtest.me`) is a "named web target" and is allowed — so the classifier can be walked around by DNS.
+* Expected vs actual: expected either a fix or an honest entry; a fix needs the hostname to be resolved and the answer checked against private/loopback ranges, which means I/O inside a policy engine that is deliberately a pure function.
+* Severity: Medium (the core and agent bind `127.0.0.1`, the mesh needs `AGENT_TOKEN`, and no demonstrated flow uses `web.request` — but "the demo did not exploit it" is not the same as "it is closed").
+* Workaround (kept): documented as a named limit in `docs/security.md` with the reason the fix belongs in the executor (pre-dispatch) rather than the classifier (pure), instead of quietly leaving it out of the document.
+* Suggestion: when a control is approximate, write down the approximation and where the real fix belongs. A limits section that lists only the wins teaches judges to stop reading it.
+
+## 2026-10-21 — The E2E suite's result depended on the hour of the day
+* Task: make the 187-test 4-tier suite pass on macOS.
+* Steps: after fixing the scorecard parser, the remaining failures were all in the two cases that assert a **live DuckDuckGo search**. Repeated manual runs proved the cause: the same query returned 3 results, then 3, then **0** — the engine rate-limits automated traffic. The suite had been passing on a machine whose IP was not being throttled.
+* Expected vs actual: expected the capability to work or to fail honestly; actual it *worked* — the suite just measured the scraper's mood. `web.search` also returned `ok:true` with zero results, telling the planner "I looked and there is nothing there", which is a confident falsehood.
+* Severity: Medium (two layers: a flaky suite, and a dishonest success signal).
+* Workaround (kept): the E2E harness now serves DuckDuckGo-shaped HTML, Lite, VQD and image-JSON fixtures locally and redirects the search calls to it, so the suite needs no network at all (187/187, deterministic). In the product, `web.search` now **fails** with an explicit "rate-limited or bot-challenged" reason plus a recovery hint instead of reporting an empty success.
+* Suggestion: a test that asserts against a live public scraper is a test of the scraper's availability. Serve the shape locally and assert on the parsing; keep the live call for a separate, explicitly-networked check.
+
 ## Template for new entries
 * Task:
 * Steps:

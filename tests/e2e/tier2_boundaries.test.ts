@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { getTestHarness } from "./harness/serverHarness.js";
-import { startMockAssetServer, MockAssetServer, SAMPLE_PNG } from "./harness/mockAssetServer.js";
+import { startMockAssetServer, MockAssetServer, SAMPLE_PNG, installSearchMock } from "./harness/mockAssetServer.js";
 import { withNetworkRetry } from "./harness/assertions.js";
 import { CONFIG } from "./harness/config.js";
 
@@ -20,12 +20,18 @@ describe("Tier 2: Boundary & Corner Cases (>=5 tests per inventoried feature)", 
   let harness: { serverUrl: string; agentUrl: string; cleanup: () => Promise<void> };
   let mockAssets: MockAssetServer;
 
+  let restoreSearch: (() => void) | undefined;
+
   before(async () => {
     mockAssets = await startMockAssetServer();
+    // DuckDuckGo rate-limits automated traffic; serve the search fixtures
+    // locally so the suite's result does not depend on the hour of the day.
+    restoreSearch = installSearchMock(mockAssets.url);
     harness = await getTestHarness();
   });
 
   after(async () => {
+    restoreSearch?.();
     if (mockAssets) await mockAssets.close();
     if (harness) await harness.cleanup();
   });

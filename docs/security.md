@@ -46,3 +46,35 @@ can't be inferred or a real boundary is crossed.
   `AGENT_TOKEN` controls the mesh; localhost is trusted at the network layer.
 * **Non-goals:** TLS on localhost, multi-user separation, full OAuth 2.1 PKCE
   (arrives with Alexa onboarding, Phase 4), sandboxing a hostile local operator.
+
+## Known limits (stated, not hidden)
+
+These are boundaries the current build does **not** close. They are listed
+because a security model that only lists what it got right is not a security
+model.
+
+* **DNS rebinding against `web.request`.** Policy confirms any target whose
+  host is a bare IP or `localhost`, but a *public hostname that resolves to a
+  loopback address* (`…nip.io`, `localtest.me`) is a "named web target" and
+  is allowed. The proper fix is to resolve the hostname and reject private
+  and loopback ranges — that needs I/O, which would break the policy engine's
+  "pure function, no I/O" property, so it belongs in the executor as a
+  pre-dispatch check rather than in the classifier. Until then: the core and
+  the agent bind `127.0.0.1` only, the mesh requires `AGENT_TOKEN`, and
+  `web.request` is not used by any demonstrated flow.
+* **The planner can read any file the user owns.** That is the product, not a
+  bug — but it means the trust boundary is the *device*, not the agent. Anyone
+  who can talk to the core with a valid token inherits read access to the
+  user's documents.
+* **One shared token.** `AGENT_TOKEN` authenticates every agent to the core.
+  There is no per-device credential, no rotation, and no revocation short of
+  restarting the core. Per-device credentials and an outbound relay are
+  post-v1 (named in the roadmap).
+* **A confirmed action is trusted for the shape it was approved with.** The
+  approval quotes the exact validated arguments and the approval is
+  single-use and expiring, but a capability that mutates something *other*
+  than its stated target is not detectable by the core.
+* **The model reads page text as data.** Browser output is untrusted input. It
+  cannot change policy or grant an approval, but it *can* mislead the planner
+  into proposing a different action — which is why every action still passes
+  policy and, for consequential classes, a human.

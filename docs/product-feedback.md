@@ -50,8 +50,9 @@ Devpost requires this per tool/API/SDK used. Written against the shipped code.
   rule set, but the class of bug (OS assumptions in a security path) deserves a platform
   matrix in CI.
 * **The E2E scorecard runner lied.** It parsed `# tests 85` while Node's reporter emits
-  `ℹ tests 85`, so a 182/187 suite was reported as 0%. Fixed; the lesson is that a reporting
-  tool that cannot fail is worse than no reporting tool.
+  `ℹ tests 85`, so a 182/187 suite was reported as 0%. Fixed. The suite now also serves
+  DuckDuckGo-shaped fixtures locally instead of scraping a live engine that rate-limits
+  automated traffic — 187/187, and the result no longer depends on the hour of the day.
 * **Outcome kinds are still coarse** in places, and the browser adapter has no file-upload
   path (deliberately).
 * **No long-running execution.** A task is capped at 10 minutes by default

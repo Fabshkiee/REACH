@@ -65,7 +65,7 @@ reach/
 ├── windows-agent/    # Laptop agent: file/browser/app primitives, heartbeat
 ├── addon-package/    # Alexa+ addon.json stub (fill icons/privacy URLs before deploy)
 ├── docs/             # architecture (truth), contract, security, checklists, demo script
-├── tests/e2e/        # independent 4-tier black-box suite (187 tests)
+├── tests/e2e/        # independent 4-tier black-box suite (187 tests, no network needed)
 └── README.md
 ```
 
@@ -91,7 +91,7 @@ npm run typecheck
 npm run doctor           # preflight: .env, AWS keys, live Bedrock probe, ports, data dir
 npm test                 # server suite (123 tests)
 npm run test:agent       # laptop agent suite (46 tests)
-npm run test:e2e         # 4-tier black-box suite (187 tests)
+npm run test:e2e         # 4-tier black-box suite (187 tests, all offline)
 
 # Terminal 1 — REACH Core (MCP on :3000, sim UI, device mesh)
 npm run dev:server       # → http://localhost:3000/health → 200 {"ok":true}

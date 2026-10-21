@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { getTestHarness } from "./harness/serverHarness.js";
-import { startMockAssetServer, MockAssetServer, SAMPLE_PNG, SAMPLE_JPEG } from "./harness/mockAssetServer.js";
+import { startMockAssetServer, MockAssetServer, SAMPLE_PNG, SAMPLE_JPEG, installSearchMock } from "./harness/mockAssetServer.js";
 import { assertDocxContainsImage } from "./harness/assertions.js";
 import { CONFIG } from "./harness/config.js";
 
@@ -19,13 +19,18 @@ mkdirSync(process.env.REACH_DATA_DIR, { recursive: true });
 describe("Tier 4: Real-World Application Scenarios", () => {
   let harness: { serverUrl: string; agentUrl: string; cleanup: () => Promise<void> };
   let mockAssets: MockAssetServer;
+  let restoreSearch: (() => void) | undefined;
 
   before(async () => {
     mockAssets = await startMockAssetServer();
+    // DuckDuckGo rate-limits automated traffic; serve the search fixtures
+    // locally so the suite's result does not depend on the hour of the day.
+    restoreSearch = installSearchMock(mockAssets.url);
     harness = await getTestHarness();
   });
 
   after(async () => {
+    restoreSearch?.();
     if (mockAssets) await mockAssets.close();
     if (harness) await harness.cleanup();
   });

@@ -11,9 +11,9 @@
         "shortDescription": "Tell Alexa what you want. Your devices make it happen.",
         "fullDescription": "REACH is a capability bridge between Alexa+ and your personal devices. Describe a goal and REACH delegates it to explicitly authorized device capabilities — e.g. creating a document on your laptop — tracks the task, and returns the result.",
         "examplePhrases": [
-          "Create a document on my laptop for my biology homework",
+          "Turn my meeting transcript into minutes on my laptop",
           "Check the status of my laptop task",
-          "Save meeting minutes on my laptop"
+          "Delete the old notes file in my downloads"
         ],
         "privacyAndCompliance": {
           "privacyPolicyUrl": "https://example.com/TODO-replace-before-deploy/privacy",
