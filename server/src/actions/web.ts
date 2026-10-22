@@ -36,6 +36,11 @@ export interface WebSearchResult {
   mode: "text" | "image";
   count: number;
   results: Array<WebSearchTextResult | WebSearchImageResult>;
+  /** Full text of the top result, fetched and stripped of HTML. Present only
+   *  in text mode when the fetch succeeded; gives the model real article
+   *  content to synthesise instead of 10 snippet titles. */
+  fullText?: string;
+  fullTextUrl?: string;
 }
 
 export const DownloadAssetActionSchema = z.object({
@@ -324,12 +329,41 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
     );
   }
 
+  // Fetch the top result's full text so the model has real article content
+  // to synthesise instead of 10 snippet titles. Degrades gracefully.
+  let fullText: string | undefined;
+  let fullTextUrl: string | undefined;
+  const topUrl = results[0]?.url;
+  if (topUrl && /^https?:\/\//i.test(topUrl)) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10_000);
+    try {
+      const res = await fetch(topUrl, {
+        signal: ctrl.signal,
+        headers: { "User-Agent": USER_AGENTS[0]!, Accept: "text/html,*/*" },
+      });
+      if (res.ok) {
+        const html = await res.text();
+        const stripped = stripHtmlTags(html).replace(/\s+/g, " ").trim();
+        if (stripped.length > 200) {
+          fullText = stripped.slice(0, 4000);
+          fullTextUrl = topUrl;
+        }
+      }
+    } catch {
+      // Fetch failed (timeout, paywall, JS-rendered page) — return results only.
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   return {
     ok: true,
     query: parsed.query,
     mode: "text",
     count: results.length,
     results,
+    ...(fullText ? { fullText, fullTextUrl } : {}),
   };
 }
 
