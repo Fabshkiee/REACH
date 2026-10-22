@@ -12,7 +12,7 @@ const USER_AGENTS = [
 export const WebSearchSchema = z.object({
   query: z.string().min(1).max(500).describe("Search query terms"),
   mode: z.enum(["text", "image"]).default("text").describe("Search mode: 'text' for web pages or 'image' for direct photo/image URLs"),
-  limit: z.number().int().min(1).max(20).default(5).describe("Maximum number of results to return (1-20, default 5)"),
+  limit: z.number().int().min(1).max(20).default(10).describe("Maximum number of results to return (1-20, default 10)"),
 });
 
 export type WebSearchInput = z.input<typeof WebSearchSchema>;
@@ -108,59 +108,98 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
 
   // LangSearch (free API, key-based auth, no IP rate-limiting) — preferred
   // when LANGSEARCH_API_KEY is set. Falls through to DuckDuckGo on failure.
+  // Fans out to multiple query variants for broader coverage, then merges
+  // and dedupes by URL so no single search misses major results.
   const langsearchKey = process.env.LANGSEARCH_API_KEY;
   if (langsearchKey && parsed.mode === "text") {
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 20_000);
-      let res: Response;
-      try {
-        res = await fetch("https://api.langsearch.com/v1/web-search", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${langsearchKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: parsed.query,
-            count: parsed.limit,
-            contents: { text: { maxCharacters: 4000 } },
-            freshness: "noLimit",
-          }),
-          signal: ctrl.signal,
-        });
-      } finally {
-        clearTimeout(timer);
+      // Generate query variants for broader coverage. A single query with
+      // limited results can miss significant items because search engines
+      // rank by relevance to the query, not by impact. Fan out to diverse
+      // angles so the merged result set covers more ground.
+      const queries = [parsed.query];
+      const broader = parsed.query.replace(/\\b(major|latest|recent|breaking|top|best|this week|news)\\b/gi, "").replace(/\\s+/g, " ").trim();
+      if (broader && broader !== parsed.query && broader.length > 5) {
+        queries.push(broader);
       }
-      if (res.ok) {
-        const data = (await res.json()) as {
-          data?: { webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; text?: string; datePublished?: string | null }> } };
-        };
-        const items = data?.data?.webPages?.value ?? [];
-        const results: WebSearchTextResult[] = [];
-        for (const item of items) {
-          if (item.url && (item.name || item.snippet || item.text)) {
-            results.push({
-              title: (item.name ?? "").trim() || "Result",
-              url: item.url,
-              snippet: (item.snippet ?? "").trim(),
-            });
-          }
-          if (results.length >= parsed.limit) break;
-        }
-        if (results.length > 0) {
-          // Full text of top result is already in `text` field
-          const topItem = items[0];
-          const fullText = topItem?.text?.trim();
-          return {
-            ok: true,
-            query: parsed.query,
-            mode: "text",
-            count: results.length,
-            results,
-            ...(fullText && fullText.length > 200 ? { fullText: fullText.slice(0, 4000), fullTextUrl: topItem?.url } : {}),
+      // Breadth variant — surfaces items the original query might miss
+      queries.push(`top ${broader || parsed.query}`);
+      // Recency-focused variant
+      if (!/^latest\\b/i.test(parsed.query)) {
+        queries.push(`latest ${broader || parsed.query}`);
+      }
+      // Breadth variant — surfaces items the original query might miss
+      if (!/vulnerabilit|threat|exploit|zero.?day/i.test(parsed.query)) {
+        queries.push(`${broader || parsed.query} vulnerabilities threats`);
+      } else {
+        queries.push(`${broader || parsed.query} exploited this week`);
+      }
+
+      const perQuery = Math.max(8, Math.ceil(parsed.limit / queries.length) + 3);
+      const fetchOne = async (q: string): Promise<Array<{ name?: string; url?: string; snippet?: string; text?: string }>> => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 20_000);
+        try {
+          const res = await fetch("https://api.langsearch.com/v1/web-search", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${langsearchKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: q,
+              count: perQuery,
+              contents: { text: { maxCharacters: 4000 } },
+              freshness: "noLimit",
+            }),
+            signal: ctrl.signal,
+          });
+          if (!res.ok) return [];
+          const data = (await res.json()) as {
+            data?: { webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; text?: string }> } };
           };
+          return data?.data?.webPages?.value ?? [];
+        } catch {
+          return [];
+        } finally {
+          clearTimeout(timer);
         }
+      };
+
+      const allItems = await Promise.all(queries.map(fetchOne));
+      const seenUrls = new Set<string>();
+      const merged: WebSearchTextResult[] = [];
+      let topFullText: string | undefined;
+      let topFullTextUrl: string | undefined;
+
+      for (const items of allItems) {
+        for (const item of items) {
+          if (!item.url || seenUrls.has(item.url)) continue;
+          if (!item.name && !item.snippet && !item.text) continue;
+          seenUrls.add(item.url);
+          merged.push({
+            title: (item.name ?? "").trim() || "Result",
+            url: item.url,
+            snippet: (item.snippet ?? "").trim(),
+          });
+          if (!topFullText && item.text && item.text.trim().length > 200) {
+            topFullText = item.text.trim().slice(0, 4000);
+            topFullTextUrl = item.url;
+          }
+          if (merged.length >= parsed.limit) break;
+        }
+        if (merged.length >= parsed.limit) break;
+      }
+
+      if (merged.length > 0) {
+        return {
+          ok: true,
+          query: parsed.query,
+          mode: "text",
+          count: merged.length,
+          results: merged,
+          ...(topFullText ? { fullText: topFullText, fullTextUrl: topFullTextUrl } : {}),
+        };
       }
     } catch {
       // Fall through to DuckDuckGo
