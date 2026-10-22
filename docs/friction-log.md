@@ -475,6 +475,46 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Workaround (kept): the executor now records each action's result payload (clipped) in the trace, and a resumed task replays those results verbatim into its context. Regression test included. After the fix, 3/3 live runs produced minutes containing the real content — the conflict resolver, the 200-session target, the accessibility audit's 7 contrast and 4 focus-order findings — and none invented anything.
 * Suggestion: a resume that keeps only summaries of what happened is a resume that throws away what was learned. If the model's next decision depends on a payload, that payload has to survive the pause.
 
+## 2026-10-23 — Search flooded results with every .txt file on the machine
+* Task: "find the test-doc.txt and open it" (ad-hoc test).
+* Steps: `files.search` with `query: "test-doc.txt"` tokenised the query into `["test","doc","txt"]`, dropped the stopword "doc", and matched any file containing "test" or "txt" — i.e. every text file on disk. The walk collected 20 unrelated `LICENSE.txt`/`*.txt` hits and stopped before reaching the actual file, so the model concluded "not found" (and in one run produced a confident "does not exist" for a file that did exist).
+* Expected vs actual: expected the file (it lived in `Documents/REACH/test-doc.txt`); actual a noise wall and a false negative.
+* Severity: High (a search that cannot find a file that exists is worse than no search).
+* Workaround (kept): filename-like queries (anything containing a dot) now match against the basename directly, and extension-only tokens ("txt", "pdf", …) are stripped from descriptive queries. Early stop only triggers on exact basename matches for filename queries. Regression tests added.
+* Suggestion: tokenising a filename and treating its extension as a search term is a category error. A query that looks like a filename should be matched as a filename.
+
+## 2026-10-23 — A Spotify link opened in the browser, not the app
+* Task: "open one of those in my spotify … but this time in spotify app".
+* Steps: the planner launched `spotify` (via its `spotify:` URI scheme) and then called `apps.open_url` on the `https://open.spotify.com/…` link. `open_url` only knew `http(s):` and handed the URL to the default browser, so the playlist opened in Safari/Chrome alongside the Spotify app.
+* Expected vs actual: expected the playlist in the Spotify app; actual a browser tab.
+* Severity: Medium (works, but not what was asked, and it looked broken on camera).
+* Workaround (kept): `openUrl` now converts `open.spotify.com/<type>/<id>` links into `spotify:<type>:<id>` URIs and opens them through the registered handler. Prompt rule added so the planner does not also call `apps.launch` for the same link.
+* Suggestion: a URL whose host has a registered app handler should be routed to that app, not to the browser. Keep the allowlist of such hosts explicit.
+
+## 2026-10-23 — Images piled up at the end of generated documents
+* Task: "find an image about exponential growth and make a doc about it".
+* Steps: the model passed the image's remote URL in `imagePaths` (and as markdown `![...](url)`). `create_document` treated the URL as a local path, `stat()` failed silently, and the image was dropped — the doc shipped with the literal text `!Exponential Growth(link to image)`.
+* Expected vs actual: expected an embedded image; actual a text placeholder and, on a second run, images appended at the very end regardless of where the model placed them.
+* Severity: High (the hero document looked broken).
+* Workaround (kept): `create_document` now (a) parses block-level `![caption](src)` images and embeds them inline at their position with a caption, (b) fetches `http(s)` URLs itself (timeout, size cap, private-IP block, MIME check) so images embed even when the model skips `web.download_asset`, and (c) dedupes against `imagePaths`. Prompt and descriptions updated with a technical/debate template.
+* Suggestion: never make image embedding depend on the model following a multi-step download-then-reference flow. Accept either a local path or a URL at the render boundary.
+
+## 2026-10-23 — The app allowlist made the agent look limited
+* Task: "open antigravity with the reach folder".
+* Steps: `launch_application` threw "unknown application" for anything not in `KNOWN_APPS`, so Antigravity (installed on the machine) could not be opened at all; the planner then asked "is it known-safe?" and, after a "yes", still failed. A second attempt opened "Antigravity 2.0" instead of "Antigravity IDE".
+* Expected vs actual: expected the named app to open; actual a refusal followed by a wrong app.
+* Severity: Medium (looks dumb on camera, and the allowlist genuinely was too small).
+* Workaround (kept): `apps.launch` now accepts an optional `path` (opens a file/folder in the app) and, on macOS, attempts a generic `open -a <name>` for any installed app after policy confirmation (unknown apps are confirm-tier, not refused). Antigravity / Antigravity IDE / Antigravity 2 / 2.0 added to the known set. Prompt rule: never search for an app name as if it were a file.
+* Suggestion: a hard-coded allowlist is a poor proxy for "safe". Policy already classifies `launch` as confirm for unknowns — let the capability attempt the launch and let policy gate it, instead of refusing before policy runs.
+
+## 2026-10-23 — The planner could not finish after an approval
+* Task: "open Antigravity with the REACH folder" (approval flow).
+* Steps: the launch succeeded (`launch_application ok`), but the planner then called `reach.finish` four times citing the wrong actionIds (the approval id, "launch_application ok", the paused action) and each was rejected; it burned steps and finally asked the user to confirm.
+* Expected vs actual: expected a clean completion after the approved action; actual a citation loop and an unnecessary question.
+* Severity: Medium (the work was done; the finish was the problem).
+* Workaround (kept): prompt rule added to resolve "that document"/"it" to the most recent trace action and never re-ask a question already answered. A `lastDocument` injection into the identity note is planned.
+* Suggestion: the finish validator should either accept the most recent verified action implicitly, or the context should inject a "citeable actionIds: …" list so the model does not have to guess from the trace.
+
 ## Template for new entries
 * Task:
 * Steps:

@@ -40,10 +40,16 @@ One engine, four capabilities classes, no goal-specific routing:
 
 * **Files** — search (by name *or* inside `.docx`/`.pdf`/`.xlsx`), read, list,
   write, move, delete, verify. Paths are guarded against system locations,
-  other users' data and credential files.
+  other users' data and credential files. Search scores by word coverage so a
+  missing file is reported as missing instead of flooding results.
+* **Apps** — launch any installed application by name (known apps silently;
+  unknown apps ask first), and open a file or folder in it. Spotify links route
+  to the Spotify app, not the browser.
 * **Documents** — a real `.docx` with real structure. The body is Markdown and
   becomes headings, bullet and numbered lists, tables, emphasis, quotes and
-  rules — the model plans the document's shape, the agent renders it.
+  rules — the model plans the document's shape, the agent renders it. Images
+  download to disk and embed inline next to the section they illustrate, with
+  captions.
 * **Browser** — a generic Playwright-MCP adapter with a fixed tool allowlist.
   Evaluate, code execution, cookies and uploads are structurally unreachable.
 * **Audio** — transcribe a recording with **Amazon Transcribe** (via S3; the
