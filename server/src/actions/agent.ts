@@ -140,6 +140,38 @@ export function registerAgentActions(): void {
       capability: "launch_application",
     },
     {
+      name: "phone.ios_list",
+      actionClass: "search" as const,
+      description: "List iPhones connected to this Mac over USB or Wi-Fi (via usbmuxd/Bonjour). The phone must be paired/trusted first.",
+      schema: z.object({}),
+      timeoutMs: 15_000,
+      capability: "ios_list",
+    },
+    {
+      name: "phone.ios_info",
+      actionClass: "observe" as const,
+      description: "Get device info (name, iOS version, battery, storage) for a connected iPhone.",
+      schema: z.object({ udid: z.string().max(64).optional() }),
+      timeoutMs: 15_000,
+      capability: "ios_info",
+    },
+    {
+      name: "phone.ios_list_files",
+      actionClass: "search" as const,
+      description: "List files on a connected iPhone (e.g. /DCIM/ for photos).",
+      schema: z.object({ path: z.string().max(500).default("/DCIM/"), udid: z.string().max(64).optional() }),
+      timeoutMs: 30_000,
+      capability: "ios_list_files",
+    },
+    {
+      name: "phone.ios_pull_file",
+      actionClass: "read" as const,
+      description: "Download a file from a connected iPhone to the laptop (e.g. a photo from /DCIM/...).",
+      schema: z.object({ src: z.string().min(1).max(500), destDir: z.string().max(500).optional(), udid: z.string().max(64).optional() }),
+      timeoutMs: 60_000,
+      capability: "ios_pull_file",
+    },
+    {
       name: "desktop.inspect_windows",
       actionClass: "observe" as const,
       description: "Inspect currently open desktop application windows. Returns window titles and process names (e.g. Discord, Figma, Spotify, VS Code).",
@@ -254,6 +286,13 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
         : typeof args["app"] === "string"
           ? args["app"]
           : undefined;
+    case "phone.ios_list":
+    case "phone.ios_info":
+      return "phone";
+    case "phone.ios_list_files":
+      return typeof args["path"] === "string" ? args["path"] : "phone";
+    case "phone.ios_pull_file":
+      return typeof args["src"] === "string" ? args["src"] : "phone";
     case "desktop.inspect_windows":
       return typeof args["query"] === "string" ? args["query"] : "windows";
     case "desktop.focus_window":

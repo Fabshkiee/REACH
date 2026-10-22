@@ -49,6 +49,16 @@ import {
   writeFile,
 } from "./capabilities/index.js";
 import type { z } from "zod";
+import {
+  IosInfoSchema,
+  IosListFilesSchema,
+  IosListSchema,
+  IosPullFileSchema,
+  iosInfo,
+  iosList,
+  iosListFiles,
+  iosPullFile,
+} from "./capabilities/phone.js";
 
 const app = express();
 app.use(express.json());
@@ -131,6 +141,10 @@ const DISPATCH: Record<string, DispatchEntry> = {
     schema: GetClipboardSchema,
     run: async () => ({ ...(await getClipboard()) }),
   },
+  ios_list: { schema: IosListSchema, run: async (a) => ({ ...(await iosList(a as never)) }) },
+  ios_info: { schema: IosInfoSchema, run: async (a) => ({ ...(await iosInfo(a as never)) }) },
+  ios_list_files: { schema: IosListFilesSchema, run: async (a) => ({ ...(await iosListFiles(a as never)) }) },
+  ios_pull_file: { schema: IosPullFileSchema, run: async (a) => ({ ...(await iosPullFile(a as never)) }) },
 };
 
 async function runCapability(capability: string, args: unknown): Promise<{ status: number; body: unknown }> {

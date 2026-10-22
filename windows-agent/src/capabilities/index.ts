@@ -19,6 +19,10 @@ export const ALLOWED_CAPABILITIES = [
   "send_hotkey",
   "set_clipboard",
   "get_clipboard",
+  "ios_list",
+  "ios_info",
+  "ios_list_files",
+  "ios_pull_file",
 ] as const;
 export type AllowedCapability = (typeof ALLOWED_CAPABILITIES)[number];
 
@@ -30,6 +34,17 @@ export {
   MAX_AUDIO_BYTES,
 } from "./audio.js";
 export type { AudioCaptureInput, AudioReadInput } from "./audio.js";
+export {
+  IosInfoSchema,
+  IosListFilesSchema,
+  IosListSchema,
+  IosPullFileSchema,
+  iosInfo,
+  iosList,
+  iosListFiles,
+  iosPullFile,
+} from "./phone.js";
+export type { IosInfoInput, IosListFilesInput, IosListInput, IosPullFileInput } from "./phone.js";
 
 export function isAllowed(capability: string): capability is AllowedCapability {
   return (ALLOWED_CAPABILITIES as readonly string[]).includes(capability);
@@ -48,6 +63,13 @@ const WINDOWS_ONLY = new Set<AllowedCapability>([
   "get_clipboard",
 ]);
 
+const MACOS_ONLY = new Set<AllowedCapability>([
+  "ios_list",
+  "ios_info",
+  "ios_list_files",
+  "ios_pull_file",
+]);
+
 /**
  * What THIS host can actually run.
  *
@@ -58,7 +80,11 @@ const WINDOWS_ONLY = new Set<AllowedCapability>([
  * prevent — so Windows-only capabilities are advertised on Windows only.
  */
 export function advertisedCapabilities(): AllowedCapability[] {
-  return ALLOWED_CAPABILITIES.filter((c) => process.platform === "win32" || !WINDOWS_ONLY.has(c));
+  return ALLOWED_CAPABILITIES.filter((c) => {
+    if (WINDOWS_ONLY.has(c) && process.platform !== "win32") return false;
+    if (MACOS_ONLY.has(c) && process.platform !== "darwin") return false;
+    return true;
+  });
 }
 
 export { DownloadAssetSchema, downloadAsset, reachDownloadsDir } from "./downloadAsset.js";
