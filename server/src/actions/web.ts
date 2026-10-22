@@ -106,6 +106,67 @@ function parseJsonMaybe(value: unknown): unknown {
 export async function webSearch(input: WebSearchInput): Promise<WebSearchResult> {
   const parsed = WebSearchSchema.parse(input);
 
+  // LangSearch (free API, key-based auth, no IP rate-limiting) — preferred
+  // when LANGSEARCH_API_KEY is set. Falls through to DuckDuckGo on failure.
+  const langsearchKey = process.env.LANGSEARCH_API_KEY;
+  if (langsearchKey && parsed.mode === "text") {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20_000);
+      let res: Response;
+      try {
+        res = await fetch("https://api.langsearch.com/v1/web-search", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${langsearchKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: parsed.query,
+            count: parsed.limit,
+            contents: { text: { maxCharacters: 4000 } },
+            freshness: "noLimit",
+          }),
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (res.ok) {
+        const data = (await res.json()) as {
+          data?: { webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; text?: string; datePublished?: string | null }> } };
+        };
+        const items = data?.data?.webPages?.value ?? [];
+        const results: WebSearchTextResult[] = [];
+        for (const item of items) {
+          if (item.url && (item.name || item.snippet || item.text)) {
+            results.push({
+              title: (item.name ?? "").trim() || "Result",
+              url: item.url,
+              snippet: (item.snippet ?? "").trim(),
+            });
+          }
+          if (results.length >= parsed.limit) break;
+        }
+        if (results.length > 0) {
+          // Full text of top result is already in `text` field
+          const topItem = items[0];
+          const fullText = topItem?.text?.trim();
+          return {
+            ok: true,
+            query: parsed.query,
+            mode: "text",
+            count: results.length,
+            results,
+            ...(fullText && fullText.length > 200 ? { fullText: fullText.slice(0, 4000), fullTextUrl: topItem?.url } : {}),
+          };
+        }
+      }
+    } catch {
+      // Fall through to DuckDuckGo
+    }
+  }
+
   if (parsed.mode === "image") {
     // 1. Image Search: Extract VQD verification token
     const vqdUrl = `https://duckduckgo.com/?q=${encodeURIComponent(parsed.query)}&iax=images&ia=images`;
@@ -381,7 +442,7 @@ export function registerWebActions(): void {
       name: "web.search",
       actionClass: "search",
       description:
-        "Search the web for information or images using DuckDuckGo without requiring external paid API keys. Mode 'text' returns web page titles, snippets, and URLs; mode 'image' returns titles, direct image URLs, and source URLs. Synthesise the returned snippets into a substantive answer — never paste raw titles/snippets verbatim. If results are off-topic, retry with a narrower query.",
+        "Search the web for information or images. Uses LangSearch (free API, key-based) when LANGSEARCH_API_KEY is set, else DuckDuckGo. Mode 'text' returns web page titles, snippets, and URLs; mode 'image' returns titles, direct image URLs, and source URLs. Synthesise the returned snippets into a substantive answer — never paste raw titles/snippets verbatim. If results are off-topic, retry with a narrower query.",
       schema: WebSearchSchema,
       timeoutMs: 30_000,
       targetOf: (args) => (typeof args["query"] === "string" ? args["query"] : undefined),
