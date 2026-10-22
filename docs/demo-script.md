@@ -13,7 +13,7 @@ Target feel: product demo, not lecture. Film real artifacts on one machine.
 2. Kill stale processes: `pkill -f "tsx src/index.ts"` — a stale server on
    :3000 silently serves the OLD code (this happened during the build).
 3. `npm run dev:server` and `npm run dev:agent`; wait for the heartbeat. The
-   sim's device panel must read **Laptop Agent · Online · 12 capabilities**.
+   sim's device panel must read **Laptop Agent · Online · 14 capabilities**.
 4. Clear task history: `rm -f server/data/tasks/*.json` — the panel reads
    clean on camera.
 5. Fixtures in place:

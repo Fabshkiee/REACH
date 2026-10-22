@@ -369,7 +369,7 @@ export function registerWebActions(): void {
       name: "web.download_asset",
       actionClass: "download",
       description:
-        "Download a media asset or file from a URL to local storage (Downloads/REACH or Documents/REACH) with 50MB ceiling, MIME validation, and file verification.",
+        "Download a media asset or file from a URL to local storage (Downloads/REACH or Documents/REACH) with 50MB ceiling, MIME validation, and file verification. Pass the returned 'path' to files.create_document's imagePaths to embed an image in a document.",
       schema: DownloadAssetActionSchema,
       timeoutMs: 60_000,
       targetOf: (args) => (typeof args["destinationDir"] === "string" ? args["destinationDir"] : "Downloads/REACH"),

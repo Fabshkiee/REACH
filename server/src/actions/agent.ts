@@ -45,7 +45,7 @@ export function registerAgentActions(): void {
       name: "files.search",
       actionClass: "search" as const,
       description:
-        "Search filenames (and optionally contents) under user space. The query is matched by WORD, so 'standup transcript' finds 'standup-transcript.txt'. Results are ranked — the best match is first — and each hit carries a score (how many query words it covered). mode 'name' matches file names, 'content' matches what is inside files (.txt, .docx, .pdf, .xlsx). If timedOut is true the walk hit its budget and the list is PARTIAL; say so rather than concluding the file does not exist.",
+        "Search filenames (and optionally contents) under user space. The query is matched by WORD, so 'standup transcript' finds 'standup-transcript.txt'. Results are ranked — the best match is first — and each hit carries a score (how many query words it covered). A hit whose score is less than the number of query words is a partial/noisy match: if none covers every word, the file is probably absent. mode 'name' matches file names, 'content' matches what is inside files (.txt, .docx, .pdf, .xlsx). If timedOut is true the walk hit its budget and the list is PARTIAL; say so rather than concluding the file does not exist.",
       schema: z.object({ query: z.string().min(1).max(200), root: z.string().max(500).optional(), mode: z.enum(["name", "content"]).optional(), limit: z.number().int().min(1).max(50).optional() }),
       timeoutMs: 60_000,
       capability: "search_files",
@@ -80,7 +80,7 @@ export function registerAgentActions(): void {
       name: "files.create_document",
       actionClass: "write" as const,
       description:
-        "Create and open a real .docx Word document on the laptop. The body is MARKDOWN and becomes real Word structure: '#' becomes a heading, '- ' a bullet, '1. ' a numbered item, '| a | b |' a table, '**x**' bold. Write the FINISHED document in your own words — a summary or minutes you composed from the source, NEVER a copy of the source text. Name the kind of document in documentType, then give each section its OWN '#' heading line (do not use bold text as a section label). The title is the document's top-level heading, so body headings sit one level below it. Example (meeting minutes): title 'Weekly Standup Minutes', documentType 'meeting minutes', body '# Attendees' then names, '# Decisions' then '- ...' bullets, '# Action items' then '- **Owner** - what they do' (list EVERY action item with its owner, even when it also appears above), '# Open questions' then '- ...'. For a report: a '# Summary' section then '# Section name' sections. For a letter: a greeting paragraph then the body. The file lands in the Documents/REACH folder and opens automatically.",
+        "Create and open a real .docx Word document on the laptop. The body is MARKDOWN and becomes real Word structure: '#' becomes a heading, '- ' a bullet, '1. ' a numbered item, '| a | b |' a table, '**x**' bold. Write the FINISHED document in your own words — a summary or minutes you composed from the source, NEVER a copy of the source text. Name the kind of document in documentType, then give each section its OWN '#' heading line (do not use bold text as a section label). The title is the document's top-level heading, so body headings sit one level below it. Example (meeting minutes): title 'Weekly Standup Minutes', documentType 'meeting minutes', body '# Attendees' then names, '# Decisions' then '- ...' bullets, '# Action items' then '- **Owner** - what they do' (list EVERY action item with its owner, even when it also appears above), '# Open questions' then '- ...'. For a report: a '# Summary' section then '# Section name' sections. For a letter: a greeting paragraph then the body. IMAGES: to embed an image, first download it with web.download_asset (returns a local path) and pass that path in imagePaths — do NOT use markdown image syntax ![...](url), which will not render. The file lands in the Documents/REACH folder and opens automatically.",
       schema: z.object({
         title: z.string().min(1).max(200),
         body: z.string().max(20000).default(""),
@@ -134,8 +134,8 @@ export function registerAgentActions(): void {
     {
       name: "apps.launch",
       actionClass: "launch" as const,
-      description: "Launch a known-safe desktop utility by name (notepad, calc, cmd, powershell, explorer).",
-      schema: z.object({ app: z.string().min(1).max(100) }),
+      description: "Launch an application by name (e.g. 'calculator', 'spotify', 'vscode', 'Antigravity'). Pass 'path' to open a specific file or folder in it. Known apps launch silently; any other installed app asks for confirmation first. Never search for an app name as a file.",
+      schema: z.object({ app: z.string().min(1).max(100), path: z.string().max(2000).optional() }),
       timeoutMs: 30_000,
       capability: "launch_application",
     },
@@ -249,7 +249,11 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
     case "apps.open_url":
       return typeof args["url"] === "string" ? args["url"] : undefined;
     case "apps.launch":
-      return typeof args["app"] === "string" ? args["app"] : undefined;
+      return typeof args["path"] === "string" && args["path"]
+        ? `${args["app"]}: ${args["path"]}`
+        : typeof args["app"] === "string"
+          ? args["app"]
+          : undefined;
     case "desktop.inspect_windows":
       return typeof args["query"] === "string" ? args["query"] : "windows";
     case "desktop.focus_window":

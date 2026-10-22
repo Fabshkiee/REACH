@@ -186,8 +186,12 @@ export interface InlineSegment {
 
 /** Split a line into styled segments, honouring bold / italic / code / strike / links. */
 export function parseInlineSegments(text: string): InlineSegment[] {
+  // Markdown image syntax is not rendered as an embedded image (images travel
+  // via imagePaths). Rewrite it to a readable placeholder so the raw
+  // '![](url)' markup never leaks into the document as literal text.
+  const cleaned = (text ?? "").replace(/!\[([^\]]*)\]\([^)]*\)/g, "[Image: $1]");
   const out: InlineSegment[] = [];
-  const parts = (text ?? "").split(INLINE_RE).filter((p) => p !== "" && p !== undefined);
+  const parts = cleaned.split(INLINE_RE).filter((p) => p !== "" && p !== undefined);
   for (const part of parts) {
     if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
       out.push({ text: part.slice(2, -2), bold: true });
