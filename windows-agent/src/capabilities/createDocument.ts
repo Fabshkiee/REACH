@@ -185,11 +185,111 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   await mkdir(dir, { recursive: true });
   const path = assertAllowedPath(await resolveUniquePath(dir, safeTitle));
 
+  // Pre-load any inline images referenced as ![caption](src) so they can be
+  // embedded at their position in the body (not just appended). `src` may be
+  // a local path OR a remote http(s) URL — remote URLs are fetched here so
+  // images still embed even if the model forgot to call web.download_asset.
+  const inlineImageMap = new Map<string, InlineImage>();
+  const inlineImgRe = /!\[[^\]]*\]\(([^)]+)\)/g;
+  const inlinePaths = new Set<string>();
+  let im: RegExpExecArray | null;
+  while ((im = inlineImgRe.exec(parsed.body)) !== null) {
+    inlinePaths.add(im[1]!.trim());
+  }
+
+  // Shared loader for both inline and imagePaths sources. Handles local
+  // paths and remote URLs; returns null on any failure (degrade gracefully).
+  const MAX_INLINE_BYTES = 10 * 1024 * 1024;
+  const isPrivateHost = (host: string): boolean => {
+    const h = host.toLowerCase();
+    if (h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "0.0.0.0") return true;
+    if (/^10\./.test(h)) return true;
+    if (/^192\.168\./.test(h)) return true;
+    const m = h.match(/^172\.(\d+)\./);
+    if (m && Number(m[1]) >= 16 && Number(m[1]) <= 31) return true;
+    return false;
+  };
+  const loadImageSource = async (src: string): Promise<InlineImage | null> => {
+    const trimmed = src.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      let url: URL;
+      try { url = new URL(trimmed); } catch { return null; }
+      if (isPrivateHost(url.hostname)) return null;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30_000);
+      try {
+        const res = await fetch(trimmed, { signal: ctrl.signal, headers: { "User-Agent": "REACH/0.1.0" } });
+        if (!res.ok) return null;
+        const ct = (res.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+        if (ct && !ct.startsWith("image/")) return null;
+        const cl = res.headers.get("content-length");
+        if (cl) {
+          const n = Number(cl);
+          if (!Number.isNaN(n) && n > MAX_INLINE_BYTES) return null;
+        }
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length === 0 || buf.length > MAX_INLINE_BYTES) return null;
+        const type = getImageType(trimmed, buf);
+        const dims = getImageDimensions(buf);
+        return { data: buf, type, width: dims.width, height: dims.height };
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    try {
+      const abs = assertAllowedPath(trimmed);
+      const st = await stat(abs);
+      if (!st.isFile()) return null;
+      const buf = await readFile(abs);
+      const type = getImageType(abs, buf);
+      const dims = getImageDimensions(buf);
+      return { data: buf, type, width: dims.width, height: dims.height };
+    } catch {
+      return null;
+    }
+  };
+
+  // Cache by source string to avoid fetching the same URL twice.
+  const sourceCache = new Map<string, InlineImage | null>();
+  const loadCached = async (src: string): Promise<InlineImage | null> => {
+    if (sourceCache.has(src)) return sourceCache.get(src)!;
+    const img = await loadImageSource(src);
+    sourceCache.set(src, img);
+    return img;
+  };
+
+  for (const p of inlinePaths) {
+    const img = await loadCached(p);
+    if (img) inlineImageMap.set(p, img);
+  }
+
   const imageParagraphs: Paragraph[] = [];
   if (parsed.imagePaths && parsed.imagePaths.length > 0) {
     for (const imgPath of parsed.imagePaths) {
       if (inlinePathSet.has(imgPath.trim())) continue;
-      const absImg = assertAllowedPath(imgPath);
+      const src = imgPath.trim();
+      // Remote URLs degrade gracefully (skip) on failure.
+      if (/^https?:\/\//i.test(src)) {
+        const img = await loadCached(src);
+        if (!img) continue;
+        imageParagraphs.push(
+          new Paragraph({
+            children: [
+              new ImageRun({
+                data: img.data,
+                transformation: { width: img.width, height: img.height },
+                type: img.type,
+              }),
+            ],
+            spacing: { before: 200, after: 200 },
+          }),
+        );
+        continue;
+      }
+      // Local paths keep the original strict semantics (throw on missing/escape).
+      const absImg = assertAllowedPath(src);
       let st;
       try {
         st = await stat(absImg);
@@ -220,28 +320,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
     }
   }
 
-  // Pre-load any inline images referenced as ![caption](localPath) so they
-  // can be embedded at their position in the body (not just appended).
-  const inlineImageMap = new Map<string, InlineImage>();
-  const inlineImgRe = /!\[[^\]]*\]\(([^)]+)\)/g;
-  const inlinePaths = new Set<string>();
-  let im: RegExpExecArray | null;
-  while ((im = inlineImgRe.exec(parsed.body)) !== null) {
-    inlinePaths.add(im[1]!.trim());
-  }
-  for (const p of inlinePaths) {
-    try {
-      const abs = assertAllowedPath(p);
-      const st = await stat(abs);
-      if (!st.isFile()) continue;
-      const buf = await readFile(abs);
-      const dims = getImageDimensions(buf);
-      const type = getImageType(abs, buf);
-      inlineImageMap.set(p, { data: buf, type, width: dims.width, height: dims.height });
-    } catch {
-      // Missing/unreadable image: degrade to caption-only (handled in renderer).
-    }
-  }
+
 
   // The body is Markdown: headings, lists, tables and emphasis become real
   // Word structure. Anything unrecognised stays a paragraph.
