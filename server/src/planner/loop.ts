@@ -28,7 +28,7 @@ const SYSTEM = [
   "- Plain-text replies with no tool calls are deprecated: every turn must call a tool (an action tool, reach.ask_user, or reach.finish with evidence).",
   "- Failures teach: a FAILED result may carry a Recovery hint naming the next move — use it instead of guessing.",
   "- Recover, then ask, then concede: after a failure, retry with a changed approach (at most 2 autonomous recoveries: different args, narrower scope, or sibling tool). If still stuck or the choice changes the outcome, call reach.ask_user with concrete options. Only then reach.finish cannot, preserving partial evidence. Never re-ask a question the user already answered in this task; act on their prior answer.",
-  "- When you need a file the user referred to by DESCRIPTION, call files.search first — do not guess its exact path. Search matches by word, so 'the product sync recording' finds 'product-sync-recording.mp3'. A guessed path that misses wastes a turn and a step.",
+  "- When calling reach.finish, cite ONLY actionIds from the 'Citeable actions' list provided in your context (verified, successful actions). Never cite approval IDs, paused markers, or actionIds from a previous task.",  "- When you need a file the user referred to by DESCRIPTION, call files.search first — do not guess its exact path. Search matches by word, so 'the product sync recording' finds 'product-sync-recording.mp3'. A guessed path that misses wastes a turn and a step.",
   "- files.search scores each hit by how many query words it covers; a hit whose score is less than the number of query words is a PARTIAL/noisy match. If no hit covers every query word, treat the file as not present and say so (or ask once to confirm the name) — do not open an unrelated file.",
   "- apps.open_url routes Spotify links to the Spotify app, not the browser. When the user asks to open something 'in Spotify', call apps.open_url with the Spotify link only — do not also call apps.launch.",
   "- Web browsing must use web.* or browser.* tools (never apps.launch of browser names like chrome, msedge, firefox).",
@@ -308,7 +308,7 @@ function validateFinish(taskId: string, raw: Record<string, unknown>): { termina
   return { terminal: { status: "failed", patch: { outcome, error: outcome.reason } } };
 }
 
-function localUserContextNote(): string {
+function localUserContextNote(taskId?: string): string {
   const parts: string[] = [];
   try {
     const gitUser = execSync("git config user.name", { encoding: "utf8", timeout: 2000 }).trim();
@@ -323,6 +323,32 @@ function localUserContextNote(): string {
     parts.push(`userHome="${home}"`);
     parts.push(`picturesDir="${join(home, "Pictures")}"`);
     parts.push(`documentsDir="${join(home, "Documents")}"`);
+  } catch {}
+  // Surface the most recently created document so "that doc"/"it" resolves
+  // reliably instead of depending on the model parsing the trace.
+  try {
+    let lastDoc: string | undefined;
+    const scan = (trace: { name?: string; args?: Record<string, unknown>; resultData?: string; ok?: boolean }[] | undefined) => {
+      if (!trace) return;
+      for (let i = trace.length - 1; i >= 0; i--) {
+        const r = trace[i];
+        if (r?.name === "files.create_document" && r.ok === true) {
+          let p: string | undefined;
+          if (r.resultData) { try { p = JSON.parse(r.resultData)?.path; } catch {} }
+          if (!p && typeof r.args?.["title"] === "string") p = r.args["title"] as string;
+          if (typeof p === "string" && p) { lastDoc = p; return; }
+        }
+      }
+    };
+    if (taskId) {
+      const t = getTask(taskId);
+      scan(t?.trace as never);
+    }
+    if (!lastDoc) {
+      const recent = listRecentTasks(3).find((t) => t.id !== taskId && t.status === "completed");
+      if (recent) scan(recent.trace as never);
+    }
+    if (lastDoc) parts.push(`lastDocument="${lastDoc}"`);
   } catch {}
   return parts.length > 0 ? `[Local environment identity & paths: ${parts.join(", ")}]` : "";
 }
@@ -359,7 +385,7 @@ export async function runPlannerLoop(
 
   const policyCtx = { ...defaultPolicyContext(), ...policyContextForAvailable() };
   const tools = toolsForPlanner();
-  const userEnv = localUserContextNote();
+  const userEnv = localUserContextNote(taskId);
   let history: HistoryEntry[] = [{ role: "user", text: userEnv ? `${task.goal}\n${userEnv}` : task.goal }];
   if (opts.resumeNote) {
     history.push({
@@ -460,6 +486,12 @@ export async function runPlannerLoop(
       return;
     }
 
+    // Inject the current set of citeable (verified, successful) action IDs so
+    // the model never has to guess which IDs are valid for reach.finish.
+    const citeable = verifiedRecords(taskId).map((r) => r.actionId);
+    if (citeable.length > 0) {
+      history.push({ role: "user", text: `Citeable actions (use only these in reach.finish evidenceActionIds): ${citeable.join(", ")}` });
+    }
     let turn;
     try {
       const res = await backend.converse({ system: SYSTEM, history, tools, maxTokens: 2000 });
