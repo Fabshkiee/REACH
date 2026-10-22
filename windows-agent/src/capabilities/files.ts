@@ -502,7 +502,7 @@ export async function listFiles(input: z.input<typeof ListFilesSchema>): Promise
   const entries: ListEntry[] = [];
   for (const e of dirents) {
     const full = join(abs, e.name);
-    if (e.isDirectory() && e.name.toLowerCase()==="reach" && process.env.DEBUG_SEARCH) console.error("ENTERING reach dir:", full);
+
     if (e.isDirectory()) {
       entries.push({ name: e.name, path: full, isDirectory: true });
     } else if (e.isFile()) {
