@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { KNOWN_APPS, assertSafeUrl, launchApplication, openDocument } from "./apps.js";
+import { KNOWN_APPS, assertSafeUrl, launchApplication, openDocument, spotifyDeepLink } from "./apps.js";
 
 describe("agent app primitives", () => {
   it("assertSafeUrl allows http/https, blocks the rest", () => {
@@ -12,15 +12,28 @@ describe("agent app primitives", () => {
     }
   });
 
+  it("spotifyDeepLink converts open.spotify.com links to spotify: URIs", () => {
+    assert.equal(
+      spotifyDeepLink("https://open.spotify.com/playlist/5zi2EfT0kSmszh3uhg6yKy"),
+      "spotify:playlist:5zi2EfT0kSmszh3uhg6yKy",
+    );
+    assert.equal(
+      spotifyDeepLink("https://open.spotify.com/track/abc123"),
+      "spotify:track:abc123",
+    );
+    assert.equal(spotifyDeepLink("https://example.com/x"), null);
+    assert.equal(spotifyDeepLink("not a url"), null);
+  });
+
   it("known apps map is sane and advertised", () => {
     for (const name of ["calculator", "notepad", "paint"]) {
       assert.ok(KNOWN_APPS[name], name);
     }
   });
 
-  it("launch rejects unknown apps without spawning anything", async () => {
-    await assert.rejects(launchApplication({ app: "totally-legit.exe" }), /unknown application/);
-    await assert.rejects(launchApplication({ app: "..\\evil" }), /unknown application/);
+  it("launch attempts unknown apps and fails when not installed", async () => {
+    await assert.rejects(launchApplication({ app: "totally-legit.exe" }), /launch failed|Unable to find application|unknown application/);
+    await assert.rejects(launchApplication({ app: "..\\evil" }), /launch failed|Unable to find application|unknown application/);
   });
 
   it("openDocument refuses missing files before opening", async () => {

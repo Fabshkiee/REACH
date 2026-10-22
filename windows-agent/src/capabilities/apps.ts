@@ -45,6 +45,10 @@ export const KNOWN_APPS: Record<string, KnownApp> = {
   figma: { uri: "figma:" },
   vscode: { win: "code.cmd", mac: "Visual Studio Code" },
   code: { win: "code.cmd", mac: "Visual Studio Code" },
+  antigravity: { mac: "Antigravity IDE" },
+  "antigravity ide": { mac: "Antigravity IDE" },
+  "antigravity 2": { mac: "Antigravity" },
+  "antigravity 2.0": { mac: "Antigravity" },
   spotify: { uri: "spotify:" },
   slack: { uri: "slack:" },
   discord: { uri: "discord:" },
@@ -78,6 +82,8 @@ export type OpenUrlInput = z.infer<typeof OpenUrlSchema>;
 
 export const LaunchApplicationSchema = z.object({
   app: z.string().min(1).max(100),
+  /** Optional file or folder to open in the app (e.g. a project folder). */
+  path: z.string().max(2000).optional(),
 });
 export type LaunchApplicationInput = z.infer<typeof LaunchApplicationSchema>;
 
@@ -224,11 +230,35 @@ export function assertSafeUrl(raw: string): string {
   return url.toString();
 }
 
+/**
+ * Spotify web links opened via the default browser never reach the Spotify
+ * app. Convert an https://open.spotify.com/<type>/<id> URL into the matching
+ * spotify:<type>:<id> URI so startVerb hands it to the registered handler
+ * (the Spotify app) instead of Safari/Chrome.
+ */
+export function spotifyDeepLink(rawUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (url.hostname !== "open.spotify.com") return null;
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts.length < 2) return null;
+  const [type, id] = parts;
+  if (!["playlist", "track", "album", "artist", "show", "episode"].includes(type)) return null;
+  if (!id) return null;
+  return `spotify:${type}:${id}`;
+}
+
 export async function openUrl(input: OpenUrlInput): Promise<{ url: string; opened: boolean; openNote?: string }> {
   const parsed = OpenUrlSchema.parse(input);
   const url = assertSafeUrl(parsed.url);
+  // Spotify links go to the app, not the browser (see spotifyDeepLink).
+  const target = spotifyDeepLink(url) ?? url;
   try {
-    await startVerb(url);
+    await startVerb(target);
     return { url, opened: true };
   } catch (err) {
     return { url, opened: false, openNote: err instanceof Error ? err.message : "open failed" };
@@ -239,11 +269,23 @@ export async function launchApplication(input: LaunchApplicationInput): Promise<
   const parsed = LaunchApplicationSchema.parse(input);
   const key = parsed.app.trim().toLowerCase();
   const entry = KNOWN_APPS[key];
+  // Optional target (file or folder) to open in the app.
+  const targetPath = parsed.path ? assertAllowedPath(parsed.path) : undefined;
+  // Unknown apps are not refused outright: policy already gates `launch` as
+  // "confirm" for anything outside KNOWN_APPS, so once the user approves we
+  // attempt a generic launch (macOS `open -a`). This avoids a hard-coded
+  // allowlist being the only thing the user can open.
   if (!entry) {
-    throw new Error(`unknown application "${parsed.app}": known-safe set is [${Object.keys(KNOWN_APPS).join(", ")}]`);
+    if (process.platform !== "darwin") {
+      throw new Error(`unknown application "${parsed.app}": known-safe set is [${Object.keys(KNOWN_APPS).join(", ")}]`);
+    }
+    const args = targetPath ? ["-a", parsed.app.trim(), targetPath] : ["-a", parsed.app.trim()];
+    const r = await spawnAndWait("open", args, 15_000);
+    if (r.code !== 0) throw new Error(`launch failed: ${r.stderr || `exit ${r.code}`}`);
+    return { app: key, launched: true };
   }
   // 1. URL scheme — identical on every platform (opens the registered handler).
-  if (entry.uri) {
+  if (entry.uri && !targetPath) {
     await startVerb(entry.uri);
     return { app: key, launched: true };
   }
@@ -251,7 +293,8 @@ export async function launchApplication(input: LaunchApplicationInput): Promise<
   //    truthful refusal, never a silent success.
   if (process.platform === "darwin") {
     if (!entry.mac) throw new Error(`application "${parsed.app}" has no macOS launcher`);
-    const r = await spawnAndWait("open", ["-a", entry.mac], 15_000);
+    const args = targetPath ? ["-a", entry.mac, targetPath] : ["-a", entry.mac];
+    const r = await spawnAndWait("open", args, 15_000);
     if (r.code !== 0) throw new Error(`launch failed: ${r.stderr || `exit ${r.code}`}`);
     return { app: key, launched: true };
   }
@@ -261,7 +304,7 @@ export async function launchApplication(input: LaunchApplicationInput): Promise<
   // every launch as a timeout. Spawn detached instead: success = the OS
   // accepted the process (spawn event), failure = immediate spawn error.
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(bin, [], { detached: true, stdio: "ignore", windowsHide: true });
+    const child = spawn(bin, targetPath ? [targetPath] : [], { detached: true, stdio: "ignore", windowsHide: true });
     child.once("error", (err) => reject(new Error(`launch failed: ${(err as Error).message}`)));
     child.once("spawn", () => {
       child.unref();
