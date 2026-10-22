@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { getActionDef, listActionDefs } from "../executor/registry.js";
-import { registerAgentActions, targetForAction } from "./agent.js";
+import { registerAgentActions, targetForAction, requireReportSource } from "./agent.js";
 
 registerAgentActions();
 
@@ -69,5 +69,24 @@ describe("agent action defs", () => {
     for (const d of listActionDefs()) {
       assert.ok(!/exec|shell|eval|run_command|runCode/i.test(d.name), d.name);
     }
+  });
+
+  it("requireReportSource demands a real URL, clean anchors, and valid CVE IDs", () => {
+    assert.throws(
+      () => requireReportSource({ title: "Weekly Update", documentType: "report", body: "# Summary\nNo sources." }),
+      /full http\(s\) URL/,
+    );
+    assert.throws(
+      () => requireReportSource({ title: "Weekly Update", documentType: "report", body: "# Sources\n[Link](https://example.com/a)" }),
+      /publisher or source name/,
+    );
+    assert.throws(
+      () => requireReportSource({ title: "Weekly Update", documentType: "report", body: "# Sources\n[CISA](https://cisa.gov)\nCVE-2026-57966a" }),
+      /Malformed CVE ID/,
+    );
+    assert.doesNotThrow(() =>
+      requireReportSource({ title: "Weekly Update", documentType: "report", body: "# Sources\n[CISA](https://www.cisa.gov/news)" }),
+    );
+    assert.doesNotThrow(() => requireReportSource({ title: "Standup Minutes", documentType: "meeting minutes", body: "# Notes" }));
   });
 });

@@ -32,6 +32,37 @@ export async function callAgent(capability: string, args: Record<string, unknown
   }
 }
 
+/**
+ * Reports quote the web; a report with no URL is unverifiable, and "Link"
+ * anchor text hides the publisher. This runs before dispatch so the model
+ * gets a correction instead of shipping a doc the user cannot check.
+ */
+export function requireReportSource(args: Record<string, unknown>): void {
+  const body = typeof args["body"] === "string" ? args["body"] : "";
+  const label = `${String(args["documentType"] ?? "")} ${String(args["title"] ?? "")}`;
+  if (!/\b(report|update|research|analysis)\b/i.test(label)) return;
+
+  if (!/https?:\/\/[^\s)<>\]"']+/i.test(body)) {
+    throw new Error(
+      "A report/update/research document must cite its sources. Add at least one full http(s) URL from web.search in the body — a title alone or the word 'Link' is not a citation. Then create the document again.",
+    );
+  }
+
+  const malformedCve = /\bCVE-\d{4}-\d{4,}[A-Za-z]+\b/.exec(body);
+  if (malformedCve) {
+    throw new Error(
+      `Malformed CVE ID "${malformedCve[0]}": use CVE-YYYY-NNNN with no letter suffix, then create the document again.`,
+    );
+  }
+
+  const lazyAnchor = /\[(link|here|source|this|read more)\s*\]\(\s*https?:/i.exec(body);
+  if (lazyAnchor) {
+    throw new Error(
+      `Replace the "${lazyAnchor[1]}" link text with the publisher or source name (e.g. [CISA](https://...)), then create the document again.`,
+    );
+  }
+}
+
 const PathArg = z.string().min(1).max(2000);
 
 /**
@@ -246,7 +277,10 @@ export function registerAgentActions(): void {
             r.opened === undefined ? "" : r.opened === true ? " (opened)" : ` (open skipped: ${String(r.openNote ?? "unknown")})`;
           return `${d.capability} ok${opened}`;
         },
-        handler: async (args) => callAgent(d.capability, args),
+        handler: async (args) => {
+          if (d.name === "files.create_document") requireReportSource(args);
+          return callAgent(d.capability, args);
+        },
       });
     } catch {
       // Already registered (dev re-entry) — definitions are stable.
