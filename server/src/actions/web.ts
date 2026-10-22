@@ -347,7 +347,7 @@ export function registerWebActions(): void {
       name: "web.search",
       actionClass: "search",
       description:
-        "Search the web for information or images using DuckDuckGo without requiring external paid API keys. Mode 'text' returns web page titles, snippets, and URLs; mode 'image' returns titles, direct image URLs, and source URLs.",
+        "Search the web for information or images using DuckDuckGo without requiring external paid API keys. Mode 'text' returns web page titles, snippets, and URLs; mode 'image' returns titles, direct image URLs, and source URLs. Synthesise the returned snippets into a substantive answer — never paste raw titles/snippets verbatim. If results are off-topic, retry with a narrower query.",
       schema: WebSearchSchema,
       timeoutMs: 30_000,
       targetOf: (args) => (typeof args["query"] === "string" ? args["query"] : undefined),
