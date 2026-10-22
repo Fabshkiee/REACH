@@ -18,6 +18,7 @@ import {
   AlignmentType,
   ExternalHyperlink,
   HeadingLevel,
+  ImageRun,
   LevelFormat,
   Paragraph,
   Table,
@@ -38,7 +39,16 @@ export type MarkdownBlock =
   | { kind: "number"; items: string[] }
   | { kind: "quote"; lines: string[] }
   | { kind: "rule" }
-  | { kind: "table"; header: string[]; rows: string[][] };
+  | { kind: "table"; header: string[]; rows: string[][] }
+  | { kind: "image"; alt: string; path: string };
+
+/** Pre-loaded image bytes for inline `![alt](path)` blocks. */
+export interface InlineImage {
+  data: Buffer;
+  type: "jpg" | "png" | "gif" | "bmp";
+  width: number;
+  height: number;
+}
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
 const BULLET_RE = /^\s*[-*+]\s+(.*)$/;
@@ -89,6 +99,14 @@ export function parseMarkdown(md: string): MarkdownBlock[] {
 
     if (!line.trim()) {
       flushAll();
+      continue;
+    }
+
+    // Block-level image: ![caption](localPath)
+    const imgMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)\s*$/);
+    if (imgMatch) {
+      flushAll();
+      blocks.push({ kind: "image", alt: (imgMatch[1] ?? "").trim(), path: (imgMatch[2] ?? "").trim() });
       continue;
     }
 
@@ -254,8 +272,10 @@ const HEADING_LEVELS: Record<number, (typeof HeadingLevel)[keyof typeof HeadingL
   4: HeadingLevel.HEADING_4,
 };
 
-/** Turn parsed blocks into docx paragraphs and tables. */
-export function blocksToDocx(blocks: MarkdownBlock[]): (Paragraph | Table)[] {
+/** Turn parsed blocks into docx paragraphs and tables. `images` supplies the
+ *  bytes for inline `![alt](path)` blocks; missing images degrade to a
+ *  caption-only paragraph. */
+export function blocksToDocx(blocks: MarkdownBlock[], images?: Map<string, InlineImage>): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [];
   for (const block of blocks) {
     if (block.kind === "heading") {
@@ -373,13 +393,39 @@ export function blocksToDocx(blocks: MarkdownBlock[]): (Paragraph | Table)[] {
       );
       continue;
     }
+    if (block.kind === "image") {
+      const img = images?.get(block.path);
+      if (img) {
+        out.push(
+          new Paragraph({
+            children: [
+              new ImageRun({
+                data: img.data,
+                transformation: { width: img.width, height: img.height },
+                type: img.type,
+              }),
+            ],
+            spacing: { before: 200, after: 80 },
+          }),
+        );
+      }
+      if (block.alt) {
+        out.push(
+          new Paragraph({
+            children: [new TextRun({ text: block.alt, italics: true, size: 18, color: "555555" })],
+            spacing: { after: 200 },
+          }),
+        );
+      }
+      continue;
+    }
   }
   return out;
 }
 
 /** Convenience: markdown straight to docx children. */
-export function markdownToDocx(md: string): (Paragraph | Table)[] {
-  return blocksToDocx(parseMarkdown(md));
+export function markdownToDocx(md: string, images?: Map<string, InlineImage>): (Paragraph | Table)[] {
+  return blocksToDocx(parseMarkdown(md), images);
 }
 
 /** Numbering definitions the document needs for bullets and numbered lists. */

@@ -85,6 +85,18 @@ describe("windows-agent create_document capability", () => {
     assertDocxContainsImage(res.path);
   });
 
+  it("embeds inline image from markdown ![](path)", async () => {
+    const res = await createDocument({
+      title: "Inline Image Document",
+      body: `Section with an inline figure.\n\n![](${testPngPath})\n\nFigure 1 — caption text.`,
+    });
+
+    createdDocs.push(res.path);
+    assert.ok(res.path.endsWith(".docx"));
+    assert.ok(existsSync(res.path));
+    assertDocxContainsImage(res.path);
+  });
+
   it("rejects non-existent image path cleanly", async () => {
     await assert.rejects(
       async () => {

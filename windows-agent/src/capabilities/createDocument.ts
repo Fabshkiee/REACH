@@ -5,7 +5,7 @@ import { Document, Footer, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } 
 import { z } from "zod";
 import { openWithDefaultApp } from "./apps.js";
 import { assertAllowedPath } from "../sandbox.js";
-import { markdownToDocx, parseMarkdown, blocksToDocx, reachNumbering } from "./markdownDocx.js";
+import { markdownToDocx, parseMarkdown, blocksToDocx, reachNumbering, type InlineImage } from "./markdownDocx.js";
 
 export const CreateDocumentSchema = z.object({
   title: z.string().min(1).max(200),
@@ -170,6 +170,14 @@ function getImageDimensions(buffer: Buffer): { width: number; height: number } {
  */
 export async function createDocument(input: CreateDocumentInput): Promise<CreateDocumentResult> {
   const parsed = CreateDocumentSchema.parse(input);
+  // Paths referenced inline via ![...](path) in the body — used to avoid
+  // double-rendering the same image through imagePaths.
+  const inlinePathSet = new Set<string>();
+  const inlineImgReEarly = /!\[[^\]]*\]\(([^)]+)\)/g;
+  let _im: RegExpExecArray | null;
+  while ((_im = inlineImgReEarly.exec(parsed.body)) !== null) {
+    inlinePathSet.add(_im[1]!.trim());
+  }
   const safeTitle = sanitizeTitle(parsed.title);
   // The folder is the user's to choose; anything outside their own space is
   // refused here and judged by policy on the core side.
@@ -180,6 +188,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
   const imageParagraphs: Paragraph[] = [];
   if (parsed.imagePaths && parsed.imagePaths.length > 0) {
     for (const imgPath of parsed.imagePaths) {
+      if (inlinePathSet.has(imgPath.trim())) continue;
       const absImg = assertAllowedPath(imgPath);
       let st;
       try {
@@ -208,6 +217,29 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
           spacing: { before: 200, after: 200 },
         }),
       );
+    }
+  }
+
+  // Pre-load any inline images referenced as ![caption](localPath) so they
+  // can be embedded at their position in the body (not just appended).
+  const inlineImageMap = new Map<string, InlineImage>();
+  const inlineImgRe = /!\[[^\]]*\]\(([^)]+)\)/g;
+  const inlinePaths = new Set<string>();
+  let im: RegExpExecArray | null;
+  while ((im = inlineImgRe.exec(parsed.body)) !== null) {
+    inlinePaths.add(im[1]!.trim());
+  }
+  for (const p of inlinePaths) {
+    try {
+      const abs = assertAllowedPath(p);
+      const st = await stat(abs);
+      if (!st.isFile()) continue;
+      const buf = await readFile(abs);
+      const dims = getImageDimensions(buf);
+      const type = getImageType(abs, buf);
+      inlineImageMap.set(p, { data: buf, type, width: dims.width, height: dims.height });
+    } catch {
+      // Missing/unreadable image: degrade to caption-only (handled in renderer).
     }
   }
 
@@ -253,7 +285,9 @@ export async function createDocument(input: CreateDocumentInput): Promise<Create
           }),
           // The body is Markdown: headings, lists, tables and emphasis become
           // real Word structure. Anything unrecognised stays a paragraph.
-          ...blocksToDocx(blocks),
+          // Inline ![alt](path) images render at their position; imagePaths
+          // (if any) are appended at the end for backward compat.
+          ...blocksToDocx(blocks, inlineImageMap),
           ...imageParagraphs,
         ],
       },
