@@ -113,6 +113,23 @@ describe("agent file primitives", () => {
     const r = await searchFiles({ query: "skipme-target", root: "proj", mode: "name", limit: 20 });
     assert.equal(r.hits.length, 0);
   });
+
+  it("does not flood results with every .txt file for a missing filename", async () => {
+    const { mkdir, writeFile: wf } = await import("node:fs/promises");
+    await mkdir(join(root, "docs"), { recursive: true });
+    for (let i = 0; i < 5; i++) await wf(join(root, "docs", `note${i}.txt`), "x");
+    const r = await searchFiles({ query: "test-doc.txt", root: "docs", mode: "name", limit: 20 });
+    assert.equal(r.hits.length, 0);
+  });
+
+  it("still finds a file by a partial name token", async () => {
+    const { mkdir, writeFile: wf } = await import("node:fs/promises");
+    await mkdir(join(root, "docs2"), { recursive: true });
+    await wf(join(root, "docs2", "test-doc.txt"), "x");
+    const r = await searchFiles({ query: "test-doc.txt", root: "docs2", mode: "name", limit: 20 });
+    assert.ok(r.hits.length >= 1);
+    assert.ok(r.hits[0]!.path.endsWith("test-doc.txt"));
+  });
 });
 
 describe("agent list + paged read (recovery moves)", () => {

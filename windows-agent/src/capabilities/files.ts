@@ -47,6 +47,8 @@ const SKIP_DIRS = new Set([
   "logs",
   "builds",
   "deriveddatacache",
+  "deriveddata",
+  "tools-venv",
   "intermediate",
   ".vs",
 ]);
@@ -144,6 +146,7 @@ async function walk(
     if (Date.now() > deadline || state.stopped || state.visited >= visitCap) return;
     state.visited++;
     const full = join(dir, e.name);
+
     if (e.isDirectory()) {
       if (e.name.startsWith(".") || SKIP_DIRS.has(e.name.toLowerCase())) continue;
       await walk(full, deadline, state, onFile, visitCap, depth + 1);
@@ -224,6 +227,29 @@ const SEARCH_STOPWORDS = new Set([
  * word boundaries and scoring by coverage matches the way people phrase
  * things.
  */
+/**
+ * File extensions that, on their own, match every file of that type. "txt"
+ * alone is not a meaningful search signal — it is the shape of the file, not
+ * its name. Stripped from the "real" token set so a query like "test-doc.txt"
+ * cannot flood results with every .txt file on the machine.
+ */
+const EXT_TOKENS = new Set([
+  "txt", "md", "json", "csv", "log", "xml", "html", "htm", "yaml", "yml", "ini", "cfg",
+  "pdf", "doc", "docx", "xlsx", "xls", "ppt", "pptx",
+  "mp3", "mp4", "wav", "m4a", "mov", "avi",
+  "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp",
+  "zip", "tar", "gz", "tgz", "rar", "7z",
+  "py", "js", "ts", "tsx", "jsx", "java", "c", "cpp", "h", "go", "rs", "rb", "sh",
+]);
+
+/** Tokens that carry real name signal: drop extension-only tokens when a
+ *  non-extension token remains, so "test-doc.txt" searches for "test", not
+ *  for every text file. */
+export function realTokens(tokens: string[]): string[] {
+  const real = tokens.filter((t) => !EXT_TOKENS.has(t));
+  return real.length > 0 ? real : tokens;
+}
+
 export function tokenizeQuery(query: string): string[] {
   const raw = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   const meaningful = raw.filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
@@ -344,6 +370,9 @@ export async function searchFiles(input: z.input<typeof SearchFilesSchema>): Pro
   const root = parsed.root ? assertAllowedPath(parsed.root) : userRoot();
   const deadline = Date.now() + SEARCH_TIMEOUT_MS;
   const tokens = tokenizeQuery(parsed.query);
+  // Strip extension-only tokens ("txt", "pdf", ...) so a query like
+  // "test-doc.txt" searches for "test", not for every text file on disk.
+  const signalTokens = realTokens(tokens);
   const hits: SearchHit[] = [];
   const state = { visited: 0, stopped: false };
   // Collect more than we return, then rank: "standup transcript" matches
@@ -359,42 +388,58 @@ export async function searchFiles(input: z.input<typeof SearchFilesSchema>): Pro
     // name ("Downloads") does not give every file under it a free token.
     const rel = abs.startsWith(root) ? abs.slice(root.length) : abs;
     const hay = rel.toLowerCase();
-    const score = scoreTokens(hay, tokens);
-    let matched = score >= 1;
+    const base = abs.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+    const qLower = parsed.query.trim().toLowerCase();
+    // A query that looks like a filename ("test-doc.txt", "report.pdf") is
+    // matched against the basename directly — a substring/word match would
+    // flood results with every file containing "test". Descriptive queries
+    // ("standup transcript") keep the token-based behaviour.
+    const isFilenameQuery = qLower.includes(".");
+    let score: number;
+    let matched: boolean;
     let contentMatched = false;
-    if (!matched && parsed.mode === "content" && tokens.length > 0) {
-      const ext = extname(abs).toLowerCase();
-      const isText = TEXT_EXTS.has(ext) || ext === "";
-      const isBinary = SEARCHABLE_BINARY_EXTS.has(ext);
-      if (isBinary && binaryInspected >= MAX_BINARY_INSPECTIONS) {
-        binarySkipped++;
-      } else if (isText || isBinary) {
-        if (isBinary) binaryInspected++;
-        try {
-          const { text } = await fileText(abs, 20_000);
-          const body = text.toLowerCase();
-          // Every token must be present: one common word inside a long
-          // document is noise, not a match.
-          contentMatched = tokens.every((t) => body.includes(t));
-          matched = contentMatched;
-        } catch {
-          matched = false;
+    if (isFilenameQuery && parsed.mode === "name") {
+      matched = base.includes(qLower);
+      score = matched ? (base === qLower ? signalTokens.length + 1 : 1) : 0;
+    } else {
+      score = scoreTokens(hay, signalTokens);
+      matched = score >= 1;
+      if (!matched && parsed.mode === "content" && tokens.length > 0) {
+        const ext = extname(abs).toLowerCase();
+        const isText = TEXT_EXTS.has(ext) || ext === "";
+        const isBinary = SEARCHABLE_BINARY_EXTS.has(ext);
+        if (isBinary && binaryInspected >= MAX_BINARY_INSPECTIONS) {
+          binarySkipped++;
+        } else if (isText || isBinary) {
+          if (isBinary) binaryInspected++;
+          try {
+            const { text } = await fileText(abs, 20_000);
+            const body = text.toLowerCase();
+            contentMatched = signalTokens.every((t) => body.includes(t));
+            matched = contentMatched;
+          } catch {
+            matched = false;
+          }
         }
       }
     }
     if (matched) {
+      const exactBonus = (isFilenameQuery && base === qLower) ? signalTokens.length + 1 : 0;
       try {
         const st = await stat(abs);
         hits.push({
           path: abs,
           size: st.size,
           modifiedAt: st.mtime.toISOString(),
-          score: contentMatched ? tokens.length : score,
+          score: (contentMatched ? signalTokens.length : score) + exactBonus,
         });
       } catch {
         // vanished mid-walk; ignore
       }
-      if (score === tokens.length) perfect++;
+      const exactBasenameMatch = base === qLower;
+      if (isFilenameQuery ? exactBasenameMatch : score === signalTokens.length) {
+        perfect++;
+      }
     }
     // Stop as soon as we have enough exact matches; otherwise keep gathering
     // candidates so the ranking has something to work with.
@@ -457,6 +502,7 @@ export async function listFiles(input: z.input<typeof ListFilesSchema>): Promise
   const entries: ListEntry[] = [];
   for (const e of dirents) {
     const full = join(abs, e.name);
+    if (e.isDirectory() && e.name.toLowerCase()==="reach" && process.env.DEBUG_SEARCH) console.error("ENTERING reach dir:", full);
     if (e.isDirectory()) {
       entries.push({ name: e.name, path: full, isDirectory: true });
     } else if (e.isFile()) {
