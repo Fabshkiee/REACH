@@ -4,7 +4,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { getActionDef, listActionDefs } from "../executor/registry.js";
 import { toFlatJsonSchema } from "../planner/schema.js";
-import { registerWebActions, WebSearchSchema, webSearch, search } from "./web.js";
+import { registerWebActions, WebSearchSchema, webSearch, search, freshnessFor, resolveFreshness, queryVariants } from "./web.js";
 
 // Ensure actions are registered
 registerWebActions();
@@ -84,7 +84,7 @@ describe("web actions and web.search primitive", () => {
     const parsed = WebSearchSchema.parse({ query: "hello world" });
     assert.equal(parsed.query, "hello world");
     assert.equal(parsed.mode, "text");
-    assert.equal(parsed.limit, 5);
+    assert.equal(parsed.limit, 10);
 
     // Empty query rejected
     assert.throws(() => WebSearchSchema.parse({ query: "" }));
@@ -283,5 +283,120 @@ describe("web.search with mock HTTP server (offline fixtures)", () => {
     } finally {
       globalThis.fetch = prior;
     }
+  });
+});
+
+describe("web.search recency and topic-neutral fan-out", () => {
+  const originalFetch = globalThis.fetch;
+  const priorKey = process.env.LANGSEARCH_API_KEY;
+  const requests: Array<Record<string, unknown>> = [];
+
+  const make = (topic: string, prefix: string, count: number, host: string) =>
+    Array.from({ length: count }, (_, i) => ({
+      name: `${topic} ${prefix} result ${i + 1}`,
+      url: `https://${host}${i + 1}.example/${prefix}-${i + 1}`,
+      text: `${topic} article ${i + 1}. ${"detail ".repeat(40)}`,
+      datePublished: "2026-10-22T10:00:00.000Z",
+    }));
+
+  const itemsFor = (query: string): unknown[] => {
+    if (query === "recent solar storms") return make("solar", "primary", 6, "alpha");
+    if (query === "solar storms") {
+      return [
+        { name: "KFC press release", url: "https://spam.example/x", text: "unrelated marketing copy", datePublished: "2026-10-22T10:00:00.000Z" },
+        ...make("solar", "broad", 6, "beta"),
+      ];
+    }
+    if (query === "sourdough starter") return make("sourdough", "bread", 3, "bread");
+    if (query === "critical vulnerabilities October 2026") return make("vulnerability", "crit", 2, "gamma");
+    if (query === "repeated source") {
+      return Array.from({ length: 3 }, (_, i) => ({
+        name: `repeated source ${i + 1}`,
+        url: `https://same.example/${i + 1}`,
+        text: `repeated source article ${i + 1}. ${"detail ".repeat(40)}`,
+        datePublished: "2026-10-22T10:00:00.000Z",
+      }));
+    }
+    return [];
+  };
+
+  before(() => {
+    process.env.LANGSEARCH_API_KEY = "test-key";
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (urlStr.includes("api.langsearch.com")) {
+        const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+        requests.push(body);
+        return new Response(JSON.stringify({ data: { webPages: { value: itemsFor(String(body["query"] ?? "")) } } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return originalFetch(input, init);
+    };
+  });
+
+  after(() => {
+    globalThis.fetch = originalFetch;
+    if (priorKey === undefined) delete process.env.LANGSEARCH_API_KEY;
+    else process.env.LANGSEARCH_API_KEY = priorKey;
+  });
+
+  it("maps recency words to a date window without assuming a topic", () => {
+    assert.equal(freshnessFor("recent solar storms"), "oneWeek");
+    assert.equal(freshnessFor("this month in baking"), "oneMonth");
+    assert.equal(freshnessFor("sourdough starter"), "noLimit");
+    assert.deepEqual(queryVariants("best sourdough recipe"), ["best sourdough recipe", "sourdough recipe"]);
+    assert.deepEqual(queryVariants("recent cyberattacks"), ["recent cyberattacks", "cyberattacks"]);
+  });
+
+  it("keeps the goal's recency window when a later query writes a bare month/year", () => {
+    assert.equal(resolveFreshness("research recent cyberattacks", "critical vulnerabilities October 2026"), "oneWeek");
+    assert.equal(resolveFreshness("make one too for this week", "incidents this year"), "oneWeek");
+    assert.equal(resolveFreshness("tell me about AI", "latest AI news"), "oneWeek");
+    assert.equal(resolveFreshness("research the 2024 attacks", "cyber attacks 2024"), "noLimit");
+  });
+
+  it("applies an explicit freshness override to the engine request", async () => {
+    requests.length = 0;
+    const res = await webSearch({ query: "critical vulnerabilities October 2026", mode: "text" }, { freshness: "oneWeek" });
+    assert.equal(res.freshness, "oneWeek");
+    assert.ok(requests.length > 0, "the engine was called");
+    assert.ok(requests.every((r) => r["freshness"] === "oneWeek"), "override beats the query's year");
+  });
+
+  it("keeps primary rank, lets a broadened variant fill gaps, and exposes dates", async () => {
+    requests.length = 0;
+    const res = await webSearch({ query: "recent solar storms", mode: "text", limit: 10 });
+
+    assert.equal(res.ok, true);
+    if (!res.results[0] || !("published" in res.results[0])) throw new Error("text result missing");
+    assert.equal(res.freshness, "oneWeek");
+    assert.ok(requests.every((r) => r["freshness"] === "oneWeek"), "every request uses the window");
+    assert.deepEqual(requests.map((r) => r["query"]), ["recent solar storms", "solar storms"]);
+    assert.ok(!requests.some((r) => /vulnerab|exploit|threat/i.test(String(r["query"]))), "no topic keywords injected");
+
+    const urls = res.results.map((r) => (r as { url: string }).url);
+    assert.ok(urls.some((u) => u.includes("beta4.example")), "a broadened-variant result must fit inside the limit");
+    assert.ok(!urls.some((u) => u.includes("spam.example")), "off-topic variant hits are filtered");
+    assert.equal((res.results[0] as { published?: string }).published, "2026-10-22T10:00:00.000Z");
+    assert.match(res.fullText ?? "", /\[1\].*\n[\s\S]*\[2\]/, "fullText must contain multiple sources");
+  });
+
+  it("does not add angles to an ordinary query", async () => {
+    requests.length = 0;
+    const res = await webSearch({ query: "sourdough starter", mode: "text", limit: 5 });
+
+    assert.equal(res.freshness, "noLimit");
+    assert.deepEqual(requests.map((r) => r["query"]), ["sourdough starter"]);
+    assert.ok(res.results.every((r) => !/vulnerab|exploit|threat/i.test((r as { snippet: string }).snippet)));
+  });
+
+  it("keeps every result of the exact query, even from one authoritative site", async () => {
+    requests.length = 0;
+    const res = await webSearch({ query: "repeated source", mode: "text", limit: 5 });
+
+    const urls = res.results.map((r) => (r as { url: string }).url);
+    assert.equal(urls.filter((u) => u.includes("same.example")).length, 3);
   });
 });

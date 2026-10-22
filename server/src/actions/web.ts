@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineAction } from "../executor/registry.js";
+import { getTask } from "../tasks/taskStore.js";
 import { callAgent } from "./agent.js";
 
 const USER_AGENTS = [
@@ -21,6 +22,8 @@ export interface WebSearchTextResult {
   title: string;
   url: string;
   snippet: string;
+  /** Publication date reported by the search API, when available (ISO 8601). */
+  published?: string;
 }
 
 export interface WebSearchImageResult {
@@ -36,9 +39,9 @@ export interface WebSearchResult {
   mode: "text" | "image";
   count: number;
   results: Array<WebSearchTextResult | WebSearchImageResult>;
-  /** Full text of the top result, fetched and stripped of HTML. Present only
-   *  in text mode when the fetch succeeded; gives the model real article
-   *  content to synthesise instead of 10 snippet titles. */
+  /** Date window applied by the engine, e.g. "oneWeek". */
+  freshness?: string;
+  /** Excerpts from the top results with source headers, for synthesis. */
   fullText?: string;
   fullTextUrl?: string;
 }
@@ -98,45 +101,88 @@ function parseJsonMaybe(value: unknown): unknown {
   }
 }
 
+export type Freshness = "noLimit" | "oneDay" | "oneWeek" | "oneMonth" | "oneYear";
+
+/** Words that say when or how to search, not what the page is about. */
+const QUERY_STOPWORDS = new Set([
+  "the", "and", "for", "with", "from", "this", "that", "latest", "recent",
+  "news", "about", "into", "over", "after", "before", "what", "when", "where",
+  "how", "why", "best", "top", "major", "current", "today", "your", "you",
+  "are", "was", "were", "has", "have", "does", "can", "its",
+]);
+
 /**
- * Execute web search via DuckDuckGo without external paid API keys.
- * Text mode uses DuckDuckGo HTML scraper.
- * Image mode uses DuckDuckGo VQD + /i.js JSON endpoint.
+ * Recency words are intent, not topic: they only change the date window.
+ * "recent research", "this week's results" and "latest news" all take the
+ * same path, whatever the subject is.
  */
-export async function webSearch(input: WebSearchInput): Promise<WebSearchResult> {
+export function freshnessFor(query: string, now = new Date()): Freshness {
+  const q = query.toLowerCase();
+  if (/\b(today|right now|breaking|just in|past 24 hours)\b/.test(q)) return "oneDay";
+  if (/\b(this week|past week|last week|recent|latest|news|current)\b/.test(q)) return "oneWeek";
+  if (/\b(this month|past month|last month)\b/.test(q)) return "oneMonth";
+  if (/\b(this year|past year|last year)\b/.test(q)) return "oneYear";
+  const year = /\b(20\d{2})\b/.exec(q);
+  if (year && Number(year[1]) >= now.getFullYear() - 1) return "oneYear";
+  return "noLimit";
+}
+
+/**
+ * The task goal is the intent; a query is one attempt at it. When the goal
+ * says "recent"/"this week", every search in that task uses that window even
+ * if a later query says "October 2026" or omits the recency word entirely.
+ */
+export function resolveFreshness(goal: string, query: string): Freshness {
+  const goalFreshness = freshnessFor(goal);
+  return goalFreshness !== "noLimit" ? goalFreshness : freshnessFor(query);
+}
+
+/**
+ * Structural query variants only: the query as asked, plus a broadened form
+ * with recency/breadth words removed. No topic keyword lists live here — a
+ * hard-coded branch would help one query and bias every other subject.
+ * "news"/"latest" suffixes were tried and dropped: the engine answered them
+ * with keyword soup and spam, not fresher stories.
+ */
+export function queryVariants(query: string): string[] {
+  const broadened = query
+    .replace(/\b(major|latest|recent|breaking|top|best|this week|this month|this year|today|news|current)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const variants = [query.trim()];
+  if (broadened && broadened.toLowerCase() !== query.trim().toLowerCase()) variants.push(broadened);
+  const seen = new Set<string>();
+  return variants.filter((v) => {
+    const key = v.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Execute web search via LangSearch when LANGSEARCH_API_KEY is set, else the
+ * DuckDuckGo fallbacks below.
+ * Text mode applies a recency window, keeps primary rank, and adds a few
+ * broadened results; image mode uses DuckDuckGo VQD + /i.js.
+ */
+export async function webSearch(
+  input: WebSearchInput,
+  options: { freshness?: Freshness } = {},
+): Promise<WebSearchResult> {
   const parsed = WebSearchSchema.parse(input);
+  const freshness = options.freshness ?? freshnessFor(parsed.query);
 
   // LangSearch (free API, key-based auth, no IP rate-limiting) — preferred
   // when LANGSEARCH_API_KEY is set. Falls through to DuckDuckGo on failure.
-  // Fans out to multiple query variants for broader coverage, then merges
-  // and dedupes by URL so no single search misses major results.
+  // Recency words set a date window; structural variants add angles. Topic
+  // knowledge stays with the planner, never hard-coded here.
   const langsearchKey = process.env.LANGSEARCH_API_KEY;
   if (langsearchKey && parsed.mode === "text") {
     try {
-      // Generate query variants for broader coverage. A single query with
-      // limited results can miss significant items because search engines
-      // rank by relevance to the query, not by impact. Fan out to diverse
-      // angles so the merged result set covers more ground.
-      const queries = [parsed.query];
-      const broader = parsed.query.replace(/\\b(major|latest|recent|breaking|top|best|this week|news)\\b/gi, "").replace(/\\s+/g, " ").trim();
-      if (broader && broader !== parsed.query && broader.length > 5) {
-        queries.push(broader);
-      }
-      // Breadth variant — surfaces items the original query might miss
-      queries.push(`top ${broader || parsed.query}`);
-      // Recency-focused variant
-      if (!/^latest\\b/i.test(parsed.query)) {
-        queries.push(`latest ${broader || parsed.query}`);
-      }
-      // Breadth variant — surfaces items the original query might miss
-      if (!/vulnerabilit|threat|exploit|zero.?day/i.test(parsed.query)) {
-        queries.push(`${broader || parsed.query} vulnerabilities threats`);
-      } else {
-        queries.push(`${broader || parsed.query} exploited this week`);
-      }
-
-      const perQuery = Math.max(8, Math.ceil(parsed.limit / queries.length) + 3);
-      const fetchOne = async (q: string): Promise<Array<{ name?: string; url?: string; snippet?: string; text?: string }>> => {
+      const queries = queryVariants(parsed.query);
+      const perQuery = parsed.limit > 16 ? Math.min(20, parsed.limit) : 8;
+      const fetchOne = async (q: string): Promise<Array<{ name?: string; url?: string; snippet?: string; text?: string; datePublished?: string }>> => {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 20_000);
         try {
@@ -149,14 +195,14 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
             body: JSON.stringify({
               query: q,
               count: perQuery,
-              contents: { text: { maxCharacters: 4000 } },
-              freshness: "noLimit",
+              contents: { text: { maxCharacters: 1200 } },
+              freshness,
             }),
             signal: ctrl.signal,
           });
           if (!res.ok) return [];
           const data = (await res.json()) as {
-            data?: { webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; text?: string }> } };
+            data?: { webPages?: { value?: Array<{ name?: string; url?: string; snippet?: string; text?: string; datePublished?: string }> } };
           };
           return data?.data?.webPages?.value ?? [];
         } catch {
@@ -167,38 +213,85 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
       };
 
       const allItems = await Promise.all(queries.map(fetchOne));
-      const seenUrls = new Set<string>();
       const merged: WebSearchTextResult[] = [];
-      let topFullText: string | undefined;
-      let topFullTextUrl: string | undefined;
+      const textByUrl = new Map<string, string>();
+      const seenUrls = new Set<string>();
+      const perHost = new Map<string, number>();
 
-      for (const items of allItems) {
-        for (const item of items) {
-          if (!item.url || seenUrls.has(item.url)) continue;
-          if (!item.name && !item.snippet && !item.text) continue;
-          seenUrls.add(item.url);
-          merged.push({
-            title: (item.name ?? "").trim() || "Result",
-            url: item.url,
-            snippet: (item.snippet ?? "").trim(),
-          });
-          if (!topFullText && item.text && item.text.trim().length > 200) {
-            topFullText = item.text.trim().slice(0, 4000);
-            topFullTextUrl = item.url;
-          }
+      const add = (item: { name?: string; url?: string; snippet?: string; text?: string; datePublished?: string }, capPerHost: boolean): void => {
+        if (!item.url || seenUrls.has(item.url)) return;
+        if (!item.name && !item.snippet && !item.text) return;
+        let host = "";
+        try {
+          host = new URL(item.url).hostname;
+        } catch {
+          // Keep the result; domain diversity is best-effort.
+        }
+        if (capPerHost && host && (perHost.get(host) ?? 0) >= 2) return;
+
+        seenUrls.add(item.url);
+        if (host) perHost.set(host, (perHost.get(host) ?? 0) + 1);
+        const text = (item.text ?? "").trim();
+        merged.push({
+          title: (item.name ?? "").trim() || "Result",
+          url: item.url,
+          snippet: (item.snippet ?? "").trim() || text.slice(0, 240),
+          ...(item.datePublished ? { published: item.datePublished } : {}),
+        });
+        if (text.length > 200) textByUrl.set(item.url, text);
+      };
+
+      // Primary results keep their rank and are never culled for source
+      // diversity: the user's exact query is the strongest signal we have.
+      // A single authoritative site (docs, a wiki) may legitimately own it.
+      // The broadened variant fills only the remaining slots, capped per host
+      // and filtered by core query terms so keyword soup cannot get in.
+      for (const item of allItems[0] ?? []) {
+        if (merged.length >= parsed.limit) break;
+        add(item, false);
+      }
+
+      const coreTokens = parsed.query
+        .toLowerCase()
+        .match(/[a-z0-9]{3,}/g)
+        ?.filter((t) => !QUERY_STOPWORDS.has(t)) ?? [];
+      const relevant = (item: { name?: string; snippet?: string; text?: string }): boolean => {
+        if (coreTokens.length === 0) return true;
+        const haystack = `${item.name ?? ""} ${item.snippet ?? ""} ${item.text ?? ""}`.toLowerCase();
+        return coreTokens.some((token) => haystack.includes(token));
+      };
+
+      const variants = allItems.slice(1);
+      const longest = Math.max(0, ...variants.map((items) => items.length));
+      for (let index = 0; index < longest && merged.length < parsed.limit; index++) {
+        for (const items of variants) {
+          const item = items[index];
+          if (!item || !relevant(item)) continue;
+          add(item, true);
           if (merged.length >= parsed.limit) break;
         }
-        if (merged.length >= parsed.limit) break;
       }
 
       if (merged.length > 0) {
+        // Excerpts from the top three results, not just the first: one article
+        // is not coverage, and the top hit is not always the story.
+        const excerpts = merged
+          .filter((r) => textByUrl.has(r.url))
+          .slice(0, 3)
+          .map((r, i) => {
+            const published = r.published ? ` (${r.published})` : "";
+            return `[${i + 1}] ${r.title} — ${r.url}${published}\n${textByUrl.get(r.url)!.slice(0, 1100)}`;
+          });
+        const fullText = excerpts.join("\n\n").slice(0, 3200);
+        const firstTextUrl = merged.find((r) => textByUrl.has(r.url))?.url;
         return {
           ok: true,
           query: parsed.query,
           mode: "text",
           count: merged.length,
           results: merged,
-          ...(topFullText ? { fullText: topFullText, fullTextUrl: topFullTextUrl } : {}),
+          freshness,
+          ...(fullText && firstTextUrl ? { fullText, fullTextUrl: firstTextUrl } : {}),
         };
       }
     } catch {
@@ -299,7 +392,12 @@ export async function webSearch(input: WebSearchInput): Promise<WebSearchResult>
   }
 
   // Text Mode: DuckDuckGo HTML with resilient User-Agent fallback
-  const textUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(parsed.query)}`;
+  const df = freshness === "oneDay" ? "d"
+    : freshness === "oneWeek" ? "w"
+    : freshness === "oneMonth" ? "m"
+    : freshness === "oneYear" ? "y"
+    : "";
+  const textUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(parsed.query)}${df ? `&df=${df}` : ""}`;
   let html = "";
   let lastStatus = 0;
 
@@ -481,7 +579,7 @@ export function registerWebActions(): void {
       name: "web.search",
       actionClass: "search",
       description:
-        "Search the web for information or images. Uses LangSearch (free API, key-based) when LANGSEARCH_API_KEY is set, else DuckDuckGo. Mode 'text' returns web page titles, snippets, and URLs; mode 'image' returns titles, direct image URLs, and source URLs. Synthesise the returned snippets into a substantive answer — never paste raw titles/snippets verbatim. If results are off-topic, retry with a narrower query.",
+        "Search the web for information or images. Uses LangSearch (free API, key-based) when LANGSEARCH_API_KEY is set, else DuckDuckGo. Mode 'text' returns web page titles, snippets, URLs, publication dates when the engine reports them, and the date window applied. Recency words ('recent', 'latest', 'news', 'this week') in the query or the task goal automatically narrow that window. Synthesise across all results and the fullText excerpts — never paste raw titles/snippets verbatim. Generic results mean relevance, not significance: retry once with a narrower angle if they are off-topic.",
       schema: WebSearchSchema,
       timeoutMs: 30_000,
       targetOf: (args) => (typeof args["query"] === "string" ? args["query"] : undefined),
@@ -492,7 +590,11 @@ export function registerWebActions(): void {
         }
         return `web.search ok: found ${r.results.length} ${String(r.mode ?? "text")} results for "${String(r.query ?? "")}"`;
       },
-      handler: async (args) => webSearch(args as WebSearchInput),
+      handler: async (args, ctx) => {
+        const query = typeof args["query"] === "string" ? args["query"] : "";
+        const goal = getTask(ctx.taskId)?.goal ?? "";
+        return webSearch(args as WebSearchInput, { freshness: resolveFreshness(goal, query) });
+      },
     });
   } catch {
     // Already registered (dev re-entry)
