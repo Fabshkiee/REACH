@@ -2,11 +2,12 @@
   "name": "reach",
   "version": "0.1.0",
   "private": true,
-  "description": "REACH — Tell Alexa what you want. Your devices make it happen. MCP-powered capability bridge.",
+  "description": "REACH \u2014 Tell Alexa what you want. Your devices make it happen. MCP-powered capability bridge.",
   "license": "MIT",
   "workspaces": [
     "server",
-    "windows-agent"
+    "windows-agent",
+    "video"
   ],
   "scripts": {
     "install:all": "npm install --workspaces",
@@ -15,7 +16,9 @@
     "test:agent": "npm run test --workspace=@reach/windows-agent",
     "test:e2e": "tsx tests/e2e/run_all.ts",
     "dev:server": "npm run dev --workspace=server",
-    "dev:agent": "npm run dev --workspace=windows-agent"
+    "dev:agent": "npm run dev --workspace=windows-agent",
+    "video:dev": "npm run dev --workspace=@reach/video",
+    "video:build": "npm run build --workspace=@reach/video"
   },
   "engines": {
     "node": ">=24"
