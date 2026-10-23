@@ -524,6 +524,14 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 * Follow-up (same day): a second search in the same task dropped "recent", saw "October 2026", and searched one year, pulling February and June CVEs into an October report. Freshness now resolves from the task goal first, so every search in a recency task keeps the goal's window. Report-style documents are rejected when they contain no full http(s) URL, use "Link"/"here" anchor text, or contain a CVE ID with a letter suffix.
 * Suggestion: a search API ranks by relevance, not significance. Coverage comes from a date window, multiple structural angles, source diversity and reading more than one result — not from guessing the user's topic in code. If "tell me the single biggest story" is a real requirement, it needs a curated news feed: no generic query reliably finds an event whose name the user did not say.
 
+## 2026-10-23 — The iPhone tools advertised fields they never returned, and ignored the udid
+* Task: harden the four existing `ios_*` tools before adding new phone features.
+* Steps: read the tools end to end. The server schemas accepted `udid` and `phone.ios_info` promised "name, iOS version, battery, storage", but the agent schemas dropped `udid` (zod strips unknown keys), so with two paired iPhones there was no way to pick one; discovery trusted a single key (`udid`) that `remote browse` does not emit, so the list could come back empty with the phone right there; `ios_info` never ran a battery or storage probe, so the promised fields could not exist; `ios_pull_file` allowed 180s of transfer behind a fixed 60s dispatch timeout.
+* Expected vs actual: expected the tool contract (schema + description) to match what the agent does; actual a silent schema drift — the model passed args that were dropped and awaited fields that never existed.
+* Severity: Medium (phantom capability: the planner cannot trust any phone field, and the tools were unusable with more than one phone).
+* Workaround (kept): one selection rule (explicit `udid`, a single device implicit, several → error listing UDIDs); discovery merges `remote browse` and `usbmux list` by UDID with flexible key parsing; `ios_info` reports battery and storage when the device answers and `null` otherwise; each action's dispatch timeout follows its own budget; iOS capabilities are advertised only on macOS with `pymobiledevice3` present. A wow pack landed on the same bridge — screenshot, app list, clipboard read/write, app launch, hardware buttons, file push — with Developer Mode failures surfacing recovery hints instead of empty successes.
+* Suggestion: the server action schema and the agent input schema are two hand-written copies of one contract. Generate one from the other, or add a cross-package test that parses the same sample args through both; drift between them is silent and reads as a model failure.
+
 ## Template for new entries
 * Task:
 * Steps:

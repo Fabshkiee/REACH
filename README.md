@@ -90,8 +90,8 @@ nvm use 24               # or install Node 24 LTS
 npm install
 npm run typecheck
 npm run doctor           # preflight: .env, AWS keys, live Bedrock probe, ports, data dir
-npm test                 # server suite (130 tests)
-npm run test:agent       # laptop agent suite (51 tests)
+npm test                 # server suite (141 tests)
+npm run test:agent       # laptop agent suite (70 tests)
 npm run test:e2e         # 4-tier black-box suite (187 tests, all offline)
 
 # The demo input — the hero workflow transcribes this recording
@@ -171,14 +171,18 @@ event trail and the approval card for the same engine.
 * **Agent**: files (search/read/list/write/move/delete/verify), real `.docx`
   creation from **Markdown** (headings, lists, tables, emphasis — the model
   plans the document's structure, the agent renders it), browser adapter
-  (Playwright MCP), web search, app/document openers, microphone recording.
+  (Playwright MCP), web search, app/document openers, microphone recording,
+  **iPhone bridge** via `pymobiledevice3` (device info with battery/storage,
+  file browse/pull/push, screen capture, app list, clipboard read/write, app
+  launch, hardware buttons).
 * **Audio**: `audio.transcribe` reads a recording from the laptop, uploads it
   to S3 and runs **Amazon Transcribe**; the audio is deleted from S3
   afterwards. Uploading is confirm-tier — REACH asks before your recording
   leaves the machine.
 * **Cross-platform**: the agent and the policy engine run on macOS, Linux and
   Windows. Windows-only primitives (window focus, keystrokes, clipboard) are
-  advertised on Windows only.
+  advertised on Windows only; the iPhone bridge is advertised on macOS only
+  and only when `pymobiledevice3` is on PATH.
 * **Not built**: audio capture and transcription, long-running (>10 min) jobs,
   push delivery, live Alexa+ integration (partner-gated), external MCP
   connectors, smart-home.
