@@ -807,9 +807,21 @@ const voice = {
   level: 0, meterStream: null, meterCtx: null, meterAnalyser: null, meterData: null,
   meterRaf: 0, meterToken: 0, captureTimer: 0, restartTimer: 0,
   submitTimer: 0, draft: '', wakeOnly: false,
-  speechToken: 0, speechTimer: 0, submitting: false, demo: 0, notice: '', noticeTimer: 0, heard: new Set(),
+  speechToken: 0, speechTimer: 0, submitting: false, demo: 0, notice: '', noticeTimer: 0, heard: new Set(), speechPrimed: false,
 };
 try { voice.muted = localStorage.getItem('reach-voice-muted') === '1'; } catch { /* storage may be blocked */ }
+function primeSpeech() {
+  if (!speechOk() || voice.speechPrimed) return;
+  voice.speechPrimed = true;
+  try {
+    speechSynthesis.getVoices();
+    speechSynthesis.resume();
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  } catch { /* speech may be unavailable */ }
+}
+document.addEventListener('pointerdown', primeSpeech, { once: true });
 
 const SCENARIOS = [
   { id: 'capture', icon: 'phone', label: 'Capture my iPhone screen', kind: 'screen',
@@ -1979,50 +1991,54 @@ function showGate(task) {
   const pending = task && task.pendingApproval;
   if (!pending) return;
   state.stageTask = task;
+  state.activeTaskId = task.id;
   const title = actionTitle(pending.actionName);
-  $('gateTitle').textContent = 'Allow REACH to ' + (title.charAt(0).toLowerCase() + title.slice(1)) + '?';
-  $('gateConsequence').textContent = plain(pending.consequence) || 'A device action is waiting for your approval.';
-  const risk = riskInfo(pending.actionClass, pending.actionName);
-  const facts = $('gateFacts');
-  facts.replaceChildren();
-  const row = (label, node) => { const d = h('div'); d.append(h('dt', null, label), node); facts.append(d); };
-  const risky = h('dd'); risky.append(h('span', 'risk' + (risk.tone === 'bad' ? ' bad' : ''), risk.label)); row('Risk', risky);
-  const target = h('dd', 'mono', deviceName(pending.target) && !/[\\/]/.test(String(pending.target)) ? deviceName(pending.target) : (tildePath(pending.target) || 'This device'));
-  row('Target', target);
-  describeArgs(pending.args, 2).forEach(([k, val]) => row(k, h('dd', null, val)));
-  const exp = h('dd'); const expSpan = h('span', null, expiryText(pending.expiresAt)); expSpan.id = 'gateExpiry'; exp.append(expSpan); row('Window', exp);
-  const left = Date.parse(pending.expiresAt || '') - Date.now();
-  state.gateTotal = Number.isFinite(left) && left > 0 ? left : 1;
-  $('gateTimer').style.transition = 'none';
-  $('gateTimer').style.transform = 'scaleX(1)';
-  void $('gateTimer').offsetWidth;
-  $('gateTimer').style.transition = '';
-  setGateBusy(false);
-  openSheet('gateScrim');
-  announce('Approval needed: ' + (pending.consequence || title));
+  const consequence = plain(pending.consequence) || 'Allow this action?';
+  closeSheet('gateScrim');
+  setDeck('idle');
+  $('pipelineRail').hidden = true;
+  $('planBox').hidden = true;
+  $('steps').hidden = true;
+  setUtter('');
+  setNarrative({
+    look: 'gate',
+    kicker: 'Approval needed',
+    meta: '',
+    title: 'Allow ' + lowerFirst(title) + '?',
+    detail: consequence + ' Say or type allow, or deny.',
+  });
+  $('goal').value = '';
+  $('sendBtn').disabled = true;
+  renderVoice();
+  announce('Approval needed: Allow ' + lowerFirst(title) + '?');
+  if (voice.handsFree && !voice.speaking) setTimeout(resumeHandsFree, 320);
 }
 function showQuestion(task) {
   const pending = task && task.pendingInput;
   if (!pending) return;
   state.stageTask = task;
+  state.activeTaskId = task.id;
   const count = Math.max(1, Number(pending.questionCount) || ((task.askedQuestions || []).length + 1));
-  $('questionCount').textContent = 'Question ' + Math.min(count, 3) + ' of 3';
-  $('questionText').textContent = pending.question || 'REACH needs one detail to continue.';
-  const options = $('questionOptions');
-  options.replaceChildren();
-  (pending.options || []).slice(0, 4).forEach((option) => {
-    const btn = h('button', 'q-opt', option);
-    btn.type = 'button';
-    btn.onclick = () => { void answerQuestion(option); };
-    options.append(btn);
+  const options = (pending.options || []).slice(0, 4);
+  const q = pending.question || 'REACH needs one detail to continue.';
+  closeSheet('questionScrim');
+  setDeck('idle');
+  $('pipelineRail').hidden = true;
+  $('planBox').hidden = true;
+  $('steps').hidden = true;
+  setUtter('');
+  setNarrative({
+    look: 'input',
+    kicker: 'Question ' + Math.min(count, 3) + ' of 3',
+    meta: '',
+    title: short(q, 220),
+    detail: options.length ? 'Say or type one: ' + options.join(' · ') : 'Say or type your answer below.',
   });
-  options.hidden = !options.children.length;
-  $('questionInput').value = '';
-  $('questionInput').disabled = false;
-  $('questionForm').querySelector('button').disabled = false;
-  openSheet('questionScrim');
-  announce('REACH asked: ' + (pending.question || 'a clarifying question'));
-  setTimeout(() => { $('questionInput').focus(); }, 120);
+  $('goal').value = '';
+  $('sendBtn').disabled = true;
+  renderVoice();
+  announce('REACH asked: ' + short(q, 180));
+  if (voice.handsFree && !voice.speaking) setTimeout(resumeHandsFree, 320);
 }
 async function decideApproval(decision) {
   const task = state.stageTask;
@@ -2058,6 +2074,8 @@ async function answerQuestion(text) {
   const value = String(text || '').trim().slice(0, 2000);
   if (!pending || !task.id || !value || state.answering) return;
   state.answering = true;
+  $('goal').value = '';
+  $('sendBtn').disabled = true;
   $('questionInput').disabled = true;
   $('questionForm').querySelector('button').disabled = true;
   try {
@@ -2068,6 +2086,7 @@ async function answerQuestion(text) {
     if (!res.ok || out.ok === false) throw new Error(out.error || 'HTTP ' + res.status);
     state.handledQuestions.add(task.id + ':' + (pending.createdAt || pending.question));
     state.activeTaskId = task.id;
+    task.pendingInput = null;
     stopSpeaking();
     setBusyUI(true);
     closeSheet('questionScrim');
@@ -2081,6 +2100,7 @@ async function answerQuestion(text) {
     state.answering = false;
     $('questionInput').disabled = false;
     $('questionForm').querySelector('button').disabled = false;
+    renderVoice();
   }
 }
 
@@ -2164,9 +2184,58 @@ function setBusyUI(busy) {
   renderVoice();
   if (!state.busy && !sheetOpen() && !state.drawerOpen && voice.handsFree) setTimeout(resumeHandsFree, 340);
 }
+function conversationReply(text) {
+  const raw = String(text || '').trim();
+  const wake = parseWake(raw);
+  if (wake && !wake.command) return { title: 'Hey, how are you?', detail: 'What would you like me to do?' };
+  const t = (wake ? wake.command : raw).toLowerCase().replace(/^[\s"“”'‘’]+|[\s"“”'‘’]+$/g, '').replace(/[.!?,;:]+$/, '').trim();
+  if (!t) return null;
+  if (/^(hi|hello|hey|yo|sup|good (morning|afternoon|evening))$/.test(t)) return { title: 'Hey, how are you?', detail: 'What would you like me to do?' };
+  if (/^(i'?m |i am )?(fine|good|great|okay|ok|well|not bad)[\s.,!?]+(how are you( doing)?|how'?s it going|how is it going|what'?s up|whats up)$/.test(t)) return { title: 'I’m doing well, thanks for asking.', detail: 'What would you like me to do?' };
+  if (/^(how are you( doing)?|how'?s it going|how is it going|how have you been|what'?s up|whats up)$/.test(t)) return { title: 'I’m doing well, thanks for asking.', detail: 'What would you like me to do?' };
+  if (/^(i'?m |i am )?(good|fine|great|okay|ok|well|not bad)$/.test(t)) return { title: 'Good to hear.', detail: 'What would you like me to do?' };
+  if (/^(nice|cool|awesome|great|perfect|okay|ok|sounds good)$/.test(t)) return { title: 'Great.', detail: 'What would you like me to do?' };
+  if (/^(thanks|thank you|thx)$/.test(t)) return { title: 'You’re welcome.', detail: 'Anything else?' };
+  if (/^(who are you|what are you|what can you do)$/.test(t)) return { title: 'I’m REACH.', detail: 'Tell me what to do across your devices — by voice or in the box below.' };
+  if (/^(bye|goodbye|see you|good night)$/.test(t)) return { title: 'See you.', detail: 'Tap the orb when you need me.' };
+  if (/^(nothing|no|nope|nah)$/.test(t)) return { title: 'Okay.', detail: 'What would you like me to do?' };
+  return null;
+}
+function showConversation(reply) {
+  stopSpeaking();
+  state.activeTaskId = null;
+  standby();
+  setBusyUI(false);
+  setNarrative({ look: 'idle', kicker: 'Hey REACH', meta: '', title: reply.title, detail: reply.detail });
+  $('ask').classList.remove('is-typing');
+  $('goal').value = '';
+  $('sendBtn').disabled = true;
+  setUtter('');
+  renderVoice();
+  announce(reply.title + ' ' + reply.detail);
+  speak(reply.title + ' ' + reply.detail);
+}
 async function runTask(goal) {
   const text = String(goal || '').trim();
-  if (!text || state.busy) return;
+  if (!text) return;
+  if (state.stageTask && state.stageTask.pendingApproval) {
+    const lower = text.toLowerCase();
+    if (/\b(allow|approve|yes|ok|okay|confirm|proceed|sure|yep|yeah)\b/.test(lower)) {
+      void decideApproval('approve');
+      return;
+    }
+    if (/\b(deny|reject|no|stop|cancel|nope|nah|nevermind)\b/.test(lower)) {
+      void decideApproval('deny');
+      return;
+    }
+  }
+  if (state.stageTask && state.stageTask.pendingInput) {
+    void answerQuestion(text);
+    return;
+  }
+  if (state.busy) return;
+  const chat = conversationReply(text);
+  if (chat) { showConversation(chat); return; }
   stopSpeaking();
   suspendVoice();
   $('ask').classList.remove('is-typing');
@@ -2210,6 +2279,7 @@ async function loadMission(taskId) {
    Voice: wake word, one-shot capture, replies, demo fallback
    ============================================================ */
 function sheetOpen() { return !!document.querySelector('.scrim.is-open'); }
+function waitingForAnswer() { return !!(state.stageTask && (state.stageTask.pendingInput || state.stageTask.pendingApproval)); }
 function speechOk() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; }
 function lowerFirst(s) { return String(s || '').replace(/^./, (c) => c.toLowerCase()); }
 function setVoiceLive(text) { $('voiceLive').textContent = text || ''; }
@@ -2236,7 +2306,8 @@ function setVoiceNotice(text) {
 function renderVoice() {
   const bar = $('ask');
   const typing = bar.classList.contains('is-typing');
-  const blocked = state.busy || voice.demo > 0 || sheetOpen();
+  const waiting = waitingForAnswer();
+  const blocked = (state.busy && !waiting) || voice.demo > 0 || sheetOpen();
   bar.classList.toggle('is-listening', voice.listening && !voice.speaking);
   $('micBtn').disabled = blocked;
   $('orbHit').disabled = blocked;
@@ -2250,9 +2321,10 @@ function renderVoice() {
   $('speakerUse').setAttribute('href', voice.muted ? '#i-speaker-off' : '#i-speaker');
   $('speakerBtn').disabled = !speechOk();
   if (!speechOk()) $('speakerBtn').title = 'Voice replies unavailable in this browser';
-  $('goal').disabled = state.busy;
-  $('sendBtn').disabled = state.busy || !$('goal').value.trim();
-  document.querySelectorAll('#scenarioChips .chip').forEach((b) => { b.disabled = state.busy || voice.demo > 0; });
+  $('goal').placeholder = waiting ? 'Answer REACH…' : 'Tell REACH what to do across your devices…';
+  $('goal').disabled = state.busy && !waiting;
+  $('sendBtn').disabled = (state.busy && !waiting) || !$('goal').value.trim();
+  document.querySelectorAll('#scenarioChips .chip').forEach((b) => { b.disabled = (state.busy && !waiting) || voice.demo > 0; });
 
   const st = $('voiceStatus'), sub = $('voiceSub');
   if (voice.notice) {
@@ -2267,6 +2339,9 @@ function renderVoice() {
   } else if (sheetOpen()) {
     st.textContent = 'Waiting for you';
     sub.textContent = 'Use the card on screen';
+  } else if (waiting) {
+    st.textContent = 'Your turn';
+    sub.textContent = 'Answer below or by voice';
   } else if (typing) {
     st.textContent = 'Type it instead';
     sub.textContent = 'Press Enter to run';
@@ -2609,6 +2684,8 @@ function armCaptureWindow() {
   }, 10000);
 }
 function startWakeGreeting() {
+  state.activeTaskId = null;
+  standby();
   voice.capturing = true;
   voice.listening = true;
   voice.wakeOnly = true;
@@ -2754,7 +2831,7 @@ function pickVoice() {
     let score = i < 0 ? 50 : i;
     if (/natural|premium|enhanced/.test(name)) score -= 20;
     if (/en[-_]us/i.test(v.lang)) score -= 5;
-    if (v.localService) score -= 1;
+    if (v.localService) score -= 10;
     return score;
   };
   return en.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
@@ -2810,7 +2887,7 @@ function speak(text) {
   };
   u.onend = done;
   u.onerror = done;
-  try { speechSynthesis.speak(u); }
+  try { speechSynthesis.resume(); speechSynthesis.speak(u); }
   catch { done(); return; }
   if (finished) return;
   clearTimeout(voice.speechTimer);
@@ -2838,10 +2915,10 @@ function maybeSpeak(task, v, opts) {
   let key = '', line = '';
   if (v.mode === 'gate' && v.pending) {
     key = task.id + ':gate:' + v.pending.id;
-    line = 'I need your approval to ' + lowerFirst(actionTitle(v.pending.actionName)) + '. ' + (v.pending.consequence || 'Open the approval card to review it.');
+    line = 'Allow ' + lowerFirst(actionTitle(v.pending.actionName)) + '?';
   } else if (v.mode === 'input' && v.pin) {
     key = task.id + ':q:' + v.pin.question;
-    line = v.pin.question;
+    line = firstSentence(v.pin.question, 120);
   } else if (v.mode === 'done') {
     key = task.id + ':done';
     line = speechForDone(task, v);
