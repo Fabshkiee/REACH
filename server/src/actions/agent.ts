@@ -11,9 +11,13 @@ function agentHeaders(): Record<string, string> {
 }
 
 /** Call one agent capability; agent-side guards re-validate everything. */
-export async function callAgent(capability: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function callAgent(
+  capability: string,
+  args: Record<string, unknown>,
+  timeoutMs = CALL_TIMEOUT_MS,
+): Promise<Record<string, unknown>> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(`${AGENT_URL}/jobs/dispatch`, {
       method: "POST",
@@ -25,7 +29,7 @@ export async function callAgent(capability: string, args: Record<string, unknown
     if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : `agent HTTP ${res.status}`);
     return data;
   } catch (err) {
-    if (ctrl.signal.aborted) throw new Error(`agent call timed out after ${CALL_TIMEOUT_MS}ms`);
+    if (ctrl.signal.aborted) throw new Error(`agent call timed out after ${timeoutMs}ms`);
     throw err instanceof Error ? err : new Error("agent call failed");
   } finally {
     clearTimeout(timer);
@@ -173,24 +177,28 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_list",
       actionClass: "search" as const,
-      description: "List iPhones connected to this Mac over USB or Wi-Fi (via usbmuxd/Bonjour). The phone must be paired/trusted first.",
+      description: "List iPhones paired with this Mac (USB or Wi-Fi). Returns name, model, iOS version and UDID. Pair/trust the phone first; pass the UDID to another phone.* tool when several are paired.",
       schema: z.object({}),
-      timeoutMs: 15_000,
+      timeoutMs: 20_000,
       capability: "ios_list",
     },
     {
       name: "phone.ios_info",
       actionClass: "observe" as const,
-      description: "Get device info (name, iOS version, battery, storage) for a connected iPhone.",
-      schema: z.object({ udid: z.string().max(64).optional() }),
-      timeoutMs: 15_000,
+      description: "Get a connected iPhone's name, model, iOS version, UDID, battery (level + charging) and storage. Battery/storage are null when the phone does not report them — never invent them from a null.",
+      schema: z.object({ udid: z.string().min(1).max(64).optional() }),
+      timeoutMs: 60_000,
       capability: "ios_info",
     },
     {
       name: "phone.ios_list_files",
       actionClass: "search" as const,
-      description: "List files on a connected iPhone (e.g. /DCIM/ for photos).",
-      schema: z.object({ path: z.string().max(500).default("/DCIM/"), udid: z.string().max(64).optional() }),
+      description: "List files on a connected iPhone (e.g. /DCIM/ for photos). Paged: total and truncated report whether more entries exist beneath the limit.",
+      schema: z.object({
+        path: z.string().max(500).default("/DCIM/"),
+        limit: z.number().int().min(1).max(2000).optional(),
+        udid: z.string().min(1).max(64).optional(),
+      }),
       timeoutMs: 30_000,
       capability: "ios_list_files",
     },
@@ -198,9 +206,86 @@ export function registerAgentActions(): void {
       name: "phone.ios_pull_file",
       actionClass: "read" as const,
       description: "Download a file from a connected iPhone to the laptop (e.g. a photo from /DCIM/...).",
-      schema: z.object({ src: z.string().min(1).max(500), destDir: z.string().max(500).optional(), udid: z.string().max(64).optional() }),
-      timeoutMs: 60_000,
+      schema: z.object({
+        src: z.string().min(1).max(500),
+        destDir: z.string().max(500).optional(),
+        udid: z.string().min(1).max(64).optional(),
+      }),
+      timeoutMs: 180_000,
       capability: "ios_pull_file",
+    },
+    {
+      name: "phone.ios_screenshot",
+      actionClass: "download" as const,
+      description: "Capture the connected iPhone's screen to a PNG on the laptop (default Downloads/REACH). Requires Developer Mode on the phone. Returns the saved path and size.",
+      schema: z.object({ destDir: z.string().max(500).optional(), udid: z.string().min(1).max(64).optional() }),
+      timeoutMs: 90_000,
+      capability: "ios_screenshot",
+    },
+    {
+      name: "phone.ios_apps",
+      actionClass: "search" as const,
+      description: "List the apps installed on the connected iPhone (display name + bundle ID). Use the bundle ID with phone.ios_launch or phone.ios_push_file. Requires Developer Mode.",
+      schema: z.object({ udid: z.string().min(1).max(64).optional() }),
+      timeoutMs: 90_000,
+      capability: "ios_apps",
+    },
+    {
+      name: "phone.ios_paste",
+      actionClass: "read" as const,
+      description: "Read the current text on the connected iPhone's clipboard. Requires Developer Mode.",
+      schema: z.object({
+        maxChars: z.number().int().min(1).max(20000).optional(),
+        udid: z.string().min(1).max(64).optional(),
+      }),
+      timeoutMs: 60_000,
+      capability: "ios_paste",
+    },
+    {
+      name: "phone.ios_copy",
+      actionClass: "interact" as const,
+      description: "Put text on the connected iPhone's clipboard (e.g. a link or address to paste on the phone). Requires Developer Mode.",
+      schema: z.object({
+        text: z.string().min(1).max(10000),
+        udid: z.string().min(1).max(64).optional(),
+      }),
+      timeoutMs: 60_000,
+      capability: "ios_copy",
+    },
+    {
+      name: "phone.ios_launch",
+      actionClass: "launch" as const,
+      description: "Launch an app on the connected iPhone by bundle ID (from phone.ios_apps). Unknown bundle IDs need approval. Requires Developer Mode.",
+      schema: z.object({
+        bundleId: z.string().min(1).max(200).regex(/^[A-Za-z0-9.-]+$/),
+        udid: z.string().min(1).max(64).optional(),
+      }),
+      timeoutMs: 60_000,
+      capability: "ios_launch",
+    },
+    {
+      name: "phone.ios_button",
+      actionClass: "configure" as const,
+      description: "Press a hardware button on the connected iPhone: home, lock, volume-up, volume-down, mute or siri. Always requires approval. Requires Developer Mode.",
+      schema: z.object({
+        button: z.enum(["home", "lock", "volume-up", "volume-down", "mute", "siri"]),
+        udid: z.string().min(1).max(64).optional(),
+      }),
+      timeoutMs: 60_000,
+      capability: "ios_button",
+    },
+    {
+      name: "phone.ios_push_file",
+      actionClass: "send" as const,
+      description: "Copy a local file onto the connected iPhone: into an app's Documents folder when bundleId is given, else into /REACH/ in the phone's media area. Always requires approval. Requires Developer Mode for app containers.",
+      schema: z.object({
+        path: PathArg,
+        bundleId: z.string().min(1).max(200).regex(/^[A-Za-z0-9.-]+$/).optional(),
+        remotePath: z.string().min(1).max(500).optional(),
+        udid: z.string().min(1).max(64).optional(),
+      }),
+      timeoutMs: 180_000,
+      capability: "ios_push_file",
     },
     {
       name: "desktop.inspect_windows",
@@ -279,7 +364,7 @@ export function registerAgentActions(): void {
         },
         handler: async (args) => {
           if (d.name === "files.create_document") requireReportSource(args);
-          return callAgent(d.capability, args);
+          return callAgent(d.capability, args, d.timeoutMs + 5_000);
         },
       });
     } catch {
@@ -327,6 +412,19 @@ export function targetForAction(name: string, args: Record<string, unknown>): st
       return typeof args["path"] === "string" ? args["path"] : "phone";
     case "phone.ios_pull_file":
       return typeof args["src"] === "string" ? args["src"] : "phone";
+    case "phone.ios_screenshot":
+      return typeof args["destDir"] === "string" && args["destDir"] ? args["destDir"] : "Downloads/REACH";
+    case "phone.ios_apps":
+      return "phone-apps";
+    case "phone.ios_paste":
+    case "phone.ios_copy":
+      return "phone-clipboard";
+    case "phone.ios_launch":
+      return typeof args["bundleId"] === "string" ? args["bundleId"] : "phone-app";
+    case "phone.ios_button":
+      return typeof args["button"] === "string" ? `phone-button:${args["button"]}` : "phone-button";
+    case "phone.ios_push_file":
+      return typeof args["path"] === "string" ? args["path"] : undefined;
     case "desktop.inspect_windows":
       return typeof args["query"] === "string" ? args["query"] : "windows";
     case "desktop.focus_window":

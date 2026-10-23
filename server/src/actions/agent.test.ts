@@ -20,6 +20,17 @@ describe("agent action defs", () => {
       "apps.open_document",
       "apps.open_url",
       "apps.launch",
+      "phone.ios_list",
+      "phone.ios_info",
+      "phone.ios_list_files",
+      "phone.ios_pull_file",
+      "phone.ios_screenshot",
+      "phone.ios_apps",
+      "phone.ios_paste",
+      "phone.ios_copy",
+      "phone.ios_launch",
+      "phone.ios_button",
+      "phone.ios_push_file",
     ]) {
       assert.ok(names.includes(n), n);
     }
@@ -62,7 +73,42 @@ describe("agent action defs", () => {
     assert.equal(targetForAction("files.move", { from: "a", to: "b.txt" }), "b.txt");
     assert.equal(targetForAction("apps.open_url", { url: "https://x.io" }), "https://x.io");
     assert.equal(targetForAction("apps.launch", { app: "calculator" }), "calculator");
+    assert.equal(targetForAction("phone.ios_launch", { bundleId: "com.apple.mobilesafari" }), "com.apple.mobilesafari");
+    assert.equal(targetForAction("phone.ios_button", { button: "lock" }), "phone-button:lock");
+    assert.equal(targetForAction("phone.ios_push_file", { path: "report.pdf" }), "report.pdf");
+    assert.equal(targetForAction("phone.ios_screenshot", {}), "Downloads/REACH");
     assert.equal(targetForAction("nope.missing", {}), undefined);
+  });
+
+  it("classifies iPhone control actions as consequential", () => {
+    const classes = new Map(listActionDefs().map((d) => [d.name, d.actionClass]));
+    assert.equal(classes.get("phone.ios_screenshot"), "download");
+    assert.equal(classes.get("phone.ios_apps"), "search");
+    assert.equal(classes.get("phone.ios_paste"), "read");
+    assert.equal(classes.get("phone.ios_copy"), "interact");
+    assert.equal(classes.get("phone.ios_launch"), "launch");
+    assert.equal(classes.get("phone.ios_button"), "configure");
+    assert.equal(classes.get("phone.ios_push_file"), "send");
+  });
+
+  it("phone tools accept the udid the agent selection needs", () => {
+    const udid = "00008110-001A2B3C4D5E";
+    const samples: Array<[string, Record<string, unknown>]> = [
+      ["phone.ios_info", { udid }],
+      ["phone.ios_list_files", { udid }],
+      ["phone.ios_pull_file", { src: "/DCIM/IMG_0001.JPG", udid }],
+      ["phone.ios_screenshot", { udid }],
+      ["phone.ios_apps", { udid }],
+      ["phone.ios_paste", { udid }],
+      ["phone.ios_copy", { text: "hello", udid }],
+      ["phone.ios_launch", { bundleId: "com.apple.mobilesafari", udid }],
+      ["phone.ios_button", { button: "lock", udid }],
+      ["phone.ios_push_file", { path: "report.pdf", udid }],
+    ];
+    for (const [name, args] of samples) {
+      assert.ok(getActionDef(name)!.schema.safeParse(args).success, name);
+    }
+    assert.ok(getActionDef("phone.ios_list")!.schema.safeParse({}).success);
   });
 
   it("no def is an exec/shell/eval backdoor", () => {

@@ -42,6 +42,13 @@ describe("recovery hints (failure shape, never goal text)", () => {
     assert.ok((recoveryHintFor("interact", "browser.click error: ref e12 not found") ?? "").includes("Re-observe"));
   });
 
+  it("maps iPhone pairing and Developer Mode failures to setup steps", () => {
+    assert.equal(recoveryHintCode("read", "No iPhone found. Pair the iPhone with this Mac"), "phone_pairing");
+    assert.equal(recoveryHintCode("observe", "Tunnel startup timed out"), "phone_developer_mode");
+    assert.equal(recoveryHintCode("launch", "iPhone \"abc\" is not paired with this Mac"), "phone_pairing");
+    assert.ok((recoveryHintFor("observe", "Developer Mode is disabled on the phone") ?? "").includes("Developer Mode"));
+  });
+
   it("returns undefined when nothing matches", () => {
     assert.equal(recoveryHintFor("read", "some totally novel failure mode"), undefined);
     assert.equal(recoveryHintCode("read", "some totally novel failure mode"), undefined);

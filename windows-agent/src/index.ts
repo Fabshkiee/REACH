@@ -50,14 +50,28 @@ import {
 } from "./capabilities/index.js";
 import type { z } from "zod";
 import {
+  IosAppsSchema,
+  IosButtonSchema,
+  IosCopySchema,
   IosInfoSchema,
+  IosLaunchSchema,
   IosListFilesSchema,
   IosListSchema,
+  IosPasteSchema,
   IosPullFileSchema,
+  IosPushFileSchema,
+  IosScreenshotSchema,
+  iosApps,
+  iosButton,
+  iosCopy,
   iosInfo,
+  iosLaunch,
   iosList,
   iosListFiles,
+  iosPaste,
   iosPullFile,
+  iosPushFile,
+  iosScreenshot,
 } from "./capabilities/phone.js";
 
 const app = express();
@@ -145,6 +159,13 @@ const DISPATCH: Record<string, DispatchEntry> = {
   ios_info: { schema: IosInfoSchema, run: async (a) => ({ ...(await iosInfo(a as never)) }) },
   ios_list_files: { schema: IosListFilesSchema, run: async (a) => ({ ...(await iosListFiles(a as never)) }) },
   ios_pull_file: { schema: IosPullFileSchema, run: async (a) => ({ ...(await iosPullFile(a as never)) }) },
+  ios_screenshot: { schema: IosScreenshotSchema, run: async (a) => ({ ...(await iosScreenshot(a as never)) }) },
+  ios_apps: { schema: IosAppsSchema, run: async (a) => ({ ...(await iosApps(a as never)) }) },
+  ios_paste: { schema: IosPasteSchema, run: async (a) => ({ ...(await iosPaste(a as never)) }) },
+  ios_copy: { schema: IosCopySchema, run: async (a) => ({ ...(await iosCopy(a as never)) }) },
+  ios_launch: { schema: IosLaunchSchema, run: async (a) => ({ ...(await iosLaunch(a as never)) }) },
+  ios_button: { schema: IosButtonSchema, run: async (a) => ({ ...(await iosButton(a as never)) }) },
+  ios_push_file: { schema: IosPushFileSchema, run: async (a) => ({ ...(await iosPushFile(a as never)) }) },
 };
 
 async function runCapability(capability: string, args: unknown): Promise<{ status: number; body: unknown }> {

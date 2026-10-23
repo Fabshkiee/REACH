@@ -37,6 +37,16 @@ const HINTS: Array<{ code: string; when: (actionClass: string, error: string) =>
     hint: "A timeout never proves the action did not happen. Inspect current state (files.verify / browser.observe) before any retry.",
   },
   {
+    code: "phone_pairing",
+    when: (_cls, err) => /No iPhone found|Several iPhones are paired|is not paired with this Mac/i.test(err),
+    hint: "Phone discovery failed or was ambiguous. Run phone.ios_list to see paired UDIDs and pass the exact udid; if the list is empty, ask the user to pair the iPhone with the Mac, unlock it, and keep it on the same network.",
+  },
+  {
+    code: "phone_developer_mode",
+    when: (_cls, err) => /Developer Mode|coredevice|CoreDevice|tunnel/i.test(err),
+    hint: "The iPhone bridge needs Developer Mode enabled on the phone (Settings → Privacy & Security → Developer Mode), the phone unlocked, and a reachable tunnel. Ask the user to enable it, then retry once — do not keep retrying.",
+  },
+  {
     code: "page_rejected",
     when: (cls, err) =>
       (cls === "interact" || err.includes("browser.")) &&

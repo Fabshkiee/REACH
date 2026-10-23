@@ -11,6 +11,30 @@ describe("agent capability advertisement", () => {
     assert.ok(!isAllowed("run_command"));
   });
 
+  it("hides iOS capabilities unless this is a Mac with pymobiledevice3", () => {
+    const iosCaps = [
+      "ios_list",
+      "ios_info",
+      "ios_list_files",
+      "ios_pull_file",
+      "ios_screenshot",
+      "ios_apps",
+      "ios_paste",
+      "ios_copy",
+      "ios_launch",
+      "ios_button",
+      "ios_push_file",
+    ];
+    const macWithTool = advertisedCapabilities({ platform: "darwin", hasTool: () => true });
+    for (const cap of iosCaps) assert.ok(macWithTool.includes(cap as never), cap);
+
+    const macWithoutTool = advertisedCapabilities({ platform: "darwin", hasTool: () => false });
+    for (const cap of iosCaps) assert.ok(!macWithoutTool.includes(cap as never), cap);
+
+    const linuxWithTool = advertisedCapabilities({ platform: "linux", hasTool: () => true });
+    for (const cap of iosCaps) assert.ok(!linuxWithTool.includes(cap as never), cap);
+  });
+
   it("advertises only what this host can actually run", () => {
     const advertised = advertisedCapabilities();
     const windowsOnly = ["inspect_windows", "focus_window", "type_text", "send_hotkey", "set_clipboard", "get_clipboard"];
