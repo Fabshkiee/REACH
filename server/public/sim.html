@@ -9,34 +9,39 @@
 <style>
   /* ==========================================================================
      REACH console
-     One idea: your words travel outward and land on a device, with every step
-     visible. Calm surfaces, one accent, motion only where something is happening.
+     One idea: a voice turns into work you can watch. A living aurora core holds
+     the attention; every handoff lands in the evidence rail beside it.
      ========================================================================== */
   :root {
     color-scheme: light;
-    --bg: #f5f5f7;
+    --bg: #f2f6ff;
     --surface: #ffffff;
-    --sunken: #efeff3;
-    --ink: #111114;
+    --sunken: #e8eefb;
+    --ink: #0b1220;
     --on-ink: #ffffff;
-    --ink-2: rgba(17, 17, 20, .64);
-    --ink-3: rgba(17, 17, 20, .42);
-    --line: rgba(17, 17, 20, .085);
-    --line-2: rgba(17, 17, 20, .16);
-    --accent: #2f55f4;
-    --accent-soft: rgba(47, 85, 244, .09);
-    --accent-line: rgba(47, 85, 244, .38);
-    --ok: #12985a;
-    --ok-soft: rgba(18, 152, 90, .11);
-    --warn: #b87100;
-    --warn-soft: rgba(224, 142, 0, .13);
-    --bad: #d23a2f;
-    --bad-soft: rgba(210, 58, 47, .1);
-    --scrim: rgba(245, 245, 247, .58);
-    --phone-bg: linear-gradient(170deg, #eef0f9, #dde2f3);
-    --shadow-1: 0 1px 2px rgba(17, 17, 20, .04), 0 1px 1px rgba(17, 17, 20, .03);
-    --shadow-2: 0 1px 2px rgba(17, 17, 20, .05), 0 12px 32px -14px rgba(17, 17, 20, .16);
-    --shadow-3: 0 2px 6px rgba(17, 17, 20, .06), 0 36px 90px -24px rgba(17, 17, 20, .32);
+    --ink-2: rgba(11, 18, 32, .66);
+    --ink-3: rgba(11, 18, 32, .43);
+    --line: rgba(18, 38, 70, .10);
+    --line-2: rgba(18, 38, 70, .18);
+    --accent: #1f6fff;
+    --accent-soft: rgba(31, 111, 255, .10);
+    --accent-line: rgba(31, 111, 255, .38);
+    --ok: #0b8f66;
+    --ok-soft: rgba(11, 143, 102, .11);
+    --warn: #a76400;
+    --warn-soft: rgba(199, 126, 0, .13);
+    --bad: #c9364a;
+    --bad-soft: rgba(201, 54, 74, .10);
+    --scrim: rgba(242, 246, 255, .62);
+    --phone-bg: linear-gradient(170deg, #eef4ff, #dce8ff);
+    --aura-1: #48dcff;
+    --aura-2: #2f7bff;
+    --aura-3: #8b5cff;
+    --aura-4: #ff72c8;
+    --aura-warm: #ffb45c;
+    --shadow-1: 0 1px 2px rgba(15, 36, 70, .05), 0 1px 1px rgba(15, 36, 70, .03);
+    --shadow-2: 0 1px 2px rgba(15, 36, 70, .06), 0 14px 36px -16px rgba(15, 36, 70, .20);
+    --shadow-3: 0 2px 6px rgba(15, 36, 70, .07), 0 40px 100px -28px rgba(15, 36, 70, .34);
     --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
     --ease: cubic-bezier(.22, .8, .24, 1);
@@ -46,36 +51,36 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #0b0b0e; --surface: #141418; --sunken: #1b1b21;
-      --ink: #f4f4f6; --on-ink: #0b0b0e;
-      --ink-2: rgba(244, 244, 246, .66); --ink-3: rgba(244, 244, 246, .42);
-      --line: rgba(255, 255, 255, .075); --line-2: rgba(255, 255, 255, .15);
-      --accent: #8196ff; --accent-soft: rgba(129, 150, 255, .13); --accent-line: rgba(129, 150, 255, .42);
-      --ok: #3ddc8e; --ok-soft: rgba(61, 220, 142, .12);
-      --warn: #ffb340; --warn-soft: rgba(255, 179, 64, .13);
-      --bad: #ff6b61; --bad-soft: rgba(255, 107, 97, .13);
-      --scrim: rgba(6, 6, 9, .58);
-      --phone-bg: linear-gradient(170deg, #1d2030, #12131b);
-      --shadow-1: 0 1px 2px rgba(0, 0, 0, .3);
-      --shadow-2: 0 1px 2px rgba(0, 0, 0, .3), 0 14px 34px -14px rgba(0, 0, 0, .6);
-      --shadow-3: 0 2px 6px rgba(0, 0, 0, .4), 0 40px 90px -24px rgba(0, 0, 0, .8);
+      --bg: #070b13; --surface: #0e1520; --sunken: #131c2a;
+      --ink: #eef5ff; --on-ink: #070b13;
+      --ink-2: rgba(224, 238, 255, .68); --ink-3: rgba(200, 220, 245, .44);
+      --line: rgba(160, 200, 255, .10); --line-2: rgba(170, 210, 255, .18);
+      --accent: #5aa8ff; --accent-soft: rgba(90, 168, 255, .13); --accent-line: rgba(90, 168, 255, .44);
+      --ok: #55e6b8; --ok-soft: rgba(85, 230, 184, .12);
+      --warn: #ffb45c; --warn-soft: rgba(255, 180, 92, .13);
+      --bad: #ff7b7b; --bad-soft: rgba(255, 123, 123, .12);
+      --scrim: rgba(4, 8, 16, .64);
+      --phone-bg: linear-gradient(170deg, #101c2e, #0a111c);
+      --shadow-1: 0 1px 2px rgba(0, 0, 0, .32);
+      --shadow-2: 0 1px 2px rgba(0, 0, 0, .32), 0 16px 38px -16px rgba(0, 0, 0, .64);
+      --shadow-3: 0 2px 6px rgba(0, 0, 0, .42), 0 40px 100px -28px rgba(0, 0, 0, .86);
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #0b0b0e; --surface: #141418; --sunken: #1b1b21;
-    --ink: #f4f4f6; --on-ink: #0b0b0e;
-    --ink-2: rgba(244, 244, 246, .66); --ink-3: rgba(244, 244, 246, .42);
-    --line: rgba(255, 255, 255, .075); --line-2: rgba(255, 255, 255, .15);
-    --accent: #8196ff; --accent-soft: rgba(129, 150, 255, .13); --accent-line: rgba(129, 150, 255, .42);
-    --ok: #3ddc8e; --ok-soft: rgba(61, 220, 142, .12);
-    --warn: #ffb340; --warn-soft: rgba(255, 179, 64, .13);
-    --bad: #ff6b61; --bad-soft: rgba(255, 107, 97, .13);
-    --scrim: rgba(6, 6, 9, .58);
-    --phone-bg: linear-gradient(170deg, #1d2030, #12131b);
-    --shadow-1: 0 1px 2px rgba(0, 0, 0, .3);
-    --shadow-2: 0 1px 2px rgba(0, 0, 0, .3), 0 14px 34px -14px rgba(0, 0, 0, .6);
-    --shadow-3: 0 2px 6px rgba(0, 0, 0, .4), 0 40px 90px -24px rgba(0, 0, 0, .8);
+    --bg: #070b13; --surface: #0e1520; --sunken: #131c2a;
+    --ink: #eef5ff; --on-ink: #070b13;
+    --ink-2: rgba(224, 238, 255, .68); --ink-3: rgba(200, 220, 245, .44);
+    --line: rgba(160, 200, 255, .10); --line-2: rgba(170, 210, 255, .18);
+    --accent: #5aa8ff; --accent-soft: rgba(90, 168, 255, .13); --accent-line: rgba(90, 168, 255, .44);
+    --ok: #55e6b8; --ok-soft: rgba(85, 230, 184, .12);
+    --warn: #ffb45c; --warn-soft: rgba(255, 180, 92, .13);
+    --bad: #ff7b7b; --bad-soft: rgba(255, 123, 123, .12);
+    --scrim: rgba(4, 8, 16, .64);
+    --phone-bg: linear-gradient(170deg, #101c2e, #0a111c);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .32);
+    --shadow-2: 0 1px 2px rgba(0, 0, 0, .32), 0 16px 38px -16px rgba(0, 0, 0, .64);
+    --shadow-3: 0 2px 6px rgba(0, 0, 0, .42), 0 40px 100px -28px rgba(0, 0, 0, .86);
   }
 
   /* ---------- Base ---------- */
@@ -102,7 +107,7 @@
   .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); } .dot.off { background: var(--line-2); }
 
   /* ---------- Frame ---------- */
-  .app { height: 100dvh; display: grid; grid-template-rows: 56px minmax(0, 1fr); }
+  .app { height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 56px minmax(0, 1fr); }
   .bar { border-bottom: 1px solid var(--line); }
   .bar .wrap { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 700; letter-spacing: .18em; }
@@ -123,35 +128,125 @@
   .main { min-height: 0; }
   .main .wrap { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 328px; gap: 56px; }
 
-  /* ---------- Left: conversation ---------- */
-  .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-  .thread { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 28px 6px 12px 0; margin-right: -6px; }
-  .flow { width: 100%; max-width: 640px; animation: rise .7s var(--ease) both; }
-  #deck[data-state="idle"] .flow { margin-block: auto; }
+  /* ---------- Left: voice stage ---------- */
+  .pane { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; isolation: isolate; }
+  .ambient { position: absolute; z-index: -1; inset: -14% -8% -8% -16%; pointer-events: none; opacity: .62; filter: blur(8px); background:
+    radial-gradient(44% 38% at 38% 30%, rgba(72, 220, 255, .16), transparent 72%),
+    radial-gradient(42% 36% at 64% 54%, rgba(139, 92, 255, .14), transparent 74%),
+    radial-gradient(36% 32% at 48% 72%, rgba(255, 114, 200, .09), transparent 76%);
+    transition: opacity .7s var(--ease), transform .9s var(--ease); }
+  :root[data-theme="dark"] .ambient, :root:not([data-theme="light"]) .ambient { opacity: .9; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .ambient { opacity: .62; } }
+  #deck[data-voice="listening"] .ambient { opacity: 1; transform: scale(1.04); background:
+    radial-gradient(44% 38% at 40% 34%, rgba(72, 220, 255, .25), transparent 72%),
+    radial-gradient(42% 36% at 64% 58%, rgba(47, 123, 255, .18), transparent 74%),
+    radial-gradient(36% 32% at 48% 70%, rgba(139, 92, 255, .12), transparent 76%); }
+  #deck[data-voice="thinking"] .ambient { opacity: 1; transform: scale(1.05); background:
+    radial-gradient(44% 38% at 42% 36%, rgba(47, 123, 255, .21), transparent 72%),
+    radial-gradient(42% 36% at 62% 56%, rgba(139, 92, 255, .22), transparent 74%),
+    radial-gradient(36% 32% at 52% 70%, rgba(255, 114, 200, .12), transparent 76%); }
+  #deck[data-voice="waiting"] .ambient { background:
+    radial-gradient(44% 38% at 42% 34%, rgba(255, 180, 92, .20), transparent 72%),
+    radial-gradient(42% 36% at 62% 58%, rgba(255, 114, 200, .10), transparent 74%); }
+  #deck[data-voice="done"] .ambient { background:
+    radial-gradient(44% 38% at 40% 34%, rgba(85, 230, 184, .18), transparent 72%),
+    radial-gradient(42% 36% at 62% 58%, rgba(72, 220, 255, .18), transparent 74%); }
+  #deck[data-voice="error"] .ambient { opacity: .55; background:
+    radial-gradient(44% 38% at 42% 36%, rgba(255, 123, 123, .14), transparent 72%),
+    radial-gradient(42% 36% at 62% 58%, rgba(90, 107, 140, .14), transparent 74%); }
 
-  .utter { display: inline-flex; align-items: center; gap: 9px; max-width: 100%; margin: 0 0 22px; padding: 7px 15px 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-1); color: var(--ink-2); font-size: 13px; animation: rise .5s var(--ease) both; }
-  .utter .ic { flex: none; font-size: 14px; color: var(--ink-3); }
-  .utter span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .thread { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 16px 6px 10px 0; margin-right: -6px; scrollbar-gutter: stable; }
+  #deck[data-state="idle"] .thread { overflow: hidden; }
+  .stage { width: 100%; max-width: 676px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #deck[data-state="idle"] .stage { margin-block: auto; }
 
-  .eyebrow { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
-  .state-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--ink-3); transition: background .3s var(--ease); }
-  .eyebrow-meta { color: var(--ink-3); font-weight: 500; }
+  .voice-stage { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 4px 8px 0; text-align: center; animation: rise .8s var(--ease) both; transition: gap .5s var(--ease); }
+  #deck:not([data-state="idle"]) .voice-stage { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 22px; padding: 0 2px; text-align: left; animation: none; }
+
+  .orb-wrap { position: relative; width: clamp(260px, 38vh, 360px); aspect-ratio: 1; flex: none; display: grid; place-items: center; transition: width .72s var(--ease), filter .5s var(--ease); }
+  #deck:not([data-state="idle"]) .orb-wrap { width: 104px; }
+  .orb-glow { position: absolute; inset: -16%; border-radius: 50%; pointer-events: none; background:
+    radial-gradient(circle at 38% 32%, rgba(72, 220, 255, .55), transparent 54%),
+    radial-gradient(circle at 68% 62%, rgba(139, 92, 255, .42), transparent 60%),
+    radial-gradient(circle at 44% 74%, rgba(255, 114, 200, .28), transparent 62%);
+    filter: blur(28px); opacity: .64; transform: scale(calc(.94 + .08 * var(--orb-level, 0))); transition: opacity .6s var(--ease), transform .5s var(--ease), background .6s; }
+  #deck:not([data-state="idle"]) .orb-glow { filter: blur(16px); opacity: .52; }
+  #deck[data-voice="waiting"] .orb-glow { background:
+    radial-gradient(circle at 38% 32%, rgba(255, 210, 140, .52), transparent 54%),
+    radial-gradient(circle at 68% 62%, rgba(255, 140, 92, .38), transparent 60%),
+    radial-gradient(circle at 44% 74%, rgba(255, 114, 200, .22), transparent 62%); }
+  #deck[data-voice="done"] .orb-glow { background:
+    radial-gradient(circle at 38% 32%, rgba(125, 255, 212, .50), transparent 54%),
+    radial-gradient(circle at 68% 62%, rgba(72, 220, 255, .40), transparent 60%),
+    radial-gradient(circle at 44% 74%, rgba(47, 123, 255, .26), transparent 62%); }
+  #deck[data-voice="error"] .orb-glow { opacity: .32; background:
+    radial-gradient(circle at 38% 32%, rgba(255, 138, 138, .38), transparent 54%),
+    radial-gradient(circle at 68% 62%, rgba(90, 107, 140, .32), transparent 60%); }
+
+  .orb-canvas { position: absolute; inset: 5%; width: 90%; height: 90%; display: block; border-radius: 50%; }
+  .orb-fallback { position: absolute; inset: 12%; display: none; border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%; background:
+    radial-gradient(circle at 35% 30%, var(--aura-1), transparent 42%),
+    radial-gradient(circle at 68% 38%, var(--aura-2), transparent 56%),
+    radial-gradient(circle at 52% 74%, var(--aura-3), transparent 58%),
+    radial-gradient(circle at 30% 72%, var(--aura-4), transparent 52%);
+    filter: blur(2px) saturate(1.15); box-shadow: inset 0 0 40px rgba(255,255,255,.14), 0 0 90px rgba(47,123,255,.35); animation: blob 9s var(--ease-io) infinite alternate; }
+  .orb-wrap.no-webgl .orb-canvas { display: none; }
+  .orb-wrap.no-webgl .orb-fallback { display: block; }
+  .orb-orbit { position: absolute; inset: -1%; border: 1px solid var(--line-2); border-radius: 50%; pointer-events: none; opacity: .45; transform: rotate(-17deg) scaleY(.74); transition: opacity .5s, border-color .5s; }
+  .orb-orbit::after { content: ""; position: absolute; top: 50%; left: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--aura-1); box-shadow: 0 0 10px var(--aura-1); transform: translateY(-50%); }
+  #deck[data-voice="listening"] .orb-orbit { border-color: var(--accent-line); opacity: .8; animation: orbit 7s linear infinite; }
+  #deck[data-voice="thinking"] .orb-orbit { opacity: .7; animation: orbit 3.4s linear infinite; }
+  #deck[data-voice="speaking"] .orb-orbit { opacity: .8; animation: orbit 4.2s linear infinite reverse; }
+  #deck[data-voice="waiting"] .orb-orbit { border-color: rgba(255, 180, 92, .5); opacity: .7; }
+  #deck[data-voice="done"] .orb-orbit { border-color: var(--ok); opacity: .55; }
+  #deck[data-voice="error"] .orb-orbit { border-color: var(--bad); opacity: .4; }
+  #deck:not([data-state="idle"]) .orb-orbit { opacity: .25; }
+  .orb-hit { position: absolute; z-index: 3; inset: 0; border-radius: 50%; }
+  .orb-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: 10px; }
+
+  .voice-copy { min-width: 0; max-width: 600px; }
+  #deck:not([data-state="idle"]) .voice-copy { max-width: none; }
+
+  .title { margin: 0; color: var(--ink); font-size: 42px; line-height: 1.08; font-weight: 560; letter-spacing: -.036em; text-wrap: balance; overflow-wrap: anywhere; }
+  .title[data-size="m"] { font-size: 32px; line-height: 1.14; letter-spacing: -.03em; }
+  .title[data-size="s"] { font-size: 25px; line-height: 1.22; letter-spacing: -.022em; }
+  .title[data-size="xs"] { font-size: 19px; line-height: 1.4; letter-spacing: -.01em; font-weight: 560; text-wrap: pretty; }
+  #deck[data-state="idle"] .title { font-size: clamp(36px, 5.2vh, 48px); font-weight: 540; }
+  #deck:not([data-state="idle"]) .title { font-size: 30px; line-height: 1.18; letter-spacing: -.03em; font-weight: 570; }
+  #deck:not([data-state="idle"]) .title[data-size="s"] { font-size: 24px; }
+  #deck:not([data-state="idle"]) .title[data-size="xs"] { font-size: 18px; line-height: 1.42; font-weight: 560; }
+  .title code { padding: .12em .38em; border-radius: .38em; background: var(--sunken); font: 500 .8em/1 var(--mono); letter-spacing: 0; word-break: break-all; }
+  .lede { margin: 13px 0 0; max-width: 54ch; color: var(--ink-2); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
+  #deck[data-state="idle"] .lede { margin-inline: auto; max-width: 44ch; font-size: 15.5px; }
+  .lede code { padding: .1em .35em; border-radius: .35em; background: var(--sunken); font: 12.5px var(--mono); }
+  .swap { animation: swap .55s var(--ease) both; }
+
+  .statusline { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 16px 0 0; color: var(--ink-3); font-size: 12.5px; font-weight: 580; }
+  #deck:not([data-state="idle"]) .statusline { justify-content: flex-start; margin-top: 13px; }
+  .state-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--ink-3); transition: background .3s var(--ease); }
+  .status-meta { color: var(--ink-3); font-weight: 500; }
   [data-look="busy"] .state-dot { background: var(--accent); animation: pulse 1.4s var(--ease-io) infinite; }
   [data-look="ok"] .state-dot { background: var(--ok); }
   [data-look="gate"] .state-dot, [data-look="input"] .state-dot, [data-look="warn"] .state-dot { background: var(--warn); animation: pulse 1.6s var(--ease-io) infinite; }
   [data-look="warn"] .state-dot { animation: none; }
   [data-look="bad"] .state-dot { background: var(--bad); }
 
-  .title { margin: 0; color: var(--ink); font-size: 42px; line-height: 1.08; font-weight: 620; letter-spacing: -.036em; text-wrap: balance; overflow-wrap: anywhere; }
-  .title[data-size="m"] { font-size: 32px; line-height: 1.14; letter-spacing: -.03em; }
-  .title[data-size="s"] { font-size: 25px; line-height: 1.22; letter-spacing: -.022em; }
-  .title[data-size="xs"] { font-size: 19px; line-height: 1.4; letter-spacing: -.01em; font-weight: 600; text-wrap: pretty; }
-  .title code { padding: .12em .38em; border-radius: .38em; background: var(--sunken); font: 500 .8em/1 var(--mono); letter-spacing: 0; word-break: break-all; }
-  .lede { margin: 14px 0 0; max-width: 54ch; color: var(--ink-2); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
-  .lede code { padding: .1em .35em; border-radius: .35em; background: var(--sunken); font: 12.5px var(--mono); }
-  .swap { animation: swap .55s var(--ease) both; }
+  .utter { display: flex; align-items: center; justify-content: center; gap: 7px; max-width: 100%; margin: 14px 0 0; color: var(--ink-3); font-size: 12.5px; animation: rise .45s var(--ease) both; }
+  #deck:not([data-state="idle"]) .utter { justify-content: flex-start; }
+  .utter .ic { flex: none; font-size: 13px; }
+  .utter span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .voice-live { min-height: 0; margin: 12px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+  .voice-live:empty { display: none; }
+  .voice-meter { display: none; align-items: center; justify-content: center; gap: 4px; height: 24px; margin-top: 12px; }
+  #deck[data-voice="listening"] .voice-meter { display: flex; }
+  #deck[data-voice="listening"] .voice-copy { padding-bottom: 2px; }
+  .voice-meter i { width: 3px; height: 7px; border-radius: 2px; background: var(--accent); animation: bar 1s var(--ease-io) infinite; }
+  .voice-meter i:nth-child(2) { animation-delay: .1s; } .voice-meter i:nth-child(3) { animation-delay: .2s; } .voice-meter i:nth-child(4) { animation-delay: .3s; } .voice-meter i:nth-child(5) { animation-delay: .4s; } .voice-meter i:nth-child(6) { animation-delay: .5s; } .voice-meter i:nth-child(7) { animation-delay: .6s; }
 
-  .result { display: flex; align-items: center; gap: 13px; margin-top: 24px; padding: 12px 12px 12px 12px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-2); animation: pop .55s var(--spring) both; }
+  .receipt { display: none; margin-top: 26px; animation: rise .5s var(--ease) both; }
+  #deck:not([data-state="idle"]) .receipt { display: block; }
+
+  .result { display: flex; align-items: center; gap: 13px; margin-top: 0; padding: 12px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); animation: pop .55s var(--spring) both; }
   .result-ic { width: 40px; height: 40px; flex: none; display: grid; place-items: center; overflow: hidden; border-radius: 12px; background: var(--ok-soft); color: var(--ok); font-size: 20px; }
   .result-ic.is-warn { background: var(--warn-soft); color: var(--warn); }
   .result-thumb { padding: 0; cursor: zoom-in; }
@@ -162,11 +257,11 @@
   .btn-quiet { height: 32px; padding: 0 14px; flex: none; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 12.5px; font-weight: 600; transition: border-color .16s, color .16s, background .16s; }
   .btn-quiet:hover { border-color: var(--ink-3); color: var(--ink); }
 
-  .track { list-style: none; margin: 30px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .track { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .seg { min-width: 0; }
-  .seg-bar { display: block; height: 3px; overflow: hidden; border-radius: 3px; background: var(--line); }
+  .seg-bar { display: block; height: 2px; overflow: hidden; border-radius: 2px; background: var(--line); }
   .seg-bar b { display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--ok); transform: scaleX(0); transform-origin: left; transition: transform .7s var(--ease), background-color .3s; }
-  .seg-label { display: flex; align-items: center; gap: 6px; margin-top: 9px; color: var(--ink-3); font-size: 12.5px; font-weight: 600; transition: color .3s; }
+  .seg-label { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--ink-3); font-size: 11.5px; font-weight: 600; transition: color .3s; }
   .seg-check { display: none; font-size: 12px; color: var(--ok); }
   .seg[data-state="done"] .seg-bar b { transform: scaleX(1); }
   .seg[data-state="done"] .seg-label { color: var(--ink-2); }
@@ -179,59 +274,85 @@
   .seg[data-state="bad"] .seg-bar b { transform: scaleX(1); background: var(--bad); }
   .seg[data-state="bad"] .seg-label { color: var(--bad); }
 
-  .plan { margin-top: 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
-  .plan summary { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; list-style: none; cursor: pointer; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+  .plan { margin-top: 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: transparent; }
+  .plan summary { display: flex; align-items: center; justify-content: space-between; padding: 11px 2px; list-style: none; cursor: pointer; color: var(--ink-2); font-size: 12.5px; font-weight: 600; }
   .plan summary::-webkit-details-marker { display: none; }
   .plan summary::after { content: ""; width: 7px; height: 7px; margin-right: 3px; border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3); transform: translateY(-2px) rotate(45deg); transition: transform .25s var(--ease); }
   .plan[open] summary::after { transform: translateY(1px) rotate(-135deg); }
-  .plan ol { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0 16px 13px 36px; color: var(--ink-2); font-size: 13px; }
+  .plan ol { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 2px 13px 22px; color: var(--ink-2); font-size: 12.5px; }
 
-  .steps { list-style: none; margin: 18px 0 0; padding: 0; }
-  .step { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: start; gap: 13px; padding: 14px 0; border-top: 1px solid var(--line); animation: rise .5s var(--ease) both; }
-  .s-ic { width: 24px; height: 24px; flex: none; display: grid; place-items: center; margin-top: 1px; border-radius: 50%; font-size: 13px; }
+  .steps { list-style: none; margin: 4px 0 0; padding: 0; }
+  .step { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); animation: rise .5s var(--ease) both; }
+  .step:first-child { border-top: 0; }
+  .s-ic { width: 22px; height: 22px; flex: none; display: grid; place-items: center; margin-top: 1px; border-radius: 50%; font-size: 12px; }
   .s-ic .ic { stroke-width: 2.2; }
   .s-ic .ic path { stroke-dasharray: 24; animation: draw .5s var(--ease) .05s backwards; }
   .step[data-state="done"] .s-ic { background: var(--ok-soft); color: var(--ok); }
   .step[data-state="wait"] .s-ic { background: var(--warn-soft); color: var(--warn); }
   .step[data-state="fail"] .s-ic { background: var(--bad-soft); color: var(--bad); }
-  .s-title { font-size: 14px; font-weight: 620; letter-spacing: -.01em; }
-  .s-sub { display: -webkit-box; margin-top: 1px; overflow: hidden; color: var(--ink-2); font-size: 13px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+  .s-title { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+  .s-sub { display: -webkit-box; margin-top: 1px; overflow: hidden; color: var(--ink-2); font-size: 12.5px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
   .s-sub:empty { display: none; }
-  .s-meta { padding-top: 3px; color: var(--ink-3); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .spin { width: 16px; height: 16px; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  .s-meta { padding-top: 2px; color: var(--ink-3); font-size: 11.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .spin { width: 15px; height: 15px; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
 
-  /* ---------- Dock: suggestions + composer ---------- */
-  .dock { flex: none; display: flex; flex-direction: column; gap: 12px; padding: 8px 0 22px; animation: rise .7s var(--ease) .08s both; }
-  .suggest { display: flex; flex-wrap: wrap; gap: 8px; transition: opacity .3s var(--ease); }
-  .pane.is-busy .suggest { opacity: 0; pointer-events: none; }
-  .chip { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px 0 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-1); color: var(--ink-2); font-size: 13px; font-weight: 500; transition: transform .2s var(--ease), box-shadow .2s var(--ease), border-color .2s, color .2s; }
-  .chip .ic { flex: none; font-size: 15px; color: var(--ink-3); transition: color .2s; }
-  .chip .ic.lock { margin-left: -2px; font-size: 12px; }
-  .chip:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--line-2); box-shadow: var(--shadow-2); color: var(--ink); }
+  /* ---------- Dock: voice bar ---------- */
+  .dock { flex: none; display: flex; flex-direction: column; gap: 9px; padding: 6px 0 max(18px, env(safe-area-inset-bottom)); animation: rise .7s var(--ease) .08s both; }
+  .suggest-label { margin: 0 0 0 4px; color: var(--ink-3); font-size: 11.5px; font-weight: 600; letter-spacing: .01em; }
+  .suggest { display: flex; flex-wrap: wrap; gap: 6px; transition: opacity .3s var(--ease); }
+  .pane.is-busy .suggest, .pane.is-busy .suggest-label { opacity: 0; pointer-events: none; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px 0 10px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 12.5px; font-weight: 500; transition: transform .2s var(--ease), border-color .2s, color .2s, background .2s; }
+  .chip .ic { flex: none; font-size: 14px; color: var(--ink-3); transition: color .2s; }
+  .chip .ic.lock { margin-left: -2px; font-size: 11px; }
+  .chip:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--line-2); background: var(--sunken); color: var(--ink); }
   .chip:hover:not(:disabled) .ic:first-child { color: var(--accent); }
-  .composer { display: flex; align-items: center; gap: 6px; height: 58px; padding: 6px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-2); transition: border-color .2s var(--ease), box-shadow .2s var(--ease); }
-  .composer:focus-within { border-color: var(--accent); box-shadow: var(--shadow-2), 0 0 0 4px var(--accent-soft); }
-  .mic { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--sunken); color: var(--ink-2); font-size: 19px; transition: background .2s var(--ease), color .2s var(--ease), transform .2s var(--ease); }
-  .mic:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
-  .mic:disabled { opacity: .45; }
-  .composer.is-listening .mic { background: var(--accent); color: #fff; animation: ring 1.4s ease-out infinite; }
-  .field { position: relative; flex: 1; min-width: 0; height: 100%; }
-  .command-input { position: absolute; inset: 0; width: 100%; padding: 0 8px; border: 0; background: transparent; caret-color: var(--accent); font-size: 15.5px; letter-spacing: -.01em; }
+  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .voicebar { position: relative; display: flex; align-items: center; gap: 7px; min-height: 64px; padding: 7px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-2); transition: border-color .2s var(--ease), box-shadow .2s var(--ease); }
+  .voicebar:focus-within { border-color: var(--accent); box-shadow: var(--shadow-2), 0 0 0 4px var(--accent-soft); }
+  .voicebar.is-listening { border-color: var(--accent-line); box-shadow: var(--shadow-2), 0 0 0 4px var(--accent-soft); }
+  .mic { position: relative; width: 50px; height: 50px; flex: none; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 34% 28%, var(--aura-1), var(--aura-2) 54%, var(--aura-3) 100%); color: #fff; font-size: 19px; box-shadow: 0 6px 18px -6px rgba(47, 123, 255, .65), inset 0 1px 0 rgba(255, 255, 255, .35); transition: transform .2s var(--ease), box-shadow .2s var(--ease), filter .2s; }
+  .mic:hover:not(:disabled) { transform: scale(1.04); filter: saturate(1.12); }
+  .mic:active:not(:disabled) { transform: scale(.97); }
+  .mic:disabled { opacity: .4; filter: grayscale(.35); }
+  .mic::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 1px solid transparent; transition: border-color .3s; }
+  .voicebar.is-listening .mic::after { border-color: var(--accent-line); animation: ring 1.6s var(--ease-io) infinite; }
+  .voicebar.is-muted .mic { filter: grayscale(.7); opacity: .62; box-shadow: none; }
+  .voice-center { flex: 1; min-width: 0; display: flex; align-items: center; gap: 13px; padding: 0 7px; }
+  .wave { display: flex; align-items: center; gap: 3px; height: 24px; flex: none; }
+  .wave i { width: 3px; height: 5px; border-radius: 2px; background: var(--accent); opacity: .55; transform-origin: center; animation: breath 3.6s var(--ease-io) infinite; }
+  .wave i:nth-child(2) { animation-delay: .18s; } .wave i:nth-child(3) { animation-delay: .36s; } .wave i:nth-child(4) { animation-delay: .54s; } .wave i:nth-child(5) { animation-delay: .72s; } .wave i:nth-child(6) { animation-delay: .9s; }
+  #deck[data-voice="listening"] .wave i, #deck[data-voice="speaking"] .wave i { animation: bar .9s var(--ease-io) infinite; }
+  #deck[data-voice="thinking"] .wave i { animation: bar 1.4s var(--ease-io) infinite; opacity: .45; }
+  #deck[data-voice="waiting"] .wave i { background: var(--warn); animation: none; opacity: .55; }
+  #deck[data-voice="done"] .wave i { background: var(--ok); animation: none; opacity: .6; }
+  #deck[data-voice="error"] .wave i { background: var(--bad); animation: none; opacity: .5; }
+  .voice-copyline { min-width: 0; }
+  .voice-status { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .voice-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; color: var(--ink-3); font-size: 11.5px; }
+  .voice-tools { display: flex; align-items: center; gap: 2px; flex: none; padding-right: 2px; }
+  .tool-btn { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: var(--ink-2); font-size: 17px; transition: background .16s, color .16s; }
+  .tool-btn:hover:not(:disabled) { background: var(--sunken); color: var(--ink); }
+  .tool-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+  .tool-btn.text { width: auto; padding: 0 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .tool-btn:disabled { opacity: .4; }
+  .wake-btn { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-3); font-size: 11.5px; font-weight: 600; transition: color .16s, border-color .16s, background .16s; }
+  .wake-btn .dot { width: 5px; height: 5px; }
+  .wake-btn[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
+  .wake-btn[aria-pressed="true"] .dot { background: var(--accent); }
+  .wake-btn:hover { border-color: var(--line-2); color: var(--ink); }
+  .type-field { display: none; flex: 1; min-width: 0; align-items: center; gap: 6px; padding-left: 4px; }
+  .voicebar.is-typing .voice-center { display: none; }
+  .voicebar.is-typing .type-field { display: flex; }
+  .command-input { flex: 1; min-width: 0; height: 44px; padding: 0 10px; border: 0; background: transparent; caret-color: var(--accent); font-size: 15px; letter-spacing: -.01em; }
   .command-input::placeholder { color: var(--ink-3); }
   .command-input:focus { outline: none; }
   .command-input:disabled { opacity: .55; }
-  .listen { position: absolute; inset: 0; display: none; align-items: center; gap: 12px; padding: 0 8px; color: var(--ink-2); font-size: 15px; }
-  .composer.is-listening .listen { display: flex; }
-  .composer.is-listening .command-input { opacity: 0; }
-  .bars { display: flex; align-items: center; gap: 3px; height: 22px; }
-  .bars i { width: 3px; height: 6px; border-radius: 2px; background: var(--accent); animation: bar 1s var(--ease-io) infinite; }
-  .bars i:nth-child(2) { animation-delay: .12s; } .bars i:nth-child(3) { animation-delay: .24s; } .bars i:nth-child(4) { animation-delay: .36s; } .bars i:nth-child(5) { animation-delay: .48s; }
-  .run { height: 46px; flex: none; display: inline-flex; align-items: center; gap: 8px; padding: 0 20px 0 22px; border-radius: 999px; background: var(--ink); color: var(--on-ink); font-size: 14.5px; font-weight: 620; letter-spacing: -.01em; transition: transform .18s var(--ease), opacity .2s; }
-  .run .ic { font-size: 15px; stroke-width: 2.1; }
-  .run:hover:not(:disabled) { transform: translateY(-1px); }
-  .run:active:not(:disabled) { transform: scale(.98); }
-  .run:disabled { opacity: .26; }
-  .fine { margin: 0 0 0 6px; color: var(--ink-3); font-size: 12px; }
+  .send-btn { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: var(--on-ink); font-size: 16px; transition: transform .16s var(--ease), opacity .2s; }
+  .send-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .send-btn:disabled { opacity: .26; }
+  .fine { margin: 0 0 0 6px; color: var(--ink-3); font-size: 11.5px; line-height: 1.5; }
+  .fine b { color: var(--ink-2); font-weight: 600; }
 
   /* ---------- Right: devices ---------- */
   .rail { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; padding: 28px 0 24px; }
@@ -369,31 +490,56 @@
   @keyframes shimmer { to { opacity: .35; } }
   @keyframes bar { 0%, 100% { height: 6px; opacity: .55; } 50% { height: 20px; opacity: 1; } }
   @keyframes ring { 0% { box-shadow: 0 0 0 0 var(--accent-line); } 100% { box-shadow: 0 0 0 12px transparent; } }
+  @keyframes breath { 0%, 100% { height: 5px; opacity: .4; } 50% { height: 15px; opacity: .8; } }
+  @keyframes orbit { to { transform: rotate(343deg) scaleY(.74); } }
+  @keyframes blob { 0% { border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%; transform: rotate(0deg) scale(1); } 50% { border-radius: 54% 46% 44% 56% / 46% 54% 46% 54%; transform: rotate(8deg) scale(1.035); } 100% { border-radius: 48% 52% 56% 44% / 54% 44% 56% 46%; transform: rotate(-6deg) scale(.985); } }
 
   /* ---------- Responsive ---------- */
-  @media (max-width: 1060px) { .main .wrap { grid-template-columns: minmax(0, 1fr) 300px; gap: 36px; } .title { font-size: 38px; } }
+  @media (max-width: 1060px) { .main .wrap { grid-template-columns: minmax(0, 1fr) 300px; gap: 36px; } }
   @media (max-width: 980px) {
-    body { overflow: auto; }
+    body { overflow-x: hidden; overflow-y: auto; }
     .app { height: auto; min-height: 100dvh; grid-template-rows: 56px auto; }
     .main .wrap { display: flex; flex-direction: column; height: auto; gap: 0; }
-    .pane { display: contents; }
-    .thread { order: 1; flex: none; overflow: visible; padding: 28px 0 8px; margin: 0; }
-    #deck[data-state="idle"] .flow { margin-block: 0; padding-top: 10px; }
+    .pane { order: 1; min-height: calc(100dvh - 56px); }
+    .thread { order: 0; flex: none; overflow: visible; padding: 24px 0 8px; margin: 0; }
+    #deck[data-state="idle"] .stage { margin-block: 0; }
+    #deck[data-state="idle"] .thread { min-height: calc(100dvh - 56px); display: flex; }
+    .ambient { inset: 0 0 12% 0; }
     .rail { order: 2; overflow: visible; padding: 8px 0 24px; }
     .rail-in { margin-block: 0; }
-    .dock { position: sticky; z-index: 20; bottom: 0; order: 3; padding: 14px 0 max(16px, env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--bg) 30%); }
+    .dock { position: sticky; z-index: 20; bottom: 0; order: 1; padding: 14px 0 max(16px, env(safe-area-inset-bottom)); background: linear-gradient(to bottom, transparent, var(--bg) 32%); }
   }
   @media (max-width: 640px) {
     .wrap { padding: 0 18px; }
-    .title { font-size: 32px; } .title[data-size="m"] { font-size: 26px; } .title[data-size="s"] { font-size: 22px; }
+    #deck[data-state="idle"] .title { font-size: clamp(32px, 7vw, 40px); }
+    #deck:not([data-state="idle"]) .title { font-size: 26px; }
+    #deck:not([data-state="idle"]) .title[data-size="m"] { font-size: 24px; }
+    #deck:not([data-state="idle"]) .title[data-size="s"] { font-size: 21px; }
+    #deck:not([data-state="idle"]) .voice-stage { grid-template-columns: 76px minmax(0, 1fr); gap: 16px; }
+    #deck:not([data-state="idle"]) .orb-wrap { width: 76px; }
+    .orb-wrap { width: clamp(200px, 42vh, 268px); }
     .status { display: none; } .link { display: none; }
     .suggest { flex-wrap: nowrap; overflow-x: auto; margin: 0 -18px; padding: 2px 18px 6px; scrollbar-width: none; }
     .chip { flex: none; }
+    .voicebar { gap: 5px; padding: 6px; }
+    .voice-center { gap: 9px; padding: 0 3px; }
+    .voice-sub { display: none; }
+    .wake-btn { width: 34px; padding: 0; justify-content: center; }
+    .wake-label { display: none; }
+    .tool-btn.text { width: 38px; padding: 0; }
+    .type-label { display: none; }
+    .fine { margin-left: 4px; font-size: 11px; }
     .sheet { padding: 22px; }
   }
-  @media (max-height: 760px) and (min-width: 981px) { .log li:nth-child(3) { display: none; } .log { min-height: 40px; } .phone-frame { height: 184px; } }
+  @media (max-height: 760px) and (min-width: 981px) {
+    .log li:nth-child(3) { display: none; } .log { min-height: 40px; } .phone-frame { height: 184px; }
+    .orb-wrap { width: clamp(190px, 30vh, 260px); }
+    #deck:not([data-state="idle"]) .orb-wrap { width: 88px; }
+    #deck:not([data-state="idle"]) .voice-stage { grid-template-columns: 88px minmax(0, 1fr); }
+  }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    .orb-fallback { animation: none; }
   }
 </style>
 </head>
@@ -419,6 +565,9 @@
   <symbol id="i-code" viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/></symbol>
   <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9.5h3l4-3.2v11.4l-4-3.2H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+  <symbol id="i-speaker-off" viewBox="0 0 24 24"><path d="M4 9.5h3l4-3.2v11.4l-4-3.2H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="3" y="6.5" width="18" height="11" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M8 13.5h8"/></symbol>
 </svg>
 
 <div class="app" id="appShell">
@@ -444,54 +593,81 @@
 
   <main class="main" id="main">
     <div class="wrap">
-      <section class="pane" id="deck" data-state="idle" aria-label="REACH console">
+      <section class="pane" id="deck" data-state="idle" data-voice="idle" aria-label="REACH console">
+        <div class="ambient" aria-hidden="true"></div>
         <div class="thread" id="thread">
-          <div class="flow">
-            <p class="utter" id="utter" hidden><svg class="ic" aria-hidden="true"><use href="#i-mic"></use></svg><span id="utterText"></span></p>
-
-            <div id="narrative" data-look="idle" aria-live="polite">
-              <p class="eyebrow"><i class="state-dot" aria-hidden="true"></i><span id="narrativeKicker">Ready</span><span class="eyebrow-meta" id="narrativeMeta"></span></p>
-              <h1 class="title" id="narrativeTitle" data-size="l">Say what you want. Your devices make it happen.</h1>
-              <p class="lede" id="narrativeDetail">REACH plans it, asks before anything risky, and shows you every step.</p>
-            </div>
-
-            <div class="result" id="artifactChip" hidden>
-              <span class="result-ic" id="artifactIcon"><svg class="ic" aria-hidden="true"><use href="#i-file"></use></svg></span>
-              <div class="result-main">
-                <div class="result-name" id="artifactName"></div>
-                <div class="result-path" id="artifactPath"></div>
+          <div class="stage">
+            <div class="voice-stage">
+              <div class="orb-wrap" id="orbWrap">
+                <div class="orb-glow" aria-hidden="true"></div>
+                <div class="orb-orbit" aria-hidden="true"></div>
+                <canvas class="orb-canvas" id="orbCanvas" aria-hidden="true"></canvas>
+                <div class="orb-fallback" aria-hidden="true"></div>
+                <button class="orb-hit" id="orbHit" type="button" aria-label="Talk to REACH" title="Talk to REACH"></button>
               </div>
-              <button class="btn-quiet" type="button" id="artifactCopy">Copy path</button>
+              <div class="voice-copy">
+                <div id="narrative" data-look="idle" aria-live="polite">
+                  <h1 class="title" id="narrativeTitle" data-size="l">Say “Hey REACH”</h1>
+                  <p class="lede" id="narrativeDetail">or tap the orb. I’ll plan it, ask before anything risky, and show you the evidence.</p>
+                  <p class="voice-live" id="voiceLive" aria-hidden="true"></p>
+                  <p class="utter" id="utter" hidden><svg class="ic" aria-hidden="true"><use href="#i-mic"></use></svg><span id="utterText"></span></p>
+                  <p class="statusline"><i class="state-dot" aria-hidden="true"></i><span id="narrativeKicker">Ready</span><span class="status-meta" id="narrativeMeta"></span></p>
+                </div>
+                <div class="voice-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
             </div>
 
-            <ol class="track" id="pipelineRail" aria-label="Task progress" hidden>
-              <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Intent<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
-              <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Plan<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
-              <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Policy<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
-              <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Result<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
-            </ol>
+            <div class="receipt" id="receipt">
+              <div class="result" id="artifactChip" hidden>
+                <span class="result-ic" id="artifactIcon"><svg class="ic" aria-hidden="true"><use href="#i-file"></use></svg></span>
+                <div class="result-main">
+                  <div class="result-name" id="artifactName"></div>
+                  <div class="result-path" id="artifactPath"></div>
+                </div>
+                <button class="btn-quiet" type="button" id="artifactCopy">Copy path</button>
+              </div>
 
-            <details class="plan" id="planBox" hidden>
-              <summary><span id="planCount">Plan</span></summary>
-              <ol id="planList"></ol>
-            </details>
+              <ol class="track" id="pipelineRail" aria-label="Task progress" hidden>
+                <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Intent<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
+                <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Plan<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
+                <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Policy<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
+                <li class="seg" data-state="todo"><span class="seg-bar"><b></b></span><span class="seg-label">Result<svg class="ic seg-check" aria-hidden="true"><use href="#i-check"></use></svg></span></li>
+              </ol>
 
-            <ol class="steps" id="steps" aria-label="Steps taken" hidden></ol>
+              <details class="plan" id="planBox" hidden>
+                <summary><span id="planCount">Plan</span></summary>
+                <ol id="planList"></ol>
+              </details>
+
+              <ol class="steps" id="steps" aria-label="Steps taken" hidden></ol>
+            </div>
           </div>
         </div>
 
         <div class="dock">
+          <p class="suggest-label">Try saying</p>
           <div class="suggest" id="scenarioChips" aria-label="Suggested tasks"></div>
-          <form class="composer" id="ask" autocomplete="off">
-            <label class="vh" for="goal">Command</label>
-            <button class="mic" type="button" id="micBtn" title="Simulate a voice command" aria-label="Simulate a voice command"><svg class="ic" aria-hidden="true"><use href="#i-mic"></use></svg></button>
-            <div class="field">
-              <input class="command-input" id="goal" type="text" placeholder="Tell REACH what to do across your devices…" maxlength="2000" autocomplete="off">
-              <div class="listen" aria-hidden="true"><span class="bars"><i></i><i></i><i></i><i></i><i></i></span><span>Listening…</span></div>
+          <form class="voicebar" id="ask" autocomplete="off">
+            <button class="mic" type="button" id="micBtn" title="Talk to REACH" aria-label="Talk to REACH"><svg class="ic" aria-hidden="true"><use href="#i-mic"></use></svg></button>
+            <div class="voice-center">
+              <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="voice-copyline">
+                <span class="voice-status" id="voiceStatus">Tap to talk</span>
+                <span class="voice-sub" id="voiceSub">or say “Hey REACH”</span>
+              </div>
             </div>
-            <button class="run" id="sendBtn" type="submit" disabled><span>Run</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button>
+            <div class="type-field" id="typeField">
+              <label class="vh" for="goal">Command</label>
+              <input class="command-input" id="goal" type="text" placeholder="Tell REACH what to do across your devices…" maxlength="2000" autocomplete="off">
+              <button class="send-btn" id="sendBtn" type="submit" disabled aria-label="Run command" title="Run command"><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"></use></svg></button>
+            </div>
+            <div class="voice-tools">
+              <button class="wake-btn" id="wakeBtn" type="button" aria-pressed="false" title="Hands-free wake word" aria-label="Hands-free wake word"><span class="dot"></span><span class="wake-label">Wake word</span></button>
+              <button class="tool-btn" id="speakerBtn" type="button" aria-pressed="false" aria-label="Mute voice replies" title="Mute voice replies"><svg class="ic" aria-hidden="true"><use id="speakerUse" href="#i-speaker"></use></svg></button>
+              <button class="tool-btn text" id="typeBtn" type="button" aria-label="Type a command" title="Type a command"><svg class="ic" aria-hidden="true"><use href="#i-keyboard"></use></svg><span class="type-label">Type</span></button>
+            </div>
           </form>
-          <p class="fine">Simulated MCP client. Text stands in for voice; the planning and approvals are real.</p>
+          <p class="fine"><b>Simulated MCP client.</b> Mic and speech use your browser’s voice APIs. Planning and approvals are real. Click a phrase to hear the demo.</p>
         </div>
       </section>
 
@@ -583,7 +759,7 @@
   <div class="sheet" id="questionPanel" role="dialog" aria-modal="true" aria-labelledby="questionText" tabindex="-1">
     <div class="sheet-head">
       <span class="sheet-ic accent"><svg class="ic" aria-hidden="true"><use href="#i-spark"></use></svg></span>
-      <div><p class="sheet-kicker accent" id="questionCount">One question</p><h2 id="questionText"></h2></div>
+      <div><p class="sheet-kicker accent question-count" id="questionCount">One question</p><h2 id="questionText"></h2></div>
     </div>
     <div class="q-opts" id="questionOptions"></div>
     <form class="q-form" id="questionForm">
@@ -619,10 +795,20 @@ const state = {
   devices: [], tasks: [], stageTask: null, activeTaskId: null,
   busy: false, listening: false, coreOk: null, agentOk: null, payload: null,
   handledApprovals: new Set(), handledQuestions: new Set(),
-  voiceIndex: 0, answering: false, initialLoaded: false,
+  answering: false, initialLoaded: false,
   stepNodes: new Map(), stepsTaskId: null, phoneSig: '', logSig: '', planSig: '', artifactSig: '',
   gateTotal: 1, opener: null, drawerOpen: false,
 };
+
+const voice = {
+  supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+  rec: null, recognizing: false, want: false, handsFree: false,
+  listening: false, capturing: false, muted: false, speaking: false,
+  level: 0, meterStream: null, meterCtx: null, meterAnalyser: null, meterData: null,
+  meterRaf: 0, meterToken: 0, captureTimer: 0, restartTimer: 0,
+  speechToken: 0, speechTimer: 0, submitting: false, demo: 0, notice: '', noticeTimer: 0, heard: new Set(),
+};
+try { voice.muted = localStorage.getItem('reach-voice-muted') === '1'; } catch { /* storage may be blocked */ }
 
 const SCENARIOS = [
   { id: 'capture', icon: 'phone', label: 'Capture my iPhone screen', kind: 'screen',
@@ -785,6 +971,241 @@ function artifactInfo(uri) {
   return { name, where: isDir ? tildePath(clean).replace(/[\\/]+$/, '') : (dirOf(clean) || tildePath(clean)), icon: ic, isDir, full: clean };
 }
 function isRemoteImage(uri) { return !!uri && /^https?:/i.test(uri) && /\.(png|jpe?g|gif|webp)(?:\?|$)/i.test(uri); }
+
+/* ============================================================
+   Aurora core: one WebGL blob, with a CSS fallback.
+   ============================================================ */
+const orb = (() => {
+  const wrap = $('orbWrap');
+  const canvas = $('orbCanvas');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const PALETTE = {
+    idle: ['#5ee7ff', '#2f7bff', '#8b5cff'],
+    listening: ['#7cf7ff', '#3bb7ff', '#6e7bff'],
+    thinking: ['#4f8cff', '#8a5cff', '#ff79d8'],
+    speaking: ['#66e8ff', '#4c7bff', '#ff8ad8'],
+    waiting: ['#ffd08a', '#ff9f5c', '#ff7b7b'],
+    done: ['#7dffd4', '#35d6ff', '#4f8cff'],
+    error: ['#ff8a8a', '#c05cff', '#5a6b8c'],
+  };
+  const hex = (s) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
+  const colors = Object.fromEntries(Object.entries(PALETTE).map(([k, v]) => [k, v.map(hex)]));
+  let cur = colors.idle.slice();
+  let target = colors.idle.slice();
+  let mode = 'idle';
+  let mic = 0;
+  let gl = null, program = null, buffer = null, uniforms = {}, raf = 0, last = 0, level = 0.12;
+
+  const vert = `
+    attribute vec2 a;
+    void main() { gl_Position = vec4(a, 0.0, 1.0); }
+  `;
+  const frag = `
+    precision highp float;
+    uniform vec2 u_res;
+    uniform float u_time;
+    uniform float u_level;
+    uniform vec3 u_c1;
+    uniform vec3 u_c2;
+    uniform vec3 u_c3;
+
+    float hash(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+    float noise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      float a = hash(i), b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+    float fbm(vec2 p) {
+      float v = 0.0, a = 0.5;
+      mat2 r = mat2(0.8, 0.6, -0.6, 0.8);
+      for (int i = 0; i < 3; i++) { v += a * noise(p); p = r * p * 2.03; a *= 0.5; }
+      return v;
+    }
+    void main() {
+      vec2 p = (gl_FragCoord.xy * 2.0 - u_res) / min(u_res.x, u_res.y);
+      p.y = -p.y;
+      float t = u_time;
+      float lv = clamp(u_level, 0.0, 1.0);
+      vec2 q = p * (1.0 + 0.02 * sin(t * 0.6));
+      q.y *= 1.0 + 0.035 * sin(t * 0.42 + 0.6);
+      q.x *= 1.0 - 0.02 * sin(t * 0.42 + 0.6);
+      float warp = 0.08 + 0.08 * lv;
+      q += warp * vec2(
+        fbm(p * 2.2 + vec2(t * 0.17, -t * 0.13)),
+        fbm(p * 2.2 + vec2(-t * 0.11, t * 0.19) + 5.2)
+      );
+      vec2 c1 = vec2(sin(t * 0.31), cos(t * 0.27)) * 0.30;
+      vec2 c2 = vec2(sin(t * 0.23 + 2.1), cos(t * 0.31 + 1.2)) * 0.33;
+      vec2 c3 = vec2(sin(t * 0.37 + 4.2), cos(t * 0.29 + 3.1)) * 0.27;
+      vec2 c4 = vec2(sin(t * 0.19 + 1.4), cos(t * 0.41 + 5.2)) * 0.31;
+      float rr = 0.21 + lv * 0.04;
+      float f = rr / (dot(q - c1, q - c1) + 0.018);
+      f += (rr - 0.01) / (dot(q - c2, q - c2) + 0.018);
+      f += (rr - 0.02) / (dot(q - c3, q - c3) + 0.018);
+      f += (rr - 0.03) / (dot(q - c4, q - c4) + 0.018);
+      float ang0 = atan(q.y, q.x);
+      float lobe = 1.0 + 0.12 * sin(ang0 * 3.0 + t * 0.55) + 0.05 * sin(ang0 * 5.0 - t * 0.8) + 0.02 * sin(t * 0.9);
+      f *= lobe * (1.0 + lv * 0.22);
+      float body = smoothstep(1.66, 1.94, f);
+      float rim = exp(-pow((f - 1.84) / 0.22, 2.0));
+      float halo = smoothstep(0.40, 1.66, f) * (1.0 - body);
+      float flow = sin((p.x * 3.4 - p.y * 2.8) + t * 0.8 + 1.4 * sin(p.y * 3.0 + t * 0.37));
+      float flow2 = sin((p.x * 1.7 + p.y * 4.2) - t * 0.6 + 2.0 * sin(p.x * 2.2 - t * 0.5));
+      float band1 = sin((p.x + p.y) * 3.4 - t * 0.9 + 0.7 * sin(p.x * 2.4 - t * 0.4));
+      float band2 = sin((p.x * 2.2 - p.y * 1.8) + t * 1.1 + 0.9 * sin(p.y * 3.1 + t * 0.3));
+      float n1 = noise(p * 3.6 + vec2(t * 0.28, -t * 0.21));
+      float n2 = noise(p * 3.1 + vec2(-t * 0.19, t * 0.26) + 9.0);
+      float filament = smoothstep(0.48, 0.78, n1) * smoothstep(0.44, 0.76, n2);
+      vec3 col = mix(u_c1, u_c2, smoothstep(-0.65, 0.65, p.x * 0.9 + p.y * 0.45 + 0.2 * sin(t * 0.4)));
+      col = mix(col, u_c3, smoothstep(-0.2, 0.9, p.y * 0.9 - p.x * 0.25 + 0.2 * cos(t * 0.35)));
+      col = mix(col, mix(u_c3, u_c2, 0.5), smoothstep(0.15, 0.95, flow) * 0.32);
+      col = mix(col, mix(u_c1, u_c3, 0.45), smoothstep(0.35, 0.95, flow2) * 0.18);
+      col = mix(col, mix(u_c3, u_c1, 0.25), filament * 0.35);
+      col = mix(col, col * vec3(0.72, 0.80, 0.96), filament * 0.30);
+      float depth = 1.0 - smoothstep(0.0, 0.88, length(p));
+      col *= 0.82 + 0.26 * depth;
+      float light = smoothstep(-0.75, 0.65, -p.x * 0.45 + p.y * 0.55);
+      col *= 0.88 + 0.18 * light;
+      col += mix(u_c1, vec3(1.0), 0.40) * pow(max(0.0, band1), 5.0) * 0.16 * body;
+      col += u_c3 * pow(max(0.0, band2), 5.0) * 0.14 * body;
+      float ripple = pow(max(0.0, sin(length(p) * 16.0 - t * 1.7 + 2.2 * noise(p * 3.0 + vec2(t * 0.18, -t * 0.15)))), 4.0);
+      float ripple2 = pow(max(0.0, sin(length(p) * 24.0 + t * 1.3 + 1.6 * noise(p * 4.0 - t * 0.2))), 6.0);
+      col += mix(u_c1, vec3(1.0), 0.55) * ripple * 0.12 * body;
+      col += u_c3 * ripple2 * 0.08 * body;
+      float rimVar = 0.5 + 0.5 * noise(vec2(ang0 * 1.6 + t * 0.1, t * 0.35));
+      col += u_c1 * rim * (0.32 + 0.36 * rimVar);
+      float core = smoothstep(4.0, 12.0, f);
+      col = mix(col, mix(u_c2, vec3(1.0), 0.55), core * 0.20);
+      float spec = pow(max(0.0, 1.0 - length(p - vec2(-0.26, 0.32)) * 2.1), 8.0);
+      col += vec3(1.0, 0.97, 0.92) * spec * 0.24 * body;
+      col += u_c2 * halo * 0.48;
+      float alpha = body * (0.86 + 0.14 * smoothstep(0.0, 0.72, length(p))) + halo * 0.38;
+      float g = hash(gl_FragCoord.xy + vec2(t * 3.0));
+      col += (g - 0.5) * 0.028 * body;
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), clamp(alpha, 0.0, 1.0));
+    }
+  `;
+
+  function compile(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      console.warn('orb shader:', gl.getShaderInfoLog(sh));
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  }
+  function fallback() {
+    wrap.classList.add('no-webgl');
+    cancelAnimationFrame(raf);
+    raf = 0;
+    gl = null;
+  }
+  function init() {
+    gl = canvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: false, powerPreference: 'low-power' });
+    if (!gl) { fallback(); return false; }
+    const vs = compile(gl.VERTEX_SHADER, vert);
+    const fs = compile(gl.FRAGMENT_SHADER, frag);
+    if (!vs || !fs) { fallback(); return false; }
+    program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) { console.warn('orb link:', gl.getProgramInfoLog(program)); fallback(); return false; }
+    gl.useProgram(program);
+    buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const a = gl.getAttribLocation(program, 'a');
+    gl.enableVertexAttribArray(a);
+    gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+    ['u_res', 'u_time', 'u_level', 'u_c1', 'u_c2', 'u_c3'].forEach((k) => { uniforms[k] = gl.getUniformLocation(program, k); });
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); fallback(); });
+    new ResizeObserver(resize).observe(wrap);
+    resize();
+    return true;
+  }
+  function resize() {
+    if (!gl || !canvas) return;
+    const rect = wrap.getBoundingClientRect();
+    const side = Math.max(2, Math.min(620, Math.round(Math.min(rect.width, rect.height) * Math.min(2, window.devicePixelRatio || 1))));
+    if (canvas.width !== side || canvas.height !== side) {
+      canvas.width = side;
+      canvas.height = side;
+      gl.viewport(0, 0, side, side);
+    }
+    if (uniforms.u_res) gl.uniform2f(uniforms.u_res, side, side);
+    if (reduced.matches) draw(performance.now(), true);
+  }
+  function levelFor(t) {
+    if (mode === 'listening') return 0.22 + mic * 0.64;
+    if (mode === 'speaking') return 0.42 + 0.17 * Math.sin(t * 6.2) + 0.08 * Math.sin(t * 11.7);
+    if (mode === 'thinking') return 0.34 + 0.09 * Math.sin(t * 1.7) + 0.04 * Math.sin(t * 4.1);
+    if (mode === 'waiting') return 0.24 + 0.05 * Math.sin(t * 1.2);
+    if (mode === 'done') return 0.18 + 0.06 * Math.sin(t * 0.9);
+    if (mode === 'error') return 0.05;
+    return 0.12 + 0.06 * Math.sin(t * 0.7);
+  }
+  function draw(now, still) {
+    if (!gl) return;
+    const t = reduced.matches ? 5.0 : now / 1000;
+    const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+    last = now;
+    const mixStep = Math.min(1, dt * 3.2);
+    for (let i = 0; i < 3; i++) for (let c = 0; c < 3; c++) cur[i][c] += (target[i][c] - cur[i][c]) * mixStep;
+    const want = levelFor(t);
+    level += (want - level) * Math.min(1, dt * 5);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (uniforms.u_time) gl.uniform1f(uniforms.u_time, t);
+    if (uniforms.u_level) gl.uniform1f(uniforms.u_level, level);
+    if (uniforms.u_c1) gl.uniform3f(uniforms.u_c1, cur[0][0], cur[0][1], cur[0][2]);
+    if (uniforms.u_c2) gl.uniform3f(uniforms.u_c2, cur[1][0], cur[1][1], cur[1][2]);
+    if (uniforms.u_c3) gl.uniform3f(uniforms.u_c3, cur[2][0], cur[2][1], cur[2][2]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    wrap.style.setProperty('--orb-level', level.toFixed(3));
+    if (!still) raf = requestAnimationFrame(draw);
+  }
+  function loop(now) {
+    if (document.hidden) { raf = requestAnimationFrame(loop); return; }
+    if (reduced.matches) { raf = 0; draw(now, true); return; }
+    draw(now, false);
+  }
+  function setMode(next) {
+    mode = PALETTE[next] ? next : 'idle';
+    target = colors[mode];
+    if (reduced.matches && gl) {
+      cur = target.map((c) => c.slice());
+      level = levelFor(5.0);
+      cancelAnimationFrame(raf);
+      raf = 0;
+      draw(performance.now(), true);
+    }
+  }
+  function setMic(v) { mic = Math.max(0, Math.min(1, Number(v) || 0)); }
+  function start() {
+    if (!init()) return;
+    if (reduced.matches) { draw(performance.now(), true); return; }
+    raf = requestAnimationFrame(loop);
+  }
+  reduced.addEventListener('change', () => {
+    cancelAnimationFrame(raf); raf = 0;
+    if (reduced.matches) draw(performance.now(), true);
+    else if (gl) raf = requestAnimationFrame(loop);
+  });
+  start();
+  return { setMode, setMic };
+})();
 
 /* ============================================================
    Task semantics
@@ -1150,7 +1571,7 @@ function renderPhone(task, v) {
 /* ============================================================
    Stage: narrative, track, steps, plan, artifact
    ============================================================ */
-function setDeck(mode) { $('deck').dataset.state = mode || 'idle'; }
+function setDeck(mode) { $('deck').dataset.state = mode || 'idle'; syncVoiceMode(); }
 function setUtter(goal) {
   const box = $('utter');
   const g = plain(goal);
@@ -1189,13 +1610,16 @@ function narrativeFor(task, v, opts) {
     return { look: v.look, kicker, meta, title: oc.summary || (task.evidence && task.evidence.note) || oc.reason || 'Done. Every handoff is verified.', detail };
   }
   if (v.mode === 'error') {
+    const stopped = task.status === 'cancelled' || task.status === 'denied';
     return {
       look: 'bad', kicker: task.status === 'cancelled' ? 'Stopped' : task.status === 'denied' ? 'Denied' : 'Stopped',
-      meta: replay, title: errorText(task), detail: 'Open Trace for the full audit trail.',
+      meta: replay,
+      title: stopped ? 'Stopped. Nothing was changed.' : 'I couldn’t finish that.',
+      detail: stopped ? 'Open Trace for the full audit trail.' : errorText(task) + ' Nothing else ran.',
     };
   }
   if (v.mode === 'gate') {
-    return { look: 'gate', kicker: 'Waiting for you', meta: '', title: 'REACH needs your approval to continue.', detail: v.pending.consequence || '' };
+    return { look: 'gate', kicker: 'Waiting for you', meta: '', title: 'I need your approval to ' + lowerFirst(actionTitle(v.pending.actionName)) + '.', detail: v.pending.consequence || '' };
   }
   if (v.mode === 'input') {
     return { look: 'input', kicker: 'One question', meta: '', title: v.pin.question || 'REACH needs one detail to continue.', detail: 'Paused so it can finish with the right details.' };
@@ -1397,6 +1821,7 @@ function applyTaskState(task, opts) {
   if (!v.pending) closeSheet('gateScrim');
   if (!v.pin) closeSheet('questionScrim');
   if (!opts.silent) announce(n.title);
+  maybeSpeak(task, v, opts);
 }
 
 function standby() {
@@ -1406,11 +1831,7 @@ function standby() {
   state.artifactSig = '';
   setDeck('idle');
   setUtter('');
-  setNarrative({
-    look: 'idle', kicker: 'Ready', meta: '',
-    title: 'Say what you want. Your devices make it happen.',
-    detail: 'REACH plans it, asks before anything risky, and shows you every step.',
-  });
+  standbyNarrative();
   $('pipelineRail').hidden = true;
   $('planBox').hidden = true; state.planSig = '';
   $('steps').hidden = true;
@@ -1423,6 +1844,10 @@ function standby() {
 }
 
 function beginRun(goal) {
+  clearTimeout(voice.noticeTimer);
+  voice.notice = '';
+  voice.noticeTimer = 0;
+  voice.heard.clear();
   state.stageTask = null;
   state.stepsTaskId = null;
   clearSteps();
@@ -1451,6 +1876,7 @@ function applyFailedIntent(message) {
   }, {});
   setLog([{ text: short(message, 64), tone: 'err' }, { text: 'Nothing executed on a device', tone: '' }]);
   setUtter(plain($('utterText').dataset.key || ''));
+  speak('I couldn’t start that. ' + short(message, 220));
 }
 
 /* ============================================================
@@ -1516,6 +1942,7 @@ function openSheet(id) {
   state.opener = document.activeElement;
   scrim.classList.add('is-open');
   $('appShell').inert = true;
+  suspendVoice();
   setTimeout(() => { const sheet = scrim.querySelector('.sheet'); if (sheet) sheet.focus(); }, 40);
 }
 function closeSheet(id) {
@@ -1523,6 +1950,8 @@ function closeSheet(id) {
   if (!scrim.classList.contains('is-open')) return;
   scrim.classList.remove('is-open');
   if (!document.querySelector('.scrim.is-open')) $('appShell').inert = false;
+  renderVoice();
+  if (!state.busy) setTimeout(resumeHandsFree, 320);
 }
 function expiryText(iso) {
   const ms = Date.parse(iso || '') - Date.now();
@@ -1601,6 +2030,7 @@ async function decideApproval(decision) {
     if (!res.ok || out.ok === false) throw new Error(out.error || 'HTTP ' + res.status);
     state.handledApprovals.add(pending.id);
     state.activeTaskId = task.id;
+    stopSpeaking();
     setBusyUI(true);
     closeSheet('gateScrim');
     setNarrative({
@@ -1632,6 +2062,7 @@ async function answerQuestion(text) {
     if (!res.ok || out.ok === false) throw new Error(out.error || 'HTTP ' + res.status);
     state.handledQuestions.add(task.id + ':' + (pending.createdAt || pending.question));
     state.activeTaskId = task.id;
+    stopSpeaking();
     setBusyUI(true);
     closeSheet('questionScrim');
     setNarrative({ look: 'busy', kicker: 'Resuming', meta: '', title: 'Answer recorded. Re-planning with it.', detail: short(value, 150) });
@@ -1724,18 +2155,17 @@ function setBusyUI(busy) {
   state.busy = !!busy;
   $('deck').classList.toggle('is-busy', state.busy);
   document.body.dataset.busy = state.busy ? 'true' : 'false';
-  $('goal').disabled = state.busy;
-  $('micBtn').disabled = state.busy;
-  $('sendBtn').disabled = state.busy || !$('goal').value.trim();
-  document.querySelectorAll('#scenarioChips .chip').forEach((b) => { b.disabled = state.busy; });
-  if (!state.busy && !document.querySelector('.scrim.is-open') && !state.drawerOpen && !state.listening) {
-    setTimeout(() => { if (!state.busy) $('goal').focus({ preventScroll: true }); }, 60);
-  }
+  renderVoice();
+  if (!state.busy && !sheetOpen() && !state.drawerOpen && voice.handsFree) setTimeout(resumeHandsFree, 340);
 }
 async function runTask(goal) {
   const text = String(goal || '').trim();
   if (!text || state.busy) return;
+  stopSpeaking();
+  suspendVoice();
+  $('ask').classList.remove('is-typing');
   $('goal').value = '';
+  $('sendBtn').disabled = true;
   state.activeTaskId = null;
   setBusyUI(true);
   beginRun(text);
@@ -1771,31 +2201,580 @@ async function loadMission(taskId) {
 }
 
 /* ============================================================
-   Voice simulation
+   Voice: wake word, one-shot capture, replies, demo fallback
    ============================================================ */
-async function voiceCommand() {
-  if (state.busy || state.listening) return;
-  const scenario = SCENARIOS[state.voiceIndex % SCENARIOS.length];
-  state.voiceIndex += 1;
+function sheetOpen() { return !!document.querySelector('.scrim.is-open'); }
+function speechOk() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; }
+function lowerFirst(s) { return String(s || '').replace(/^./, (c) => c.toLowerCase()); }
+function setVoiceLive(text) { $('voiceLive').textContent = text || ''; }
+function baseVoiceMode() {
+  const m = $('deck').dataset.state;
+  if (m === 'gate' || m === 'input') return 'waiting';
+  if (m === 'done') return 'done';
+  if (m === 'error') return 'error';
+  if (m === 'busy') return 'thinking';
+  return 'idle';
+}
+function syncVoiceMode() {
+  const mode = voice.speaking ? 'speaking' : voice.listening ? 'listening' : baseVoiceMode();
+  $('deck').dataset.voice = mode;
+  orb.setMode(mode);
+}
+function setVoiceNotice(text) {
+  clearTimeout(voice.noticeTimer);
+  voice.notice = text || '';
+  renderVoice();
+  if (voice.notice) voice.noticeTimer = setTimeout(() => { voice.notice = ''; renderVoice(); }, 7000);
+  if (text) announce(text);
+}
+function renderVoice() {
+  const bar = $('ask');
+  const typing = bar.classList.contains('is-typing');
+  const blocked = state.busy || voice.demo > 0 || sheetOpen();
+  bar.classList.toggle('is-listening', voice.listening && !voice.speaking);
+  $('micBtn').disabled = blocked;
+  $('orbHit').disabled = blocked;
+  $('wakeBtn').disabled = blocked;
+  $('typeBtn').disabled = blocked;
+  $('typeBtn').setAttribute('aria-pressed', String(typing));
+  $('wakeBtn').setAttribute('aria-pressed', String(voice.handsFree));
+  $('speakerBtn').setAttribute('aria-pressed', String(voice.muted));
+  $('speakerBtn').setAttribute('aria-label', voice.muted ? 'Unmute voice replies' : 'Mute voice replies');
+  $('speakerBtn').title = voice.muted ? 'Unmute voice replies' : 'Mute voice replies';
+  $('speakerUse').setAttribute('href', voice.muted ? '#i-speaker-off' : '#i-speaker');
+  $('speakerBtn').disabled = !speechOk();
+  if (!speechOk()) $('speakerBtn').title = 'Voice replies unavailable in this browser';
+  $('goal').disabled = state.busy;
+  $('sendBtn').disabled = state.busy || !$('goal').value.trim();
+  document.querySelectorAll('#scenarioChips .chip').forEach((b) => { b.disabled = state.busy || voice.demo > 0; });
+
+  const st = $('voiceStatus'), sub = $('voiceSub');
+  if (voice.notice) {
+    st.textContent = 'Voice unavailable';
+    sub.textContent = voice.notice;
+  } else if (voice.speaking) {
+    st.textContent = 'Speaking';
+    sub.textContent = 'Tap the mic to interrupt';
+  } else if (voice.listening) {
+    st.textContent = voice.capturing ? 'Listening…' : 'Listening for “Hey REACH”';
+    sub.textContent = voice.capturing ? 'Say what you want' : 'Hands-free is on';
+  } else if (sheetOpen()) {
+    st.textContent = 'Waiting for you';
+    sub.textContent = 'Use the card on screen';
+  } else if (typing) {
+    st.textContent = 'Type it instead';
+    sub.textContent = 'Press Enter to run';
+  } else if (state.busy) {
+    st.textContent = 'Working…';
+    sub.textContent = 'I’ll speak when it’s done';
+  } else if ($('deck').dataset.state === 'done') {
+    st.textContent = 'Done';
+    sub.textContent = 'Tap to talk again';
+  } else if ($('deck').dataset.state === 'error') {
+    st.textContent = 'Stopped';
+    sub.textContent = 'Tap to try again';
+  } else if ($('deck').dataset.state === 'gate') {
+    st.textContent = 'Waiting for approval';
+    sub.textContent = 'Use the approval card';
+  } else if ($('deck').dataset.state === 'input') {
+    st.textContent = 'One question';
+    sub.textContent = 'Answer in the card';
+  } else {
+    st.textContent = voice.handsFree ? 'Listening for “Hey REACH”' : 'Tap to talk';
+    sub.textContent = !voice.supported ? 'Voice isn’t supported here — click a phrase' : voice.handsFree ? 'Hands-free is on' : 'or say “Hey REACH”';
+  }
+}
+function standbyNarrative() {
+  const ok = voice.supported;
+  setNarrative({
+    look: 'idle', kicker: voice.handsFree ? 'Wake word on' : 'Ready', meta: '',
+    title: ok ? 'Say “Hey REACH”' : 'Tell REACH what to do',
+    detail: ok
+      ? 'or tap the orb. I’ll plan it, ask before anything risky, and show you the evidence.'
+      : 'Click a phrase below or type a command. Voice isn’t available in this browser.',
+  });
+}
+function restoreNarrative() {
+  if (state.stageTask) {
+    const v = deriveView(state.stageTask);
+    setNarrative(narrativeFor(state.stageTask, v, { elapsed: elapsedForTask(state.stageTask) }));
+  } else standbyNarrative();
+}
+function parseWake(text) {
+  const clean = String(text || '').trim().replace(/^[“"'‘\s]+/, '');
+  const m = clean.match(/^(?:hey|hi|hello|ok|okay)[\s,]+(?:reach|alexa)\b[\s,.:;!?—–-]*(.*)$/i);
+  return m ? { command: String(m[1] || '').trim() } : null;
+}
+function displayHeard(text) {
+  const parsed = parseWake(text);
+  if (!parsed) return String(text || '').trim();
+  return parsed.command ? 'Hey REACH, ' + parsed.command : 'Hey REACH';
+}
+
+/* ----- microphone level ----- */
+async function startMeter() {
+  if (voice.meterStream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  const token = ++voice.meterToken;
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { return; }
+  if (token !== voice.meterToken) { stream.getTracks().forEach((t) => t.stop()); return; }
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) { stream.getTracks().forEach((t) => t.stop()); return; }
+  voice.meterStream = stream;
+  voice.meterCtx = new Ctx();
+  voice.meterCtx.resume().catch(() => {});
+  const src = voice.meterCtx.createMediaStreamSource(stream);
+  voice.meterAnalyser = voice.meterCtx.createAnalyser();
+  voice.meterAnalyser.fftSize = 256;
+  voice.meterData = new Uint8Array(voice.meterAnalyser.frequencyBinCount);
+  src.connect(voice.meterAnalyser);
+  const tick = () => {
+    if (!voice.meterStream || !voice.meterAnalyser || token !== voice.meterToken) return;
+    voice.meterAnalyser.getByteTimeDomainData(voice.meterData);
+    let sum = 0;
+    for (let i = 0; i < voice.meterData.length; i++) { const v = (voice.meterData[i] - 128) / 128; sum += v * v; }
+    const rms = Math.sqrt(sum / voice.meterData.length);
+    voice.level = voice.level * 0.72 + Math.min(1, Math.max(0, (rms - 0.012) * 7)) * 0.28;
+    orb.setMic(voice.level);
+    voice.meterRaf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+function stopMeter() {
+  voice.meterToken += 1;
+  cancelAnimationFrame(voice.meterRaf);
+  voice.meterRaf = 0;
+  voice.level = 0;
+  orb.setMic(0);
+  if (voice.meterStream) voice.meterStream.getTracks().forEach((t) => t.stop());
+  voice.meterStream = null;
+  voice.meterAnalyser = null;
+  voice.meterData = null;
+  if (voice.meterCtx) { voice.meterCtx.close().catch(() => {}); voice.meterCtx = null; }
+}
+
+/* ----- recognition ----- */
+function initRecognition() {
+  if (voice.rec) return voice.rec;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const rec = new SR();
+  rec.lang = (navigator.language || 'en-US').replace('_', '-');
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  rec.onstart = () => { voice.recognizing = true; };
+  rec.onresult = (event) => {
+    if (voice.demo || voice.speaking) return;
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const res = event.results[i];
+      const text = String((res[0] && res[0].transcript) || '').trim();
+      if (!text) continue;
+      if (res.isFinal) handleVoiceFinal(text);
+      else interim += (interim ? ' ' : '') + text;
+    }
+    if (interim) setVoiceLive('“' + displayHeard(interim) + '”');
+  };
+  rec.onerror = (event) => {
+    const err = event && event.error;
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
+      voice.handsFree = false;
+      voice.want = false;
+      voice.recognizing = false;
+      stopMeter();
+      endListening();
+      setVoiceNotice('Microphone access is blocked. Click a phrase below, or type.');
+    } else if (err === 'audio-capture') {
+      setVoiceNotice('No microphone was found. Click a phrase below, or type.');
+    } else if (err === 'network') {
+      setVoiceNotice('Voice recognition needs a network connection here.');
+    }
+  };
+  rec.onend = () => {
+    voice.recognizing = false;
+    if (voice.want && voice.handsFree && !voice.submitting && !state.busy && !sheetOpen()) {
+      clearTimeout(voice.restartTimer);
+      voice.restartTimer = setTimeout(() => { if (voice.want && voice.handsFree) startRecognition(true); }, 350);
+    } else if (voice.listening && !voice.handsFree && !voice.submitting) {
+      endListening();
+    }
+  };
+  voice.rec = rec;
+  return rec;
+}
+function startRecognition(continuous) {
+  const rec = initRecognition();
+  if (!rec) return false;
+  if (voice.recognizing) return true;
+  rec.continuous = !!continuous;
+  try { rec.start(); voice.recognizing = true; return true; }
+  catch (err) {
+    if (err && err.name === 'InvalidStateError') { voice.recognizing = true; return true; }
+    return false;
+  }
+}
+function stopRecognition() {
+  voice.want = false;
+  clearTimeout(voice.restartTimer);
+  if (voice.rec) { try { voice.rec.abort(); } catch { /* already stopped */ } }
+  voice.recognizing = false;
+}
+function endListening() {
+  clearTimeout(voice.captureTimer);
+  voice.captureTimer = 0;
+  const was = voice.listening || voice.capturing;
+  voice.listening = false;
+  voice.capturing = false;
+  state.listening = false;
+  setVoiceLive('');
+  syncVoiceMode();
+  renderVoice();
+  if (was && !state.busy) restoreNarrative();
+}
+function armHandsFree() {
+  if (!voice.handsFree || state.busy || sheetOpen()) return;
+  voice.want = true;
+  voice.listening = true;
+  voice.capturing = false;
   state.listening = true;
-  const form = $('ask'), input = $('goal');
-  form.classList.add('is-listening');
-  $('micBtn').setAttribute('aria-pressed', 'true');
-  input.value = '';
-  input.disabled = true;
-  announce('Listening. Simulated voice command.');
-  await sleep(1200);
-  form.classList.remove('is-listening');
-  const words = scenario.goal.split(' ');
-  for (let i = 0; i < words.length; i++) {
-    input.value += (i ? ' ' : '') + words[i];
-    await sleep(34);
+  syncVoiceMode();
+  renderVoice();
+  void startMeter();
+  startRecognition(true);
+}
+function resumeHandsFree() {
+  if (!voice.handsFree || voice.speaking || voice.demo > 0 || voice.listening || state.busy || sheetOpen()) return;
+  if ($('ask').classList.contains('is-typing')) return;
+  armHandsFree();
+}
+function suspendVoice() {
+  clearTimeout(voice.captureTimer);
+  clearTimeout(voice.restartTimer);
+  voice.captureTimer = 0;
+  voice.restartTimer = 0;
+  voice.want = false;
+  voice.listening = false;
+  voice.capturing = false;
+  state.listening = false;
+  stopRecognition();
+  stopMeter();
+  setVoiceLive('');
+  syncVoiceMode();
+  renderVoice();
+}
+function startOneShot() {
+  if (state.busy || voice.demo > 0 || sheetOpen()) return;
+  leaveTyping();
+  if (voice.speaking) stopSpeaking();
+  if (!voice.supported) {
+    setVoiceNotice('Voice isn’t available in this browser. Playing a demo.');
+    void demoVoice(SCENARIOS[0].goal, SCENARIOS[0].label);
+    return;
+  }
+  if (voice.capturing) {
+    clearTimeout(voice.captureTimer);
+    voice.captureTimer = 0;
+    voice.capturing = false;
+    voice.want = false;
+    setVoiceLive('');
+    if (voice.handsFree) {
+      voice.listening = true;
+      state.listening = true;
+      voice.want = true;
+      startRecognition(true);
+      restoreNarrative();
+      syncVoiceMode();
+      renderVoice();
+    } else {
+      stopRecognition();
+      stopMeter();
+      endListening();
+    }
+    return;
+  }
+  voice.listening = true;
+  voice.capturing = true;
+  voice.want = true;
+  state.listening = true;
+  syncVoiceMode();
+  renderVoice();
+  setNarrative({ look: 'busy', kicker: 'Listening', meta: '', title: 'Listening…', detail: 'Speak naturally. I’ll take it from here.' });
+  setUtter('');
+  setVoiceLive('');
+  void startMeter();
+  startRecognition(voice.handsFree);
+  clearTimeout(voice.captureTimer);
+  voice.captureTimer = setTimeout(() => {
+    if (!voice.capturing) return;
+    voice.capturing = false;
+    setVoiceLive('');
+    if (voice.handsFree) {
+      voice.listening = true;
+      state.listening = true;
+      restoreNarrative();
+      syncVoiceMode();
+      renderVoice();
+    } else {
+      stopRecognition();
+      stopMeter();
+      endListening();
+    }
+  }, 10000);
+  announce('Listening. Say what you want.');
+}
+function toggleHandsFree() {
+  if (state.busy || voice.demo > 0 || sheetOpen()) return;
+  if (voice.handsFree) {
+    voice.handsFree = false;
+    voice.want = false;
+    clearTimeout(voice.captureTimer);
+    clearTimeout(voice.restartTimer);
+    stopRecognition();
+    stopMeter();
+    voice.listening = false;
+    voice.capturing = false;
+    state.listening = false;
+    setVoiceLive('');
+    syncVoiceMode();
+    renderVoice();
+    restoreNarrative();
+    announce('Hands-free off.');
+    return;
+  }
+  if (!voice.supported) {
+    setVoiceNotice('Hands-free needs the Web Speech API. Click a phrase below, or type.');
+    return;
+  }
+  leaveTyping();
+  if (voice.speaking) stopSpeaking();
+  voice.handsFree = true;
+  armHandsFree();
+  restoreNarrative();
+  announce('Hands-free on. Say Hey REACH.');
+}
+function handleVoiceFinal(text) {
+  if (voice.demo || voice.speaking) return;
+  const clean = String(text || '').trim();
+  if (!clean) return;
+  if (!voice.capturing) {
+    const parsed = parseWake(clean);
+    if (!parsed) { setVoiceLive(''); return; }
+    const command = parsed.command.trim();
+    if (command.length > 1) { void acceptVoice(command, clean); return; }
+    voice.capturing = true;
+    voice.listening = true;
+    state.listening = true;
+    syncVoiceMode();
+    renderVoice();
+    setNarrative({ look: 'busy', kicker: 'Listening', meta: '', title: 'Listening…', detail: 'Speak naturally. I’ll take it from here.' });
+    setVoiceLive('“' + displayHeard(clean) + '”');
+    clearTimeout(voice.captureTimer);
+    voice.captureTimer = setTimeout(() => {
+      if (!voice.capturing) return;
+      voice.capturing = false;
+      setVoiceLive('');
+      if (voice.handsFree) { restoreNarrative(); renderVoice(); syncVoiceMode(); }
+      else endListening();
+    }, 10000);
+    announce('Listening.');
+    return;
+  }
+  const parsed = parseWake(clean);
+  const command = (parsed ? parsed.command : clean).trim();
+  if (command.length > 1 && !/^hey (reach|alexa)$/i.test(command)) void acceptVoice(command, clean);
+  else setVoiceLive('“' + displayHeard(clean) + '”');
+}
+async function acceptVoice(command, heard) {
+  if (state.busy || voice.demo > 0 || sheetOpen()) return;
+  voice.submitting = true;
+  voice.capturing = true;
+  voice.listening = true;
+  state.listening = true;
+  clearTimeout(voice.captureTimer);
+  voice.captureTimer = 0;
+  syncVoiceMode();
+  renderVoice();
+  setVoiceLive('“' + displayHeard(heard) + '”');
+  setNarrative({ look: 'busy', kicker: 'Got it', meta: '', title: 'Got it.', detail: command });
+  await sleep(520);
+  voice.submitting = false;
+  if (!state.busy) submitVoice(command);
+}
+function submitVoice(command) {
+  const text = String(command || '').trim();
+  if (!text || state.busy) return;
+  clearTimeout(voice.captureTimer);
+  voice.captureTimer = 0;
+  voice.listening = false;
+  voice.capturing = false;
+  state.listening = false;
+  stopRecognition();
+  stopMeter();
+  setVoiceLive('');
+  syncVoiceMode();
+  renderVoice();
+  void runTask(text);
+}
+async function demoVoice(goal, label) {
+  if (state.busy || voice.demo > 0) return;
+  leaveTyping();
+  voice.demo += 1;
+  suspendVoice();
+  renderVoice();
+  voice.listening = true;
+  voice.capturing = true;
+  state.listening = true;
+  syncVoiceMode();
+  renderVoice();
+  setNarrative({ look: 'busy', kicker: 'Listening', meta: '', title: 'Listening…', detail: 'Speak naturally. I’ll take it from here.' });
+  setUtter('');
+  const words = ('Hey REACH, ' + (label || goal)).split(' ');
+  let said = '';
+  for (const word of words) {
+    said += (said ? ' ' : '') + word;
+    setVoiceLive('“' + said + '”');
+    await sleep(64);
   }
   await sleep(320);
-  $('micBtn').setAttribute('aria-pressed', 'false');
+  setVoiceLive('');
+  voice.listening = false;
+  voice.capturing = false;
   state.listening = false;
-  input.disabled = false;
-  if (!state.busy) void runTask(scenario.goal);
+  voice.demo -= 1;
+  syncVoiceMode();
+  renderVoice();
+  void runTask(goal);
+}
+
+/* ----- spoken replies ----- */
+function pickVoice() {
+  if (!speechOk()) return null;
+  const voices = speechSynthesis.getVoices() || [];
+  const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
+  return en.find((v) => /samantha|ava|allison|jenny|aria|google us english/i.test(v.name)) || en.find((v) => v.localService) || en[0] || null;
+}
+function stopSpeaking() {
+  voice.speechToken += 1;
+  clearTimeout(voice.speechTimer);
+  voice.speechTimer = 0;
+  if (voice.speaking) {
+    try { speechSynthesis.cancel(); } catch { /* speech may be unavailable */ }
+    voice.speaking = false;
+    syncVoiceMode();
+    renderVoice();
+  }
+}
+function speak(text) {
+  const clean = plain(text).replace(/\s+/g, ' ').trim();
+  if (!clean || voice.muted || !speechOk() || voice.demo > 0) return;
+  stopSpeaking();
+  const token = voice.speechToken;
+  if (voice.listening || voice.recognizing || voice.meterStream) {
+    voice.want = false;
+    stopRecognition();
+    stopMeter();
+    voice.listening = false;
+    voice.capturing = false;
+    state.listening = false;
+    setVoiceLive('');
+  }
+  voice.speaking = true;
+  syncVoiceMode();
+  renderVoice();
+  const u = new SpeechSynthesisUtterance(clean);
+  const picked = pickVoice();
+  if (picked) u.voice = picked;
+  u.rate = 1.02;
+  u.pitch = 0.96;
+  u.volume = 0.9;
+  let finished = false;
+  const done = () => {
+    if (finished || token !== voice.speechToken) return;
+    finished = true;
+    clearTimeout(voice.speechTimer);
+    voice.speechTimer = 0;
+    voice.speaking = false;
+    syncVoiceMode();
+    renderVoice();
+    if (voice.handsFree && !state.busy && !sheetOpen() && !$('ask').classList.contains('is-typing')) setTimeout(resumeHandsFree, 480);
+  };
+  u.onend = done;
+  u.onerror = done;
+  try { speechSynthesis.speak(u); }
+  catch { done(); return; }
+  if (finished) return;
+  clearTimeout(voice.speechTimer);
+  voice.speechTimer = setTimeout(done, Math.min(22000, 1500 + clean.split(/\s+/).length * 330));
+}
+function speechForDone(task, v) {
+  const oc = task.outcome || {};
+  let line = plain(oc.summary || oc.reason || (task.evidence && task.evidence.note) || 'Done.');
+  line = short(line, 260);
+  if (v.tone === 'bad') return 'I couldn’t finish that. ' + line;
+  if (!/^done\b/i.test(line)) line = 'Done. ' + line;
+  if (v.tone === 'warn') line += ' Some checks did not pass.';
+  return line;
+}
+function speechForError(task) {
+  if (task.status === 'denied') return 'Stopped. Nothing was changed.';
+  if (task.status === 'cancelled') return 'Stopped.';
+  return 'I couldn’t finish that. ' + short(errorText(task), 220) + ' Nothing else ran.';
+}
+function maybeSpeak(task, v, opts) {
+  opts = opts || {};
+  if (opts.historical || !task || !task.id) return;
+  let key = '', line = '';
+  if (v.mode === 'gate' && v.pending) {
+    key = task.id + ':gate:' + v.pending.id;
+    line = 'I need your approval to ' + lowerFirst(actionTitle(v.pending.actionName)) + '. ' + (v.pending.consequence || 'Open the approval card to review it.');
+  } else if (v.mode === 'input' && v.pin) {
+    key = task.id + ':q:' + v.pin.question;
+    line = v.pin.question;
+  } else if (v.mode === 'done') {
+    key = task.id + ':done';
+    line = speechForDone(task, v);
+  } else if (v.mode === 'error') {
+    key = task.id + ':' + (task.status || 'error');
+    line = speechForError(task);
+  }
+  if (!key || voice.heard.has(key)) return;
+  voice.heard.add(key);
+  speak(line);
+}
+function toggleMute() {
+  voice.muted = !voice.muted;
+  try { localStorage.setItem('reach-voice-muted', voice.muted ? '1' : '0'); } catch { /* storage may be blocked */ }
+  if (voice.muted) {
+    stopSpeaking();
+    if (voice.handsFree) setTimeout(resumeHandsFree, 480);
+  }
+  renderVoice();
+  announce(voice.muted ? 'Voice replies muted.' : 'Voice replies on.');
+}
+function leaveTyping() {
+  if (!$('ask').classList.contains('is-typing')) return;
+  $('ask').classList.remove('is-typing');
+  $('goal').value = '';
+  $('sendBtn').disabled = true;
+  renderVoice();
+}
+function openTyping() {
+  if (state.busy || sheetOpen()) return;
+  stopSpeaking();
+  suspendVoice();
+  $('ask').classList.add('is-typing');
+  renderVoice();
+  setTimeout(() => $('goal').focus({ preventScroll: true }), 40);
+}
+function closeTyping() {
+  if (!$('ask').classList.contains('is-typing')) return;
+  $('ask').classList.remove('is-typing');
+  $('goal').value = '';
+  $('sendBtn').disabled = true;
+  renderVoice();
+  setTimeout(() => { $('typeBtn').focus({ preventScroll: true }); if (voice.handsFree) resumeHandsFree(); }, 180);
 }
 
 /* ============================================================
@@ -1870,9 +2849,9 @@ function initChips() {
     btn.type = 'button';
     btn.title = s.goal;
     btn.innerHTML = icon(s.icon) + '<span></span>' + (s.asks ? icon('lock', 'lock') : '');
-    btn.querySelector('span').textContent = s.label;
-    if (s.asks) btn.setAttribute('aria-label', s.label + ' (asks for approval)');
-    btn.onclick = () => { void runTask(s.goal); };
+    btn.querySelector('span').textContent = '“' + s.label + '”';
+    btn.setAttribute('aria-label', 'Say ' + s.label + (s.asks ? ' (asks for approval)' : ''));
+    btn.onclick = () => { void demoVoice(s.goal, s.label); };
     box.append(btn);
   });
 }
@@ -1887,9 +2866,17 @@ function trapTab(e) {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
-$('ask').addEventListener('submit', (e) => { e.preventDefault(); void runTask($('goal').value); });
+$('ask').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = $('goal').value.trim();
+  if (text) { $('sendBtn').disabled = true; void runTask(text); }
+});
 $('goal').addEventListener('input', () => { $('sendBtn').disabled = state.busy || !$('goal').value.trim(); });
-$('micBtn').addEventListener('click', () => { void voiceCommand(); });
+$('micBtn').addEventListener('click', startOneShot);
+$('orbHit').addEventListener('click', startOneShot);
+$('wakeBtn').addEventListener('click', toggleHandsFree);
+$('speakerBtn').addEventListener('click', toggleMute);
+$('typeBtn').addEventListener('click', () => { $('ask').classList.contains('is-typing') ? closeTyping() : openTyping(); });
 $('btnHistory').addEventListener('click', () => { state.drawerOpen && $('tabHistory').getAttribute('aria-selected') === 'true' ? closeDrawer() : openDrawer('history'); });
 $('btnTrace').addEventListener('click', () => { state.drawerOpen && $('tabTrace').getAttribute('aria-selected') === 'true' ? closeDrawer() : openDrawer('trace'); });
 $('btnTheme').addEventListener('click', toggleTheme);
@@ -1911,16 +2898,30 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!$('lightbox').hidden) closeLightbox();
     else if (state.drawerOpen) closeDrawer();
-  } else if (e.key === '/' && !state.busy && !document.querySelector('.scrim.is-open') && !/^(input|textarea)$/i.test(document.activeElement.tagName)) {
+    else if (voice.speaking) {
+      stopSpeaking();
+      if (voice.handsFree) setTimeout(resumeHandsFree, 480);
+    } else if ($('ask').classList.contains('is-typing')) closeTyping();
+  } else if (e.key === '/' && !state.busy && !sheetOpen() && !/^(input|textarea)$/i.test(document.activeElement.tagName)) {
     e.preventDefault();
-    $('goal').focus();
+    openTyping();
   }
 });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopSpeaking();
+    if (voice.handsFree || voice.listening) suspendVoice();
+  } else if (voice.handsFree) {
+    setTimeout(resumeHandsFree, 320);
+  }
+});
+window.addEventListener('pagehide', () => { stopSpeaking(); suspendVoice(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeIcon);
 
 initChips();
 syncThemeIcon();
 standby();
+renderVoice();
 renderDevices();
 void updateBuildStamps();
 void refreshDevices();

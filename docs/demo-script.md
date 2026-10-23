@@ -25,7 +25,12 @@ Target feel: product demo, not lecture. Film real artifacts on one machine.
    * `~/Downloads/standup-notes-old.txt` — the throwaway file beat 3 deletes.
      **Every take deletes it — restore it between takes.**
 6. Close Pages and any open document from a previous take (it steals focus).
-7. Open `/sim`; the two suggested goals should be beats 1 and 2.
+7. Open `/sim`; allow microphone access. The mic is tap-to-talk by default;
+   hands-free is the small **Wake word** toggle. If the mic is blocked or the
+   room is noisy, click the phrase chips or use **Type instead** — the same
+   backend beats run either way.
+8. Speak full goals by tapping the orb, or click a phrase chip for the short
+   demo versions.
 
 Measured timings, so you know what you are watching:
 
@@ -38,7 +43,7 @@ Measured timings, so you know what you are watching:
 
 ## The beats
 
-| # | Goal (type this in `/sim`) | What it proves |
+| # | Goal (say or type in `/sim`) | What it proves |
 |---|---|---|
 | 1 | `Transcribe the product sync recording in my Downloads and write the meeting minutes to my laptop` | **The hero — the thing REACH was built for.** A real recording on the laptop → read by the agent → uploaded to S3 → transcribed by **Amazon Transcribe** → reasoned over by **Bedrock** → written as a real `.docx` → opened. Three AWS services, one engine. It also asks before it uploads your recording to a cloud service. |
 | 1b | *(fallback)* `Find the standup transcript in my Downloads and turn it into meeting minutes saved on my laptop` | The same engine with the audio already transcribed — if S3 or Transcribe is unhappy on the day, use this. |
@@ -53,10 +58,14 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 
 ## 0:20–1:25 Beat 1 — the hero (a meeting recording becomes minutes)
 
-* Type beat 1 in `/sim`.
+* Tap the orb and say: **“Hey REACH, transcribe the product sync recording in
+  my Downloads and write the meeting minutes to my laptop.”** (Or click the
+  **Transcribe the sync recording** phrase chip.)
+* REACH speaks the result as a completed action; the mission card carries the
+  same outcome as its caption.
 * Show, in this order, on camera:
   * the **plan** filling in (`files.search` → `audio.transcribe` → `files.create_document`);
-  * the **approval card**: *"this sends /Users/…/product-sync-recording.mp3 to a third-party service"* — it asks before your recording leaves the machine. **Press Approve.**
+  * the **approval sheet**: *"this sends /Users/…/product-sync-recording.mp3 to a third-party service"* — it asks before your recording leaves the machine. **Press Approve.**
   * the **activity trail** ticking over — each step with its policy verdict;
   * the **result**: a real `.docx` on the laptop, opened on screen, with real minutes in it — attendees, decisions, action items **with owners**, open questions, all from the recording;
   * the **evidence** panel: the cited action IDs, the outcome kind (`complete`), and the token usage.
@@ -69,8 +78,10 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 
 ## 1:25–1:55 Beat 2 — a different domain, same engine
 
-* Type beat 2.
-* Show the browser steps in the trace, then the answer in the summary.
+* Tap the orb and say: **“Hey REACH, go to my GitHub profile and tell me my
+  display name and how many public repositories I have.”**
+* Show the browser steps in the trace, then the answer in the summary and in
+  REACH’s spoken reply.
 * Narrate: "Same planner, same policy, same trace. Not a second product."
 
 > Measured: 8.7s, 3 planner calls, and the answer comes straight out of the
@@ -82,11 +93,12 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 
 ## 1:55–2:20 Beat 3 — the approval beat (policy on camera)
 
-* Type beat 3 in `/sim`.
-* The task runs, then **pauses**: an approval card appears in the conversation
-  thread (not in the sidebar) reading *"Needs your approval"*, the consequence,
-  the exact action and target, a live expiry countdown, and an
-  **Exact action payload** disclosure.
+* Tap the orb and say: **“Hey REACH, delete the old standup notes file in my
+  Downloads.”**
+* The task runs, then **pauses**: a focused approval sheet appears over the
+  voice console (not in the right rail) reading *"Needs your approval"*, the
+  consequence, the exact action and target, a live expiry countdown, and an
+  **Exact action payload** disclosure. REACH speaks the approval request.
 * Press **Approve**.
 * Show the file actually gone and the task completing. In the trace the same
   action appears three times — *paused for approval*, *user-approved:
@@ -100,8 +112,8 @@ Closing tease: "Alexa+ understands what you want. REACH gives that intent somewh
 
 ## 2:20–2:35 Refusal beat (15s)
 
-* Type beat 4.
-* Show the clean refusal with its reason.
+* Tap the orb and say: **“Hey REACH, read the contents of /etc/passwd.”**
+* Show the clean refusal with its reason; REACH speaks the same honest line.
 * Narrate: "It says no, and says why."
 
 ## 2:35–2:55 Technical reveal + close

@@ -13,7 +13,7 @@ Static single-file HTML/CSS/JS served by the existing Node server (`server/src/i
 ## Users
 
 - **Primary (judging scene):** hackathon judges and the dev-reviewer audience watching a <3-minute demo video. They consume the screen as a broadcast surface: what state is REACH in, what is it about to do, what did it verify. They read at a distance (projector / full-screen video), two minutes of attention, no training.
-- **Operator (off-camera):** the developer running the sim as the demo client, typing goals, answering gates, replaying missions from history. [Inferred from repo docs: `docs/demo-script.md` film beats.]
+- **Operator (off-camera):** the developer running the sim as the demo client, speaking or typing goals, answering gates, replaying missions from history. [Inferred from repo docs: `docs/demo-script.md` film beats.]
 
 ## Product Purpose
 
@@ -37,9 +37,16 @@ The model proposes; the code decides. Every action is classified by risk, gated 
 
 ## Brand Commitments
 
-- Name: **REACH**. Apple-style: system type stack, iOS system colors, near-black dark ground, hairlines, restrained single accent.
+- Name: **REACH**. Alexa+-inspired aurora palette: deep navy dark ground, cyan/blue/violet light, warm approval accents; system type stack, hairlines, one luminous orb.
 - Voice: plain declarative English, no hype adjectives, no ALL-CAPS jargon costumes ("enclave", "REV 4.2", service acronyms at whisper size are banned).
 - No Amazon logos/marks in the UI; plain-English names of services are fine.
+
+## Voice
+
+- The orb and mic are the primary input. Wake phrases **“Hey REACH”** and **“Hey Alexa”** are accepted; the UI always displays **“Hey REACH.”**
+- REACH speaks the outcome as a completed result, and the same sentence is the on-screen caption. Spoken approvals and refusals mirror their sheets.
+- The speaker toggle mutes replies persistently. A compact **Type instead** field remains for keyboard use and mic-less machines.
+- The right-side device rail stays the device rail: no voice controls are added there.
 
 ## Evidence on Hand
 
@@ -56,4 +63,4 @@ The model proposes; the code decides. Every action is classified by risk, gated 
 
 ## Accessibility & Inclusion
 
-- WCAG 2.2 AA body contrast; 11px floor on all text; full keyboard operation (gate, question, composer, popovers, Esc/Enter); `prefers-reduced-motion` honored; live-region announcements kept.
+- WCAG 2.2 AA body contrast; 11px floor on all text; full keyboard operation (orb, voice bar, type fallback, gate, question, popovers, Esc/Enter); `prefers-reduced-motion` honored with a static orb frame; live-region announcements kept.

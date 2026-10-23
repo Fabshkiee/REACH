@@ -103,7 +103,7 @@ npm run dev:server       # → http://localhost:3000/health → 200 {"ok":true}
 # Terminal 2 — Laptop agent (registers + heartbeats, does the real work on :3001)
 npm run dev:agent        # → http://localhost:3001/health → 200 {"ok":true}
 
-# Browser — simulated Alexa+ interaction (text stand-in for voice, real backend)
+# Browser — voice-first Alexa+ console (browser mic + spoken replies, real backend)
 # → http://localhost:3000/sim
 ```
 
@@ -131,8 +131,11 @@ curl localhost:3000/tools/task/<taskId>
 # → {"status":"completed","outcome":{...},"evidence":{...}}
 ```
 
-The sim at `http://localhost:3000/sim` shows the plan, the per-step trace, the
-event trail and the approval card for the same engine.
+The sim at `http://localhost:3000/sim` is a voice-first console for the same
+engine: tap the orb or enable hands-free (“Hey REACH” / “Hey Alexa”), hear the
+outcome, and read the same caption on screen. The plan, per-step trace, event
+trail and approval sheet are one tap away; a compact **Type instead** field
+covers mic-less machines and keyboard use.
 
 ## AWS Builder plan (Bedrock as the planner brain)
 
