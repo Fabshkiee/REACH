@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REACH — One Ambient Voice. Every Personal Device. Zero Blind Execution.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  /* Design tokens — do not deviate (spec §2) */
+  :root {
+    --bg-canvas: #0c141b;
+    --bg-surface-1: #121c24;
+    --bg-surface-2: #161e25;
+    --bg-surface-3: #212b33;
+    --bg-glass: rgba(22, 30, 37, 0.78);
+    --accent-primary: #1f9ede;
+    --accent-secondary: #6fc3f2;
+    --accent-glow: rgba(31, 158, 222, 0.25);
+    --aws-amber: #ff9900;
+    --status-success-bg: rgba(16, 185, 129, 0.12);
+    --status-success-border: #10b981;
+    --status-success-text: #34d399;
+    --status-warning-bg: rgba(245, 158, 11, 0.12);
+    --status-warning-border: #f59e0b;
+    --status-warning-text: #fbbf24;
+    --status-danger-bg: rgba(239, 68, 68, 0.12);
+    --status-danger-border: #ef4444;
+    --status-danger-text: #f87171;
+    --text-primary: #f0f6fc;
+    --text-secondary: #9baec2;
+    --text-muted: #5c7085;
+    --border-subtle: #1e2933;
+    --border-focus: #1f9ede;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-pill: 9999px;
+    --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+    --shadow-glow: 0 0 28px -4px rgba(31, 158, 222, 0.35);
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+  body {
+    margin: 0;
+    background: var(--bg-canvas);
+    background-image: radial-gradient(70% 42% at 70% 0%, rgba(31, 158, 222, .10), transparent 70%);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: 4px; }
+  h1 { font-family: var(--font-sans); font-size: 3rem; font-weight: 800; line-height: 1.15; color: var(--text-primary); margin: 0; text-wrap: balance; }
+  h2 { font-family: var(--font-sans); font-size: 2rem; font-weight: 700; line-height: 1.25; color: var(--text-primary); margin: 0; }
+  h3 { font-family: var(--font-sans); font-size: 1.125rem; font-weight: 600; line-height: 1.4; color: var(--text-primary); margin: 0; }
+  p { font-size: 0.9375rem; line-height: 1.6; color: var(--text-secondary); margin: 0; }
+  .badge-code { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500; line-height: 1.2; color: var(--accent-secondary); letter-spacing: .06em; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  section[id] { scroll-margin-top: 96px; }
+  .section { padding: 96px 0; }
+  .section-head { max-width: 720px; margin: 0 auto 48px; text-align: center; display: grid; gap: 12px; }
+  .section-head .badge-code { text-transform: uppercase; }
+
+  /* ---------- Sticky pill navbar (§4.0) ---------- */
+  .nav-wrap { position: sticky; top: 16px; z-index: 50; max-width: 1152px; margin: 0 auto; padding: 0 16px; }
+  .nav-inner {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+  .brand strong { color: var(--text-primary); font-weight: 800; letter-spacing: 0.08em; font-size: 15px; text-transform: uppercase; }
+  .brand .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-primary); box-shadow: var(--shadow-glow); animation: glow 2s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: 0 0 14px 2px var(--accent-glow); opacity: .75; } }
+  .nav-links { display: flex; align-items: center; gap: 6px; }
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .nav-links a:hover, .nav-links a:focus-visible { color: var(--accent-secondary); border-color: var(--border-subtle); background: var(--bg-surface-3); }
+  .nav-cta {
+    color: #ffffff;
+    background: var(--accent-primary);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    box-shadow: var(--shadow-glow);
+    white-space: nowrap;
+  }
+  .nav-cta:hover, .nav-cta:focus-visible { background: var(--accent-secondary); color: #06281e; border-radius: var(--radius-pill); }
+  @media (max-width: 900px) { .nav-links { display: none; } }
+
+  /* ---------- Section 1: Hero (§4) ---------- */
+  .hero { padding-top: 64px; }
+  .hero-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 48px; align-items: center; }
+  .hero-badge {
+    display: inline-flex;
+    border: 1px solid var(--aws-amber);
+    background: rgba(255, 153, 0, 0.1);
+    color: var(--aws-amber);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 7px 16px;
+    border-radius: var(--radius-pill);
+    margin: 24px 0 20px;
+  }
+  .hero .sub { max-width: 560px; margin: 20px 0 28px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-primary);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 12px 24px;
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+    box-shadow: var(--shadow-glow);
+  }
+  .btn-primary:hover, .btn-primary:focus-visible { background: var(--accent-secondary); color: #06281e; }
+  .btn-secondary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bg-surface-3);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    font-weight: 500;
+    font-size: 14px;
+    padding: 12px 24px;
+    border-radius: var(--radius-pill);
+    text-decoration: none;
+  }
+  .btn-secondary:hover, .btn-secondary:focus-visible { border-color: var(--accent-primary); color: var(--accent-secondary); }
+
+  /* The Sonic Pulse Node (§1 brand device) */
+  .pulse-node {
+    width: 360px; height: 360px; max-width: 100%;
+    background: var(--bg-surface-2);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-subtle);
+    position: relative;
+    overflow: hidden;
+    margin: 0 auto;
+    box-shadow: var(--shadow-card);
+  }
+  .pulse-node .rings { position: absolute; inset: 0; display: grid; place-items: center; }
+  .pulse-node .ring { position: absolute; border: 1px dashed rgba(31, 158, 222, .28); border-radius: 50%; }
+  .pulse-node .r1 { width: 150px; height: 150px; }
+  .pulse-node .r2 { width: 240px; height: 240px; }
+  .pulse-node .r3 { width: 330px; height: 330px; }
+  .pulse-node .orb-core {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 96px; height: 96px; border-radius: 50%;
+    background: radial-gradient(circle, #6fc3f2 0%, #1f9ede 60%, transparent 100%);
+    box-shadow: 0 0 40px 8px var(--accent-glow);
+    animation: orb 2.4s ease-in-out infinite;
+  }
+  @keyframes orb { 50% { box-shadow: 0 0 70px 18px rgba(31, 158, 222, 0.35); } }
+  .pulse-node svg.links { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pulse-node svg.links path { fill: none; stroke: #1f9ede; stroke-width: 1.5; stroke-dasharray: 5 6; opacity: .6; }
+  .sat {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface-3);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+    box-shadow: var(--shadow-card);
+  }
+  .sat em { font-style: normal; color: var(--status-success-text); font-weight: 600; }
+  .sat.tl { top: 54px; left: 18px; }
+  .sat.tr { top: 54px; right: 18px; }
+  .sat.bb { bottom: 42px; left: 50%; transform: translateX(-50%); }
+
+  /* ---------- Section 2: Mission Control Bezel (§4.2) ---------- */
+  .bezel {
+    max-width: 1024px; margin: 0 auto;
+    background: var(--bg-surface-1);
+    border: 2px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-glow);
+    overflow: hidden;
+  }
+  .winbar { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface-2); }
+  .winbar .dots { display: flex; gap: 7px; }
+  .winbar .dots i { width: 11px; height: 11px; border-radius: 50%; }
+  .winbar .dots i:nth-child(1) { background: #f87171; }
+  .winbar .dots i:nth-child(2) { background: #fbbf24; }
+  .winbar .dots i:nth-child(3) { background: #34d399; }
+  .winbar .demo-pill {
+    margin: 0 auto;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-canvas);
+    border: 1px solid var(--border-subtle);
+    padding: 5px 14px; border-radius: var(--radius-pill);
+  }
+  .winbar .stream { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 11px; color: var(--status-success-text); }
+  .winbar .stream i { width: 7px; height: 7px; border-radius: 50%; background: var(--status-success-border); animation: glow 1.6s infinite; }
+  .stages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 28px; background:
+    radial-gradient(50% 100% at 50% 0%, rgba(31, 158, 222, .07), transparent 70%); }
+  .stage { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px; display: grid; gap: 10px; opacity: .55; }
+  .stage .stp { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); letter-spacing: .08em; }
+  .stage .bubble { background: var(--bg-surface-3); border-radius: var(--radius-md); color: var(--text-primary); font-size: 13px; padding: 12px 14px; }
+  .stage .mock { background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px; font-family: var(--font-mono); font-size: 11px; color: var(--accent-secondary); min-height: 64px; }
+  .stage { animation: stage-cycle 9s infinite; animation-delay: calc((var(--i) - 1) * 3s); }
+  .stage.s2 { --i: 2; }
+  .stage.s3 { --i: 3; }
+  .stage.s1 { --i: 1; }
+  @keyframes stage-cycle { 0%, 100% { opacity: .55; border-color: var(--border-subtle); box-shadow: none; } 14%, 30% { opacity: 1; border-color: var(--accent-primary); box-shadow: var(--shadow-glow); } }
+  .steplabel { font-size: 12px; color: var(--text-secondary); }
+
+  /* ---------- Section 3: Bento cards (§4.3) ---------- */
+  .bento { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .bento .card {
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: var(--shadow-card);
+    display: grid; gap: 12px; align-content: start;
+  }
+  .bento-cyan { color: var(--accent-secondary); }
+  .bento-warn { color: var(--status-warning-text); }
+  .bento-ok { color: var(--status-success-text); }
+  .bento-amber { color: var(--aws-amber); }
+
+  /* ---------- Section 4: Device personas (§4.4) ---------- */
+  .personas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .persona { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 28px; display: grid; gap: 14px; align-content: start; box-shadow: var(--shadow-card); }
+  .persona .icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: var(--radius-md); }
+  .persona .icon svg { width: 22px; height: 22px; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+  .icon-cyan { background: rgba(31, 158, 222, 0.14); } .icon-cyan svg { stroke: var(--accent-secondary); }
+  .icon-ok { background: var(--status-success-bg); } .icon-ok svg { stroke: var(--status-success-text); }
+  .icon-amber { background: rgba(255, 153, 0, 0.12); } .icon-amber svg { stroke: var(--aws-amber); }
+  .persona .role { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .pill-list { display: flex; flex-wrap: wrap; gap: 7px; }
+  .pill-list span { font-family: var(--font-mono); font-size: 11px; color: var(--accent-secondary); border: 1px solid var(--border-subtle); background: var(--bg-canvas); border-radius: var(--radius-pill); padding: 4px 11px; }
+  .persona blockquote { margin: 0; font-size: 14px; color: var(--text-secondary); border-left: 2px solid var(--accent-primary); padding-left: 14px; font-style: italic; }
+
+  /* ---------- Section 5: Lifecycle (§4.5) ---------- */
+  .lifecycle { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; position: relative; }
+  .lstep { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 22px; position: relative; display: grid; gap: 10px; align-content: start; }
+  .lstep + .lstep::before {
+    content: ""; position: absolute; left: -17px; top: 44px; width: 18px; height: 1px;
+    background: var(--accent-primary); opacity: .5;
+  }
+  .lbadge { font-family: var(--font-mono); font-size: 11px; color: var(--accent-secondary); border: 1px solid var(--border-subtle); background: var(--bg-canvas); border-radius: var(--radius-pill); padding: 4px 11px; width: fit-content; }
+  .lbadge.warn { color: var(--status-warning-text); border-color: var(--status-warning-border); background: var(--status-warning-bg); }
+  .lbadge.ok { color: var(--status-success-text); border-color: var(--status-success-border); background: var(--status-success-bg); }
+
+  /* ---------- Section 6: Protocol inspector (§4.6) ---------- */
+  .inspector { display: grid; gap: 24px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .tabs button {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    padding: 9px 18px;
+    cursor: pointer;
+  }
+  .tabs button:hover { color: var(--accent-secondary); border-color: var(--accent-primary); }
+  .tabs button[aria-selected="true"] {
+    color: var(--text-primary);
+    background: var(--bg-surface-3);
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-glow);
+  }
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .pane { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 24px; display: grid; gap: 14px; min-height: 480px; align-content: start; }
+  .pane h3 { font-size: 13px; font-family: var(--font-mono); color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; }
+  .voice-bubble { background: var(--bg-surface-3); color: var(--text-primary); border-radius: var(--radius-md); padding: 14px 18px; font-size: 14px; position: relative; }
+  .voice-bubble .mic { display: inline-flex; margin-right: 8px; }
+  .route-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border-subtle); background: var(--bg-canvas); color: var(--text-secondary); font-size: 13px; padding: 8px 14px; border-radius: var(--radius-pill); width: fit-content; }
+  .route-pill b { color: var(--accent-secondary); font-weight: 600; }
+  .approved-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--status-success-border); background: var(--status-success-bg); color: var(--status-success-text); font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius-pill); width: fit-content; }
+  .mock-artifact { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-canvas); overflow: hidden; width: 100%; }
+  .mock-artifact .fill { height: 180px; background:
+      radial-gradient(40% 55% at 60% 40%, rgba(111, 195, 242, .5), transparent 70%),
+      radial-gradient(90% 90% at 20% 90%, rgba(31, 158, 222, .18), transparent 70%),
+      repeating-linear-gradient(0deg, #0c141b 0 30px, #101a22 30px 32px);
+    position: relative; }
+  .mock-artifact .fill::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px); background-size: 42px 42px; }
+  .mock-artifact figcaption { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); padding: 10px 14px; border-top: 1px solid var(--border-subtle); }
+  .json-pane {
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+    background: #080d12;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    overflow: auto;
+    color: var(--text-secondary);
+    min-height: 480px;
+    white-space: pre;
+    margin: 0;
+  }
+  .j-key { color: var(--accent-secondary); }
+  .j-str { color: var(--status-success-text); }
+  .j-num { color: var(--aws-amber); }
+  .j-bool { color: var(--status-warning-text); }
+
+  /* ---------- Section 7: Architecture (§4.7) ---------- */
+  .arch { display: grid; gap: 0; max-width: 1024px; margin: 0 auto; }
+  .tier { display: grid; grid-template-columns: 150px 1fr; gap: 20px; align-items: center; }
+  .tier-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .1em; text-align: right; line-height: 1.5; }
+  .tier-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 14px 0; }
+  .abox { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px 16px; font-size: 13px; color: var(--text-primary); font-weight: 600; box-shadow: var(--shadow-card); }
+  .abox small { display: block; font-size: 11px; color: var(--text-muted); font-weight: 400; margin-top: 3px; }
+  .abox.cloud { border-color: rgba(255, 153, 0, 0.35); }
+  .abox .aws { font-family: var(--font-mono); font-size: 10px; color: var(--aws-amber); display: block; margin-top: 6px; letter-spacing: .06em; }
+  .tier-arrows { display: flex; justify-content: center; padding: 2px 0; }
+  .tier-arrows svg { width: 340px; height: 34px; }
+  .tier-arrows path { fill: none; stroke: var(--accent-primary); stroke-width: 1.6; stroke-dasharray: 4 5; marker-end: url(#arrowhead); }
+  .arrows-anim path { animation: dash 1.4s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -18; } }
+
+  /* ---------- Section 8: Telemetry (§4.8) ---------- */
+  .telemetry {
+    background: linear-gradient(90deg, #121c24 0%, #162636 50%, #121c24 100%);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    text-align: center;
+    gap: 16px;
+  }
+  .telemetry .tv { font-family: var(--font-mono); font-size: 30px; font-weight: 500; color: var(--text-primary); }
+  .telemetry .tv small { font-size: 18px; color: var(--accent-secondary); }
+  .telemetry .tl { font-size: 12px; color: var(--text-muted); margin-top: 6px; letter-spacing: .04em; }
+  .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 48px; }
+  .svc { background: var(--bg-surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px 20px; display: grid; gap: 6px; align-content: start; }
+  .svc .svc-name { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px; }
+  .svc .svc-name::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--aws-amber); flex: none; }
+  .svc .svc-name.mcp::before { background: var(--accent-secondary); }
+  .svc p { font-size: 13px; }
+  .svc .cfg { font-family: var(--font-mono); font-size: 11px; color: var(--accent-secondary); }
+
+  footer { padding: 40px 0 64px; border-top: 1px solid var(--border-subtle); margin-top: 48px; }
+  .foot { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 13px; }
+  .foot a { color: var(--accent-secondary); text-decoration: none; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 980px) {
+    h1 { font-size: 2.4rem; }
+    h2 { font-size: 1.7rem; }
+    .section { padding: 72px 0; }
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+    .sat.tl { top: 40px; left: 10px; }
+    .sat.tr { top: 104px; right: 10px; }
+    .bento, .personas, .lifecycle, .panes, .svc-grid { grid-template-columns: 1fr; }
+    .stages { grid-template-columns: 1fr; }
+    .stage { animation: none !important; opacity: 1; }
+    .lstep + .lstep::before { display: none; }
+    .telemetry { grid-template-columns: repeat(2, 1fr); }
+    .tier { grid-template-columns: 1fr; }
+    .tier-label { text-align: left; }
+    .tier-boxes { grid-template-columns: 1fr; }
+    .pulse-node { width: 320px; height: 320px; }
+    .pulse-node svg.links { display: none; }
+  }
+  @media (max-width: 560px) {
+    .pulse-node { width: 280px; height: 280px; }
+    .sat.tl, .sat.tr { font-size: 10px; padding: 5px 9px; }
+  }
+</style>
+</head>
+<body>
+<div class="nav-wrap">
+  <div class="nav-inner">
+    <a class="brand" href="/"><span class="pulse-dot" aria-hidden="true"></span><strong>REACH</strong></a>
+    <nav class="nav-links" aria-label="Page sections">
+      <a href="#features">Capabilities</a>
+      <a href="#ecosystem">Devices</a>
+      <a href="#lifecycle">Lifecycle</a>
+      <a href="#inspector">See It Execute</a>
+      <a href="#architecture">Built on AWS</a>
+    </nav>
+    <a class="nav-cta" href="/sim">Launch Console →</a>
+  </div>
+</div>
+
+<!-- ================= Section 1: Hero ================= -->
+<section class="section hero" aria-labelledby="hero-title">
+  <div class="container hero-grid">
+    <div>
+      <div class="hero-badge">⚡ Amazon Developer Hackathon 2026 • Powered by AWS Bedrock &amp; MCP</div>
+      <h1 id="hero-title">One Ambient Voice. Every Personal Device. Zero Blind Execution.</h1>
+      <p class="sub">REACH coordinates spoken and typed commands across your Laptop, Phone, and Local Agent in real time—protected by human-in-the-loop cryptographic approval and backed by verifiable outputs.</p>
+      <div class="cta-row">
+        <a class="btn-primary" href="/sim">Launch Live Simulator (/sim)</a>
+        <a class="btn-secondary" href="#inspector">Inspect MCP Protocol</a>
+      </div>
+    </div>
+    <div class="pulse-node" aria-hidden="true">
+      <div class="rings"><i class="ring r3"></i><i class="ring r2"></i><i class="ring r1"></i></div>
+      <div class="orb-core"></div>
+      <svg class="links" viewBox="0 0 360 360">
+        <path d="M180 180 L 122 84"/>
+        <path d="M180 180 L 236 84"/>
+        <path d="M180 180 L 180 296"/>
+      </svg>
+      <span class="sat tl">📱 iPhone 16 Pro • <em>Online</em></span>
+      <span class="sat tr">💻 MacBook Studio • <em>14 Tools</em></span>
+      <span class="sat bb">🖥️ Local CLI Agent • <em>Ready</em></span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 2: Mission Control Bezel ================= -->
+<section class="section" aria-labelledby="bezel-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">Live Cross-Device Execution</span>
+      <h2 id="bezel-title">Speak on your phone. See it land on your laptop.</h2>
+    </div>
+    <div class="bezel">
+      <div class="winbar">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="demo-pill">LIVE DEMO: Cross-Device Voice-to-Artifact Execution (01:15)</span>
+        <span class="stream"><i aria-hidden="true"></i>AWS Bedrock Streaming</span>
+      </div>
+      <div class="stages">
+        <div class="stage s1">
+          <span class="stp">01 · VOICE INTENT — iPHONE</span>
+          <p class="bubble"><span class="mic">🎙️</span>“Grab a screenshot of my current mobile screen and summarize the error log on my MacBook.”</p>
+          <span class="steplabel">Intent parsed by Bedrock → devices resolved</span>
+        </div>
+        <div class="stage s2">
+          <span class="stp">02 · SECURITY GATE</span>
+          <p class="bubble">🔒 <strong>Approve / Deny</strong> — device.screen.capture_and_transfer</p>
+          <span class="steplabel">High-impact actions pause for one human click</span>
+        </div>
+        <div class="stage s3">
+          <span class="stp">03 · ARTIFACT DELIVERY — MACBOOK</span>
+          <p class="mock">↳ IMG_4021.png synced · 640ms<br>↳ error summary rendered in thread</p>
+          <span class="steplabel">Verifiable output + JSON trace</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 3: Capability Bento ================= -->
+<section class="section" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">Core Capabilities</span>
+      <h2 id="features-title">Engineered for Real-World Multi-Device Orchestration</h2>
+      <p>No toy prompts. REACH executes real system capabilities across distributed hardware boundaries.</p>
+    </div>
+    <div class="bento">
+      <div class="card">
+        <span class="badge-code bento-cyan">CROSS-DEVICE SYNC</span>
+        <h3>Move screenshots, logs, and clipboard state seamlessly.</h3>
+        <p>Capture an image or text snippet on your phone and pipe it directly into your laptop's active workspace with zero AirDrop friction.</p>
+      </div>
+      <div class="card">
+        <span class="badge-code bento-warn">ZERO-TRUST EXECUTION</span>
+        <h3>Sensitive tools pause automatically for 1-click approval.</h3>
+        <p>Shell commands, filesystem writes, and external network calls trigger an explicit Approve/Deny boundary before any byte executes.</p>
+      </div>
+      <div class="card">
+        <span class="badge-code bento-ok">CAPABILITY DISCOVERY</span>
+        <h3>Dynamic tool registration as devices join your mesh.</h3>
+        <p>Each connected device advertises its local capabilities—from screen capture and audio transcription to local git inspection—into a unified routing table.</p>
+      </div>
+      <div class="card">
+        <span class="badge-code bento-amber">AUDITABILITY</span>
+        <h3>Every action produces a structured, inspectable receipt.</h3>
+        <p>Instead of opaque chat bubbles, REACH returns verifiable media previews, execution timers, and collapsible JSON tool traces.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 4: Device ecosystem ================= -->
+<section class="section" id="ecosystem" aria-labelledby="eco-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">Device Ecosystem</span>
+      <h2 id="eco-title">Three nodes join your mesh. One voice commands them all.</h2>
+    </div>
+    <div class="personas">
+      <div class="persona">
+        <span class="icon icon-cyan" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg></span>
+        <h3>The Mobile Node (iOS / Android)</h3>
+        <span class="role">Ambient Voice Capture &amp; Field Sensors</span>
+        <div class="pill-list"><span>Camera Capture</span><span>Voice Memo Stream</span><span>Push Approval</span><span>Clipboard Read</span><span>Location Context</span></div>
+        <blockquote>“REACH, photograph this whiteboard and turn it into Markdown tickets on my work laptop.”</blockquote>
+      </div>
+      <div class="persona">
+        <span class="icon icon-ok" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v10H4z"/><path d="M2 19.5h20a1.5 1.5 0 01-1.5 1.5h-17A1.5 1.5 0 012 19.5z"/></svg></span>
+        <h3>The Primary Workstation (macOS / Windows / Linux)</h3>
+        <span class="role">Heavy Compute &amp; IDE Synthesis</span>
+        <div class="pill-list"><span>File System R/W</span><span>Browser Automation</span><span>Window Snapshot</span><span>Clipboard Write</span><span>Notification Dispatch</span></div>
+        <blockquote>“Pull the latest screenshot from my phone and attach it to my open pull request.”</blockquote>
+      </div>
+      <div class="persona">
+        <span class="icon icon-amber" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5l6 7-6 7"/><path d="M13 19h7"/></svg></span>
+        <h3>The Headless Local Agent (Daemon / Server)</h3>
+        <span class="role">Sandboxed Execution &amp; DevOps</span>
+        <div class="pill-list"><span>Docker Status</span><span>Log Tail</span><span>Test Runner</span><span>Git Diff</span><span>Local LLM Bridge</span></div>
+        <blockquote>“Check if my local build container finished and send the test summary to my phone.”</blockquote>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 5: Lifecycle ================= -->
+<section class="section" id="lifecycle" aria-labelledby="life-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">Anatomy of a Reach</span>
+      <h2 id="life-title">From spoken intent to verified artifact in four steps.</h2>
+    </div>
+    <div class="lifecycle">
+      <div class="lstep">
+        <span class="lbadge">T + 0ms</span>
+        <h3>01. Ambient Intent</h3>
+        <p>Speak or Type Anywhere — user issues a natural language request from any connected surface. AWS Bedrock parses intent and identifies required target devices.</p>
+      </div>
+      <div class="lstep">
+        <span class="lbadge">T + 140ms</span>
+        <h3>02. Capability Resolution</h3>
+        <p>MCP Mesh Routing — REACH matches the request against 27+ active device capabilities and constructs a deterministic execution plan.</p>
+      </div>
+      <div class="lstep">
+        <span class="lbadge warn">PAUSED FOR HUMAN</span>
+        <h3>03. Security Gate</h3>
+        <p>Explicit User Consent — high-impact operations surface a visual Approve / Deny card showing target device, tool name, and exact parameters.</p>
+      </div>
+      <div class="lstep">
+        <span class="lbadge ok">T + 680ms</span>
+        <h3>04. Verifiable Artifact</h3>
+        <p>Synced Output &amp; Trace — the target device executes the tool and streams the resulting file, image, or transcript back to the unified thread.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 6: Interactive protocol inspector ================= -->
+<section class="section" id="inspector" aria-labelledby="insp-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">See It Execute</span>
+      <h2 id="insp-title">Every request, side-by-side: what you say vs. what the mesh does.</h2>
+    </div>
+    <div class="inspector">
+      <div class="tabs" role="tablist" aria-label="Demo scenarios">
+        <button role="tab" id="tab-0" aria-selected="true" aria-controls="pane-human">Tab 1: Cross-Device Screenshot &amp; OCR</button>
+        <button role="tab" id="tab-1" aria-selected="false" aria-controls="pane-human">Tab 2: Secure Clipboard &amp; SSH Key Sync</button>
+        <button role="tab" id="tab-2" aria-selected="false" aria-controls="pane-human">Tab 3: Ambient Voice Note to Local Markdown</button>
+      </div>
+      <div class="panes">
+        <div class="pane" id="pane-human" role="tabpanel" aria-labelledby="tab-0">
+          <h3>Human Experience View</h3>
+          <p class="voice-bubble"><span class="mic">🎙️</span><span id="sc-voice"></span></p>
+          <span class="route-pill" id="sc-route"></span>
+          <span class="approved-pill" id="sc-approved"></span>
+          <figure class="mock-artifact">
+            <div class="fill" id="sc-mock"></div>
+            <figcaption id="sc-cap"></figcaption>
+          </figure>
+        </div>
+        <pre class="json-pane" id="pane-json" aria-label="MCP protocol payload"></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 7: Architecture ================= -->
+<section class="section" id="architecture" aria-labelledby="arch-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">Built on AWS</span>
+      <h2 id="arch-title">The control plane behind the mesh.</h2>
+    </div>
+    <div class="arch">
+      <div class="tier">
+        <span class="tier-label">Tier 1<br>Edge Device Mesh</span>
+        <div class="tier-boxes">
+          <div class="abox">iOS / Android Client<small>Ambient capture + push approvals</small></div>
+          <div class="abox">Web Console (/sim)<small>Human-in-the-loop seat</small></div>
+          <div class="abox">Local MCP Daemon<small>Sandboxed tool execution</small></div>
+        </div>
+      </div>
+      <div class="tier-arrows"><svg viewBox="0 0 340 34" aria-hidden="true"><defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="4" orient="auto"><path d="M0 0l7 4-7 4z" fill="#1f9ede"/></marker></defs><path d="M60 2v26m0 0l-4-4m4 4l4-4"/><path d="M170 2v26m0 0l-4-4m4 4l4-4"/><path d="M280 2v26m0 0l-4-4m4 4l4-4"/></svg></div>
+      <div class="tier">
+        <span class="tier-label">Tier 2<br>AWS Cloud<br>Control Plane</span>
+        <div class="tier-boxes">
+          <div class="abox cloud">Amazon Cognito<small>Device &amp; user identity</small><span class="aws">AWS</span></div>
+          <div class="abox cloud">AWS AppSync / API Gateway WebSockets<small>Real-time heartbeat &amp; event bus</small><span class="aws">AWS</span></div>
+          <div class="abox cloud">AWS Lambda<small>Stateless MCP tool router &amp; security gate coordinator</small><span class="aws">AWS</span></div>
+        </div>
+      </div>
+      <div class="tier-arrows arrows-anim"><svg viewBox="0 0 340 34" aria-hidden="true"><path d="M60 2v26m0 0l-4-4m4 4l4-4"/><path d="M170 2v26m0 0l-4-4m4 4l4-4"/><path d="M280 2v26m0 0l-4-4m4 4l4-4"/></svg></div>
+      <div class="tier">
+        <span class="tier-label">Tier 3<br>Intelligence &amp; State</span>
+        <div class="tier-boxes">
+          <div class="abox cloud">Amazon Bedrock<small>Multi-device intent planning &amp; tool selection</small><span class="aws">AWS</span></div>
+          <div class="abox cloud">Amazon DynamoDB<small>Device registry, capability table, task approval state</small><span class="aws">AWS</span></div>
+          <div class="abox cloud">Amazon S3<small>Encrypted cross-device artifact &amp; screenshot vault</small><span class="aws">AWS</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= Section 8: Telemetry + 3×3 matrix ================= -->
+<section class="section" id="telemetry" aria-labelledby="tel-title">
+  <div class="container">
+    <div class="section-head">
+      <span class="badge-code">Telemetry</span>
+      <h2 id="tel-title">Numbers, not vibes.</h2>
+    </div>
+    <div class="telemetry" role="list">
+      <div role="listitem"><div class="tv">&lt; 340<small>ms</small></div><div class="tl">p95 Device Routing Latency</div></div>
+      <div role="listitem"><div class="tv">27</div><div class="tl">Registered MCP Capabilities</div></div>
+      <div role="listitem"><div class="tv">100<small>%</small></div><div class="tl">Human-Gated Write Safety</div></div>
+      <div role="listitem"><div class="tv">142 / 142</div><div class="tl">Passing Integration Tests</div></div>
+    </div>
+    <div class="svc-grid">
+      <div class="svc"><span class="svc-name">Amazon Bedrock</span><p>Orchestrates tool-use planning and natural language decomposition.</p><span class="cfg">planner-loop · claude-3-7-sonnet</span></div>
+      <div class="svc"><span class="svc-name">AWS Lambda</span><p>Executes ultra-low-latency MCP tool dispatch and webhook callbacks.</p><span class="cfg">streamable-http · stateless</span></div>
+      <div class="svc"><span class="svc-name">Amazon DynamoDB</span><p>Stores real-time device heartbeats, capability schemas, and task logs.</p><span class="cfg">single-flight task store</span></div>
+      <div class="svc"><span class="svc-name">Amazon S3</span><p>Holds pre-signed cross-device artifacts, screenshots, and voice recordings.</p><span class="cfg">Downloads/REACH drop zone</span></div>
+      <div class="svc"><span class="svc-name">Amazon Cognito</span><p>Secures user sessions and cryptographic device-pair tokens.</p><span class="cfg">oauth 2.1 · PKCE (phase 3/4)</span></div>
+      <div class="svc"><span class="svc-name">Amazon API Gateway</span><p>Manages bidirectional WebSocket streams to connected devices.</p><span class="cfg">heartbeat · every 5s</span></div>
+      <div class="svc"><span class="svc-name">AWS CDK</span><p>100% Infrastructure-as-Code deployment for reproducible cloud stacks.</p><span class="cfg">npm run build → dist</span></div>
+      <div class="svc"><span class="svc-name">Amazon CloudWatch</span><p>Tracks p95 tool latency, heartbeat drops, and security gate events.</p><span class="cfg">audit: 8-field evidence record</span></div>
+      <div class="svc"><span class="svc-name mcp">Model Context Protocol (MCP)</span><p>Standardized schema binding local hardware tools to cloud agents.</p><span class="cfg">mcp/2025-11-25 · 27 tools</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container foot">
+    <span>REACH — Amazon Developer Hackathon 2026. Voice in. Verified artifacts out.</span>
+    <a href="/sim">Launch Console →</a>
+  </div>
+</footer>
+
+<script>
+  // Section 6 interactive scenarios — self-contained, no backend calls.
+  const SCENARIOS = [
+    {
+      voice: "Grab a screenshot of my current mobile screen and read the error text on it.",
+      route: "📱 iPhone → 💻 MacBook",
+      cap: "iPhone Screen Capture — OCR run on the laptop, summaries synced back to the phone.",
+      json: {
+        protocol: "mcp/1.0",
+        orchestrator: "aws.bedrock.claude-3-7-sonnet",
+        routing: { source_device: "dev_iphone_16_pro", target_device: "dev_macbook_studio", capability: "device.screen.capture_and_transfer" },
+        security_policy: { status: "APPROVED", approved_by: "session_usr_9921", timestamp: "2026-10-23T18:42:11Z" },
+        artifact: { display_name: "iPhone Screen Capture", mime_type: "image/png", verified_sha256: "8f9d2a…c41e" },
+      },
+    },
+    {
+      voice: "Copy the SSH key I just generated on my laptop into my phone's secure clipboard.",
+      route: "💻 MacBook → 📱 iPhone",
+      cap: "Encrypted clipboard sync — key bytes never touch the conversation transcript.",
+      json: {
+        protocol: "mcp/1.0",
+        orchestrator: "aws.bedrock.claude-3-7-sonnet",
+        routing: { source_device: "dev_macbook_studio", target_device: "dev_iphone_16_pro", capability: "device.clipboard.secure_sync" },
+        security_policy: { status: "APPROVED", approved_by: "session_usr_9921", timestamp: "2026-10-23T18:44:03Z", redactions: ["arg.key_material → ██████"] },
+        artifact: { display_name: "Clipped to iPhone Secure Keystore", mime_type: "text/plain", encrypted_in_transit: true },
+      },
+    },
+    {
+      voice: "Take a voice note for my standup and drop it into my local standup-notes file.",
+      route: "🎙️ Local Agent → 📝 Markdown",
+      cap: "Local speech transcription, rendered as meeting-notes Markdown on disk with the file path cited.",
+      json: {
+        protocol: "mcp/1.0",
+        orchestrator: "aws.bedrock.nova-lite",
+        routing: { source_device: "dev_cli_agent", target_device: "dev_macbook_studio", capability: "audio.transcribe_to_markdown" },
+        security_policy: { status: "APPROVED", approved_by: "session_usr_9921", timestamp: "2026-10-23T18:46:58Z" },
+        artifact: { display_name: "Ambient Voice Note", mime_type: "text/markdown", verified_sha256: "3b1c77…9d54" },
+      },
+    },
+  ];
+
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  // Escape first, then highlight token classes on the escaped text.
+  function highlight(obj) {
+    return esc(JSON.stringify(obj, null, 2))
+      .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"(\s*:)/g, '<span class="j-key">"$1"</span>$2')
+      .replace(/:\s*"((?:[^"\\]|\\.)*)"/g, ': <span class="j-str">"$1"</span>')
+      .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="j-num">$1</span>')
+      .replace(/\b(true|false|null)\b/g, '<span class="j-bool">$1</span>');
+  }
+
+  const tabs = [...document.querySelectorAll('.tabs [role="tab"]')];
+  const jsonPane = document.getElementById("pane-json");
+  function pick(i) {
+    const s = SCENARIOS[i];
+    tabs.forEach((t, j) => t.setAttribute("aria-selected", String(i === j)));
+    document.getElementById("sc-voice").textContent = s.voice;
+    const route = document.getElementById("sc-route");
+    route.textContent = "";
+    s.route.split(" → ").forEach((part, k) => {
+      if (k > 0) { const b = document.createElement("b"); b.textContent = "→"; route.append(b, " "); }
+      route.append(part.trim() + " ");
+    });
+    document.getElementById("sc-approved").textContent = "✓ Approved by User · Human-in-the-loop";
+    document.getElementById("sc-cap").textContent = s.cap;
+    jsonPane.innerHTML = highlight(s.json);
+  }
+  tabs.forEach((t, i) => t.addEventListener("click", () => pick(i)));
+  pick(0);
+</script>
+</body>
+</html>

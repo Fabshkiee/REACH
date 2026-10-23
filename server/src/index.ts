@@ -25,17 +25,25 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "reach-server", mcp: "streamable-http", buildStamp: BUILD_STAMP });
 });
 
-// Simulated Alexa+ interaction layer (text stand-in for voice). Single static
-// file; talks to the task mirrors below. Works under tsx (server/public) and
-// compiled output (dist/public, copied at build).
-const simCandidates = [
-  join(dirname(fileURLToPath(import.meta.url)), "..", "public", "sim.html"),
-  join(dirname(fileURLToPath(import.meta.url)), "public", "sim.html"),
-];
-app.get("/sim", (_req, res) => {
-  const found = simCandidates.find((p) => existsSync(p));
-  if (!found) return res.status(500).json({ error: "sim.html missing: run npm run build or start via tsx" });
+// Narrative marketing homepage (GET /) and the operational console (GET /sim).
+// Single static files; the console talks to the task mirrors below. Both work
+// under tsx (server/public) and compiled output (dist/public, copied at build).
+function staticCandidates(name: string): string[] {
+  return [
+    join(dirname(fileURLToPath(import.meta.url)), "..", "public", name),
+    join(dirname(fileURLToPath(import.meta.url)), "public", name),
+  ];
+}
+function sendStatic(res: import("express").Response, name: string): unknown {
+  const found = staticCandidates(name).find((p) => existsSync(p));
+  if (!found) return res.status(500).json({ error: `${name} missing: run npm run build or start via tsx` });
   res.sendFile(found);
+}
+app.get("/", (_req, res) => {
+  sendStatic(res, "index.html");
+});
+app.get("/sim", (_req, res) => {
+  sendStatic(res, "sim.html");
 });
 
 // Canonical MCP surface: Streamable HTTP (MCP 2025-11-25), stateless.
