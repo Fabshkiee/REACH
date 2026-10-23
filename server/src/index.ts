@@ -45,6 +45,12 @@ app.get("/", (_req, res) => {
 app.get("/sim", (_req, res) => {
   sendStatic(res, "sim.html");
 });
+app.get("/sim.css", (_req, res) => {
+  sendStatic(res, "sim.css");
+});
+app.get("/sim.js", (_req, res) => {
+  sendStatic(res, "sim.js");
+});
 
 // Canonical MCP surface: Streamable HTTP (MCP 2025-11-25), stateless.
 // Inspector, Alexa+, and any MCP client speak here. Per the SDK's stateless
