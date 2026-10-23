@@ -571,7 +571,7 @@ function stopSpeaking() {
 }
 function speak(text, emotion = 'friendly') {
   const clean = plain(text).replace(/\s+/g, ' ').trim();
-  if (!clean || voice.muted || !speechOk() || voice.demo > 0) return;
+  if (!clean || voice.muted || voice.demo > 0) return;
   stopSpeaking();
   const token = voice.speechToken;
   if (voice.listening || voice.recognizing || voice.meterStream) {
@@ -613,7 +613,7 @@ function speak(text, emotion = 'friendly') {
   ttsAudio = audio;
 
   const fallbackToLocalSynthesis = () => {
-    if (finished || token !== voice.speechToken) return;
+    if (finished || token !== voice.speechToken || !speechOk()) return;
     const u = new SpeechSynthesisUtterance(clean);
     const picked = pickVoice();
     if (picked) u.voice = picked;
@@ -630,8 +630,8 @@ function speak(text, emotion = 'friendly') {
   };
 
   audio.onended = done;
-  audio.onerror = () => {
-    console.warn('[Voice] Neural TTS stream failed, falling back to local speech synthesis');
+  audio.onerror = (e) => {
+    console.warn('[Voice] Neural TTS stream failed, falling back to local speech synthesis', e);
     fallbackToLocalSynthesis();
   };
 

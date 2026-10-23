@@ -811,17 +811,23 @@ const voice = {
 };
 try { voice.muted = localStorage.getItem('reach-voice-muted') === '1'; } catch { /* storage may be blocked */ }
 function primeSpeech() {
-  if (!speechOk() || voice.speechPrimed) return;
+  if (voice.speechPrimed) return;
   voice.speechPrimed = true;
   try {
-    speechSynthesis.getVoices();
-    speechSynthesis.resume();
-    const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0;
-    speechSynthesis.speak(u);
+    if (speechOk()) {
+      speechSynthesis.getVoices();
+      speechSynthesis.resume();
+    }
   } catch { /* speech may be unavailable */ }
+  // Prime browser Audio element context so background autoplay policy is satisfied
+  try {
+    const silent = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+    silent.play().catch(() => {});
+  } catch { /* ignore */ }
 }
 document.addEventListener('pointerdown', primeSpeech, { once: true });
+document.addEventListener('click', primeSpeech, { once: true });
+document.addEventListener('keydown', primeSpeech, { once: true });
 
 const SCENARIOS = [
   { id: 'capture', icon: 'phone', label: 'Capture my iPhone screen', kind: 'screen',
@@ -2857,7 +2863,7 @@ function stopSpeaking() {
 }
 function speak(text, emotion = 'friendly') {
   const clean = plain(text).replace(/\s+/g, ' ').trim();
-  if (!clean || voice.muted || !speechOk() || voice.demo > 0) return;
+  if (!clean || voice.muted || voice.demo > 0) return;
   stopSpeaking();
   const token = voice.speechToken;
   if (voice.listening || voice.recognizing || voice.meterStream) {
@@ -2899,7 +2905,7 @@ function speak(text, emotion = 'friendly') {
   ttsAudio = audio;
 
   const fallbackToLocalSynthesis = () => {
-    if (finished || token !== voice.speechToken) return;
+    if (finished || token !== voice.speechToken || !speechOk()) return;
     const u = new SpeechSynthesisUtterance(clean);
     const picked = pickVoice();
     if (picked) u.voice = picked;
@@ -2916,13 +2922,13 @@ function speak(text, emotion = 'friendly') {
   };
 
   audio.onended = done;
-  audio.onerror = () => {
-    console.warn('[Voice] Neural TTS stream failed, falling back to local speech synthesis');
+  audio.onerror = (e) => {
+    console.warn('[Voice] Neural TTS stream failed, falling back to local speech synthesis', e);
     fallbackToLocalSynthesis();
   };
 
   audio.play().catch((err) => {
-    console.warn('[Voice] Audio autoplay blocked or failed, falling back to local speech synthesis:', err);
+    console.warn('[Voice] Audio play error / autoplay restriction:', err);
     fallbackToLocalSynthesis();
   });
 
