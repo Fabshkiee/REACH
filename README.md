@@ -182,7 +182,11 @@ event trail and the approval card for the same engine.
 * **Cross-platform**: the agent and the policy engine run on macOS, Linux and
   Windows. Windows-only primitives (window focus, keystrokes, clipboard) are
   advertised on Windows only; the iPhone bridge is advertised on macOS only
-  and only when `pymobiledevice3` is on PATH.
+  and only when `pymobiledevice3` is on PATH. The screen/clipboard/HID tools
+  also need a **current personalized developer image**: a stale mounted image
+  (e.g. left over from an older Xcode) mounts fine but hides those services,
+  so unmount and remount it while the phone is unlocked
+  (`pymobiledevice3 mounter umount-personalized`, then `auto-mount`).
 * **Not built**: audio capture and transcription, long-running (>10 min) jobs,
   push delivery, live Alexa+ integration (partner-gated), external MCP
   connectors, smart-home.

@@ -217,7 +217,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_screenshot",
       actionClass: "download" as const,
-      description: "Capture the connected iPhone's screen to a PNG on the laptop (default Downloads/REACH). Requires Developer Mode on the phone. Returns the saved path and size.",
+      description: "Capture the connected iPhone's screen to a PNG on the laptop (default Downloads/REACH). Requires Developer Mode and a current developer image on the phone. Returns the saved path and size.",
       schema: z.object({ destDir: z.string().max(500).optional(), udid: z.string().min(1).max(64).optional() }),
       timeoutMs: 90_000,
       capability: "ios_screenshot",
@@ -225,7 +225,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_apps",
       actionClass: "search" as const,
-      description: "List the apps installed on the connected iPhone (display name + bundle ID). Use the bundle ID with phone.ios_launch or phone.ios_push_file. Requires Developer Mode.",
+      description: "List the apps installed on the connected iPhone (display name + bundle ID). Use the bundle ID with phone.ios_launch or phone.ios_push_file. Requires Developer Mode and a current developer image.",
       schema: z.object({ udid: z.string().min(1).max(64).optional() }),
       timeoutMs: 90_000,
       capability: "ios_apps",
@@ -233,7 +233,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_paste",
       actionClass: "read" as const,
-      description: "Read the current text on the connected iPhone's clipboard. Requires Developer Mode.",
+      description: "Read the current text on the connected iPhone's clipboard. Requires Developer Mode and a current developer image.",
       schema: z.object({
         maxChars: z.number().int().min(1).max(20000).optional(),
         udid: z.string().min(1).max(64).optional(),
@@ -244,7 +244,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_copy",
       actionClass: "interact" as const,
-      description: "Put text on the connected iPhone's clipboard (e.g. a link or address to paste on the phone). Requires Developer Mode.",
+      description: "Put text on the connected iPhone's clipboard (e.g. a link or address to paste on the phone). Requires Developer Mode and a current developer image.",
       schema: z.object({
         text: z.string().min(1).max(10000),
         udid: z.string().min(1).max(64).optional(),
@@ -255,7 +255,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_launch",
       actionClass: "launch" as const,
-      description: "Launch an app on the connected iPhone by bundle ID (from phone.ios_apps). Unknown bundle IDs need approval. Requires Developer Mode.",
+      description: "Launch an app on the connected iPhone by bundle ID (from phone.ios_apps). Unknown bundle IDs need approval. Requires Developer Mode and a current developer image.",
       schema: z.object({
         bundleId: z.string().min(1).max(200).regex(/^[A-Za-z0-9.-]+$/),
         udid: z.string().min(1).max(64).optional(),
@@ -266,7 +266,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_button",
       actionClass: "configure" as const,
-      description: "Press a hardware button on the connected iPhone: home, lock, volume-up, volume-down, mute or siri. Always requires approval. Requires Developer Mode.",
+      description: "Press a hardware button on the connected iPhone: home, lock, volume-up, volume-down, mute or siri. Always requires approval. Requires Developer Mode and a current developer image.",
       schema: z.object({
         button: z.enum(["home", "lock", "volume-up", "volume-down", "mute", "siri"]),
         udid: z.string().min(1).max(64).optional(),
