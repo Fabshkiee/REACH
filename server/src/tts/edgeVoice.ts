@@ -29,6 +29,19 @@ export const EMOTION_PRESETS: Record<string, TtsEmotionPreset> = {
   friendly: { pitch: "+3%", rate: "+2%", volume: "+0%" },
 };
 
+function escapeXml(unsafe: string): string {
+  return unsafe.replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case "&": return "&amp;";
+      case "'": return "&apos;";
+      case '"': return "&quot;";
+      default: return c;
+    }
+  });
+}
+
 /**
  * Synthesizes speech using Microsoft Jenny Neural AI Voice.
  * Streams 24kHz MP3 back to the caller for ultra-low latency playback.
@@ -53,7 +66,8 @@ export async function handleTtsRequest(req: Request, res: Response): Promise<voi
       await tts.setMetadata(currentVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
     }
 
-    const { audioStream } = tts.toStream(clean, {
+    // Await toStream - toStream returns a Promise resolving to { audioStream }
+    const { audioStream } = await tts.toStream(escapeXml(clean), {
       pitch: preset.pitch ?? "+0%",
       rate: preset.rate ?? "+0%",
       volume: preset.volume ?? "+0%",
@@ -71,7 +85,6 @@ export async function handleTtsRequest(req: Request, res: Response): Promise<voi
     });
   } catch (err) {
     console.error("[TTS] Synthesis failed:", err);
-    // Re-initialize tts instance if socket crashed
     try {
       ttsInstance?.close();
     } catch {
