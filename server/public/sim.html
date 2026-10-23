@@ -806,6 +806,7 @@ const voice = {
   listening: false, capturing: false, muted: false, speaking: false,
   level: 0, meterStream: null, meterCtx: null, meterAnalyser: null, meterData: null,
   meterRaf: 0, meterToken: 0, captureTimer: 0, restartTimer: 0,
+  submitTimer: 0, draft: '', wakeOnly: false,
   speechToken: 0, speechTimer: 0, submitting: false, demo: 0, notice: '', noticeTimer: 0, heard: new Set(),
 };
 try { voice.muted = localStorage.getItem('reach-voice-muted') === '1'; } catch { /* storage may be blocked */ }
@@ -858,6 +859,11 @@ function plain(text) {
 function short(text, max) {
   const s = plain(text);
   return s.length > max ? s.slice(0, Math.max(0, max - 1)).trimEnd() + '…' : s;
+}
+function firstSentence(text, max) {
+  const s = plain(text);
+  const m = s.match(/^.*?[.!?](?=\s|$)/);
+  return short(m ? m[0] : s, max);
 }
 function clipRaw(text, max) {
   let s = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
@@ -2302,8 +2308,18 @@ function restoreNarrative() {
 }
 function parseWake(text) {
   const clean = String(text || '').trim().replace(/^[“"'‘\s]+/, '');
-  const m = clean.match(/^(?:hey|hi|hello|ok|okay)[\s,]+(?:reach|alexa)\b[\s,.:;!?—–-]*(.*)$/i);
-  return m ? { command: String(m[1] || '').trim() } : null;
+  // "reach" arrives as rich/reech/ritch often; allow "hey there" and find the
+  // wake phrase anywhere so a repeated wake word mid-utterance still parses.
+  const m = clean.match(/\b(?:hey|hi|hello|ok|okay)(?:[\s,]+(?:there|their))?[\s,]+(?:reach|richie|reetch|reech|ritch|retch|reche|raech|rach|rich|alexa)\b/i);
+  if (!m) return null;
+  const before = clean.slice(0, m.index).replace(/[\s,.:;!?—–-]+$/, '').trim();
+  const after = clean.slice(m.index + m[0].length).replace(/^[\s,.:;!?—–-]+/, '').trim();
+  const command = [before, after].filter(Boolean).join(' ').trim();
+  // A duplicated/misheard wake ("Hey reach, Rich") is still wake-only, not a task.
+  if (/^(?:(?:hey|hi|hello|ok|okay)[\s,]+)?(?:(?:there|their)[\s,]+)?(?:(?:reach|richie|reetch|reech|ritch|retch|reche|raech|rach|rich|alexa)[\s,.]*)+$/i.test(command)) {
+    return { command: '' };
+  }
+  return { command };
 }
 function displayHeard(text) {
   const parsed = parseWake(text);
@@ -2398,7 +2414,13 @@ function initRecognition() {
       clearTimeout(voice.restartTimer);
       voice.restartTimer = setTimeout(() => { if (voice.want && voice.handsFree) startRecognition(true); }, 350);
     } else if (voice.listening && !voice.handsFree && !voice.submitting) {
-      endListening();
+      if (voice.submitTimer) return;
+      if (voice.wakeOnly && voice.want) {
+        clearTimeout(voice.restartTimer);
+        voice.restartTimer = setTimeout(() => { if (voice.wakeOnly && voice.want && !voice.recognizing) startRecognition(true); }, 250);
+      } else {
+        endListening();
+      }
     }
   };
   voice.rec = rec;
@@ -2423,7 +2445,11 @@ function stopRecognition() {
 }
 function endListening() {
   clearTimeout(voice.captureTimer);
+  clearTimeout(voice.submitTimer);
   voice.captureTimer = 0;
+  voice.submitTimer = 0;
+  voice.draft = '';
+  voice.wakeOnly = false;
   const was = voice.listening || voice.capturing;
   voice.listening = false;
   voice.capturing = false;
@@ -2452,8 +2478,12 @@ function resumeHandsFree() {
 function suspendVoice() {
   clearTimeout(voice.captureTimer);
   clearTimeout(voice.restartTimer);
+  clearTimeout(voice.submitTimer);
   voice.captureTimer = 0;
   voice.restartTimer = 0;
+  voice.submitTimer = 0;
+  voice.draft = '';
+  voice.wakeOnly = false;
   voice.want = false;
   voice.listening = false;
   voice.capturing = false;
@@ -2475,8 +2505,12 @@ function startOneShot() {
   }
   if (voice.capturing) {
     clearTimeout(voice.captureTimer);
+    clearTimeout(voice.submitTimer);
     voice.captureTimer = 0;
+    voice.submitTimer = 0;
     voice.capturing = false;
+    voice.wakeOnly = false;
+    voice.draft = '';
     voice.want = false;
     setVoiceLive('');
     if (voice.handsFree) {
@@ -2497,6 +2531,8 @@ function startOneShot() {
   voice.listening = true;
   voice.capturing = true;
   voice.want = true;
+  voice.wakeOnly = false;
+  voice.draft = '';
   state.listening = true;
   syncVoiceMode();
   renderVoice();
@@ -2504,7 +2540,8 @@ function startOneShot() {
   setUtter('');
   setVoiceLive('');
   void startMeter();
-  startRecognition(voice.handsFree);
+  // Continuous recognition + a silence debounce lets one command span pauses.
+  startRecognition(true);
   clearTimeout(voice.captureTimer);
   voice.captureTimer = setTimeout(() => {
     if (!voice.capturing) return;
@@ -2531,6 +2568,11 @@ function toggleHandsFree() {
     voice.want = false;
     clearTimeout(voice.captureTimer);
     clearTimeout(voice.restartTimer);
+    clearTimeout(voice.submitTimer);
+    voice.captureTimer = 0;
+    voice.submitTimer = 0;
+    voice.draft = '';
+    voice.wakeOnly = false;
     stopRecognition();
     stopMeter();
     voice.listening = false;
@@ -2554,51 +2596,97 @@ function toggleHandsFree() {
   restoreNarrative();
   announce('Hands-free on. Say Hey REACH.');
 }
+function armCaptureWindow() {
+  clearTimeout(voice.captureTimer);
+  voice.captureTimer = setTimeout(() => {
+    if (!voice.capturing) return;
+    voice.wakeOnly = false;
+    voice.capturing = false;
+    voice.draft = '';
+    setVoiceLive('');
+    if (voice.handsFree) { voice.listening = true; state.listening = true; restoreNarrative(); syncVoiceMode(); renderVoice(); }
+    else { stopRecognition(); stopMeter(); endListening(); }
+  }, 10000);
+}
+function startWakeGreeting() {
+  voice.capturing = true;
+  voice.listening = true;
+  voice.wakeOnly = true;
+  voice.draft = '';
+  state.listening = true;
+  clearTimeout(voice.submitTimer);
+  voice.submitTimer = 0;
+  syncVoiceMode();
+  renderVoice();
+  setUtter('');
+  setVoiceLive('');
+  setNarrative({ look: 'idle', kicker: 'Hey REACH', meta: '', title: 'Hey, how are you?', detail: 'What would you like me to do?' });
+  armCaptureWindow();
+  announce('Hey, how are you? What would you like me to do?');
+}
+function queueVoice(command, heard) {
+  voice.draft = command;
+  voice.capturing = true;
+  voice.listening = true;
+  voice.wakeOnly = false;
+  state.listening = true;
+  syncVoiceMode();
+  renderVoice();
+  setVoiceLive('“' + displayHeard(heard) + '”');
+  setNarrative({ look: 'busy', kicker: 'Got it', meta: '', title: 'Got it.', detail: command });
+  armCaptureWindow();
+  scheduleVoiceAccept();
+}
+function scheduleVoiceAccept() {
+  clearTimeout(voice.submitTimer);
+  voice.submitTimer = setTimeout(() => {
+    voice.submitTimer = 0;
+    const command = voice.draft.trim();
+    if (!command || voice.submitting) return;
+    void acceptVoice(command, 'Hey REACH, ' + command);
+  }, 2000);
+}
 function handleVoiceFinal(text) {
-  if (voice.demo || voice.speaking) return;
+  if (voice.demo || voice.speaking || voice.submitting) return;
   const clean = String(text || '').trim();
   if (!clean) return;
   if (!voice.capturing) {
     const parsed = parseWake(clean);
     if (!parsed) { setVoiceLive(''); return; }
     const command = parsed.command.trim();
-    if (command.length > 1) { void acceptVoice(command, clean); return; }
-    voice.capturing = true;
-    voice.listening = true;
-    state.listening = true;
-    syncVoiceMode();
-    renderVoice();
-    setNarrative({ look: 'busy', kicker: 'Listening', meta: '', title: 'Listening…', detail: 'Speak naturally. I’ll take it from here.' });
-    setVoiceLive('“' + displayHeard(clean) + '”');
-    clearTimeout(voice.captureTimer);
-    voice.captureTimer = setTimeout(() => {
-      if (!voice.capturing) return;
-      voice.capturing = false;
-      setVoiceLive('');
-      if (voice.handsFree) { restoreNarrative(); renderVoice(); syncVoiceMode(); }
-      else endListening();
-    }, 10000);
-    announce('Listening.');
+    if (command) { queueVoice(command, clean); return; }
+    startWakeGreeting();
     return;
   }
   const parsed = parseWake(clean);
   const command = (parsed ? parsed.command : clean).trim();
-  if (command.length > 1 && !/^hey (reach|alexa)$/i.test(command)) void acceptVoice(command, clean);
-  else setVoiceLive('“' + displayHeard(clean) + '”');
+  if (!command) {
+    if (!voice.draft && parsed) { startWakeGreeting(); return; }
+    setVoiceLive('“Hey REACH”');
+    return;
+  }
+  voice.draft = [voice.draft, command].filter(Boolean).join(' ');
+  voice.wakeOnly = false;
+  setVoiceLive('“' + voice.draft + '”');
+  armCaptureWindow();
+  scheduleVoiceAccept();
 }
 async function acceptVoice(command, heard) {
   if (state.busy || voice.demo > 0 || sheetOpen()) return;
   voice.submitting = true;
   voice.capturing = true;
   voice.listening = true;
+  voice.wakeOnly = false;
   state.listening = true;
   clearTimeout(voice.captureTimer);
+  clearTimeout(voice.submitTimer);
   voice.captureTimer = 0;
+  voice.submitTimer = 0;
   syncVoiceMode();
   renderVoice();
   setVoiceLive('“' + displayHeard(heard) + '”');
   setNarrative({ look: 'busy', kicker: 'Got it', meta: '', title: 'Got it.', detail: command });
-  await sleep(520);
+  await sleep(220);
   voice.submitting = false;
   if (!state.busy) submitVoice(command);
 }
@@ -2606,7 +2694,11 @@ function submitVoice(command) {
   const text = String(command || '').trim();
   if (!text || state.busy) return;
   clearTimeout(voice.captureTimer);
+  clearTimeout(voice.submitTimer);
   voice.captureTimer = 0;
+  voice.submitTimer = 0;
+  voice.draft = '';
+  voice.wakeOnly = false;
   voice.listening = false;
   voice.capturing = false;
   state.listening = false;
@@ -2653,7 +2745,19 @@ function pickVoice() {
   if (!speechOk()) return null;
   const voices = speechSynthesis.getVoices() || [];
   const en = voices.filter((v) => /^en(-|_|$)/i.test(v.lang));
-  return en.find((v) => /samantha|ava|allison|jenny|aria|google us english/i.test(v.name)) || en.find((v) => v.localService) || en[0] || null;
+  if (!en.length) return null;
+  // Rank by preference, not the order the browser happens to list voices in.
+  const prefs = ['siri', 'samantha', 'ava', 'allison', 'susan', 'zoe', 'serena', 'kate', 'aria', 'jenny', 'michelle', 'zira', 'google us english', 'google uk english female'];
+  const rank = (v) => {
+    const name = String(v.name || '').toLowerCase();
+    const i = prefs.findIndex((p) => name.includes(p));
+    let score = i < 0 ? 50 : i;
+    if (/natural|premium|enhanced/.test(name)) score -= 20;
+    if (/en[-_]us/i.test(v.lang)) score -= 5;
+    if (v.localService) score -= 1;
+    return score;
+  };
+  return en.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
 }
 function stopSpeaking() {
   voice.speechToken += 1;
@@ -2673,6 +2777,10 @@ function speak(text) {
   const token = voice.speechToken;
   if (voice.listening || voice.recognizing || voice.meterStream) {
     voice.want = false;
+    clearTimeout(voice.submitTimer);
+    voice.submitTimer = 0;
+    voice.draft = '';
+    voice.wakeOnly = false;
     stopRecognition();
     stopMeter();
     voice.listening = false;
@@ -2686,9 +2794,9 @@ function speak(text) {
   const u = new SpeechSynthesisUtterance(clean);
   const picked = pickVoice();
   if (picked) u.voice = picked;
-  u.rate = 1.02;
-  u.pitch = 0.96;
-  u.volume = 0.9;
+  u.rate = 1.0;
+  u.pitch = 1.0;
+  u.volume = 0.95;
   let finished = false;
   const done = () => {
     if (finished || token !== voice.speechToken) return;
@@ -2710,12 +2818,14 @@ function speak(text) {
 }
 function speechForDone(task, v) {
   const oc = task.outcome || {};
-  let line = plain(oc.summary || oc.reason || (task.evidence && task.evidence.note) || 'Done.');
-  line = short(line, 260);
-  if (v.tone === 'bad') return 'I couldn’t finish that. ' + line;
-  if (!/^done\b/i.test(line)) line = 'Done. ' + line;
-  if (v.tone === 'warn') line += ' Some checks did not pass.';
-  return line;
+  let raw = plain(oc.summary || oc.reason || (task.evidence && task.evidence.note) || 'Done.');
+  raw = raw.replace(/^done[.!:]?\s*/i, '');
+  const line = firstSentence(raw, 160);
+  if (v.tone === 'bad') return 'I couldn’t finish that. ' + (line || 'Nothing else ran.');
+  let spoken = line ? 'Done. ' + line : 'Done.';
+  if (!/on screen|check|result|above|below|here/i.test(spoken)) spoken += ' Check the result on screen.';
+  if (v.tone === 'warn') spoken += ' Some checks did not pass.';
+  return spoken;
 }
 function speechForError(task) {
   if (task.status === 'denied') return 'Stopped. Nothing was changed.';

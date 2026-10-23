@@ -876,4 +876,48 @@ describe("Tier 1: Feature Coverage (>=5 tests per inventoried feature)", () => {
       assert.ok(m1 < m2, "milestone_started must precede milestone_completed");
     });
   });
+
+  // =========================================================================
+  // Feature 18: Voice wake parsing + spoken summaries (sim.html)
+  // =========================================================================
+  describe("Feature 18: Voice wake parsing + spoken summaries", () => {
+    let simHtml = "";
+    before(async () => {
+      const res = await fetch(`${harness.serverUrl}/sim`);
+      simHtml = await res.text();
+    });
+
+    const extract = (name: string): string => {
+      const m = simHtml.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`));
+      assert.ok(m, `sim.html must define ${name}()`);
+      return m[0];
+    };
+
+    it("18.1 should accept common mishears of Hey REACH and wake-only input", () => {
+      const parseWake = new Function(`${extract("parseWake")}; return parseWake;`)() as (text: string) => { command: string } | null;
+      assert.equal(parseWake("Hey there, Rich.")?.command, "");
+      assert.equal(parseWake("Hey reach, Rich")?.command, "");
+      assert.equal(parseWake("hey reech open spotify")?.command, "open spotify");
+      assert.equal(parseWake("okay ritch, capture my screen")?.command, "capture my screen");
+      assert.equal(parseWake("hey alexa")?.command, "");
+    });
+
+    it("18.2 should parse a wake word repeated mid-utterance", () => {
+      const parseWake = new Function(`${extract("parseWake")}; return parseWake;`)() as (text: string) => { command: string } | null;
+      assert.equal(parseWake("open spotify. hey alexa, play my playlist")?.command, "open spotify play my playlist");
+    });
+
+    it("18.3 should wait for a silence debounce before submitting", () => {
+      assert.match(simHtml, /submitTimer/);
+      assert.match(simHtml, /scheduleVoiceAccept[\s\S]*?\}, 2000\)/);
+    });
+
+    it("18.4 should speak one short completion sentence instead of the full outcome", () => {
+      const code = extract("plain") + "\n" + extract("short") + "\n" + extract("firstSentence") + "\n" + extract("speechForDone");
+      const speechForDone = new Function(`${code}; return speechForDone;`)() as (task: unknown, v: { tone: string }) => string;
+      const line = speechForDone({ outcome: { summary: "Copied the paragraph. Pasted it into the note. Saved the note." } }, { tone: "ok" });
+      assert.equal(line, "Done. Copied the paragraph. Check the result on screen.");
+      assert.ok(line.length < 120);
+    });
+  });
 });

@@ -31,20 +31,18 @@ describe("server /health and sim build stamps", () => {
     }
   });
 
-  it("sim.html renders build stamps in topbar and question count (N/3)", () => {
+  it("sim.html renders build stamps and question count (N/3)", () => {
     const simPath = join(HERE, "..", "public", "sim.html");
     const html = readFileSync(simPath, "utf8");
-    // Navigation bar build stamps elements
-    assert.ok(html.includes('id="buildStamps"'), "sim.html must have #buildStamps container");
+    // Build stamp elements and client-side refresh logic
     assert.ok(html.includes('id="serverStamp"'), "sim.html must have #serverStamp");
     assert.ok(html.includes('id="agentStamp"'), "sim.html must have #agentStamp");
-    // Client-side fetch logic for stamps
     assert.ok(html.includes("updateBuildStamps"), "sim.html must have updateBuildStamps function");
-    assert.ok(html.includes('fetch("/health")'), "sim.html must fetch /health");
-    assert.ok(html.includes('fetch("http://127.0.0.1:3001/health")'), "sim.html must fetch agent health");
+    assert.ok(html.includes("fetch('/health')"), "sim.html must fetch /health");
+    assert.ok(html.includes("fetch('http://127.0.0.1:3001/health')"), "sim.html must fetch agent health");
     // Question card displays (N/3)
-    assert.ok(html.includes("Question for you ("), "sim.html must display question count");
-    assert.ok(html.includes("/3)"), "sim.html must display 3-question cap /3");
+    assert.ok(html.includes('id="questionCount"'), "sim.html must have the question counter");
+    assert.ok(html.includes(" of 3"), "sim.html must display the 3-question cap");
   });
 });
 

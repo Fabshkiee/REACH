@@ -103,7 +103,7 @@ export function toolsForPlanner(): PlannerToolDef[] {
   tools.push({
     name: "reach.ask_user",
     description:
-      "Ask the user a clarifying question when the target of an action is genuinely ambiguous. Use instead of guessing.",
+      "Ask the user only when you are genuinely blocked: the choice is destructive or irreversible, or two options lead to materially different outcomes. Prefer a reasonable default and act — do not ask the user to pick a routine default.",
     inputSchema: {
       type: "object",
       properties: {
