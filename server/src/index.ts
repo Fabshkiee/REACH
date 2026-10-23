@@ -15,6 +15,7 @@ import { createMcpServer } from "./mcp/server.js";
 import { createMcpTransport } from "./mcp/transport.js";
 import { listCapabilities } from "./registry/capabilityGraph.js";
 import { heartbeat, isDeviceAvailable, listDevices, pauseDevice, registerDevice, resumeDevice, revokeDevice } from "./registry/deviceStore.js";
+import { handleTtsRequest, EMOTION_PRESETS } from "./tts/edgeVoice.js";
 
 const app = express();
 app.use(express.json());
@@ -50,6 +51,18 @@ app.get("/sim.css", (_req, res) => {
 });
 app.get("/sim.js", (_req, res) => {
   sendStatic(res, "sim.js");
+});
+
+// Neural AI Text-to-Speech endpoint (Microsoft Jenny Neural AI Voice)
+// Supports emotional prosody presets (cheerful, excited, calm, serious, urgent, friendly)
+app.get("/api/tts", (req, res) => {
+  void handleTtsRequest(req, res);
+});
+app.post("/api/tts", (req, res) => {
+  void handleTtsRequest(req, res);
+});
+app.get("/api/tts/emotions", (_req, res) => {
+  res.json({ default: "friendly", presets: Object.keys(EMOTION_PRESETS) });
 });
 
 // Canonical MCP surface: Streamable HTTP (MCP 2025-11-25), stateless.

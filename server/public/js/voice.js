@@ -550,10 +550,18 @@ function pickVoice() {
   };
   return en.slice().sort((a, b) => rank(a) - rank(b))[0] || null;
 }
+let ttsAudio = null;
 function stopSpeaking() {
   voice.speechToken += 1;
   clearTimeout(voice.speechTimer);
   voice.speechTimer = 0;
+  if (ttsAudio) {
+    try {
+      ttsAudio.pause();
+      ttsAudio.currentTime = 0;
+    } catch { /* ignore */ }
+    ttsAudio = null;
+  }
   if (voice.speaking) {
     try { speechSynthesis.cancel(); } catch { /* speech may be unavailable */ }
     voice.speaking = false;
@@ -561,7 +569,7 @@ function stopSpeaking() {
     renderVoice();
   }
 }
-function speak(text) {
+function speak(text, emotion = 'friendly') {
   const clean = plain(text).replace(/\s+/g, ' ').trim();
   if (!clean || voice.muted || !speechOk() || voice.demo > 0) return;
   stopSpeaking();
@@ -582,28 +590,56 @@ function speak(text) {
   voice.speaking = true;
   syncVoiceMode();
   renderVoice();
-  const u = new SpeechSynthesisUtterance(clean);
-  const picked = pickVoice();
-  if (picked) u.voice = picked;
-  u.rate = 1.0;
-  u.pitch = 1.0;
-  u.volume = 0.95;
+
   let finished = false;
   const done = () => {
     if (finished || token !== voice.speechToken) return;
     finished = true;
     clearTimeout(voice.speechTimer);
     voice.speechTimer = 0;
+    if (ttsAudio) {
+      try { ttsAudio.pause(); } catch { /* ignore */ }
+      ttsAudio = null;
+    }
     voice.speaking = false;
     syncVoiceMode();
     renderVoice();
     if (voice.handsFree && !state.busy && !sheetOpen() && !$('ask').classList.contains('is-typing')) setTimeout(resumeHandsFree, 480);
   };
-  u.onend = done;
-  u.onerror = done;
-  try { speechSynthesis.speak(u); }
-  catch { done(); return; }
-  if (finished) return;
+
+  // 1. Primary: High-fidelity Microsoft Jenny Neural AI Voice via /api/tts
+  const audioUrl = `/api/tts?emotion=${encodeURIComponent(emotion)}&text=${encodeURIComponent(clean)}`;
+  const audio = new Audio(audioUrl);
+  ttsAudio = audio;
+
+  const fallbackToLocalSynthesis = () => {
+    if (finished || token !== voice.speechToken) return;
+    const u = new SpeechSynthesisUtterance(clean);
+    const picked = pickVoice();
+    if (picked) u.voice = picked;
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    u.volume = 0.95;
+    u.onend = done;
+    u.onerror = done;
+    try { speechSynthesis.speak(u); }
+    catch { done(); return; }
+    if (finished) return;
+    clearTimeout(voice.speechTimer);
+    voice.speechTimer = setTimeout(done, Math.min(22000, 1500 + clean.split(/\s+/).length * 330));
+  };
+
+  audio.onended = done;
+  audio.onerror = () => {
+    console.warn('[Voice] Neural TTS stream failed, falling back to local speech synthesis');
+    fallbackToLocalSynthesis();
+  };
+
+  audio.play().catch((err) => {
+    console.warn('[Voice] Audio autoplay blocked or failed, falling back to local speech synthesis:', err);
+    fallbackToLocalSynthesis();
+  });
+
   clearTimeout(voice.speechTimer);
   voice.speechTimer = setTimeout(done, Math.min(22000, 1500 + clean.split(/\s+/).length * 330));
 }
