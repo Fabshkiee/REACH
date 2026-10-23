@@ -552,3 +552,18 @@ workaround / actionable suggestion. Add one entry per obstacle; never fabricate.
 
 
 
+
+## 2026-10-23 — Multi-modal Pop-Up Intrusion vs Voice-First Orb Experience
+* Task: Replace disruptive modal confirmation cards with conversational blob interaction and shorten voice TTS for streamlined UX.
+* Steps: Tested user flow during approval and clarifying question moments. In hands-free voice interactions, modal dialogs popped up taking focus, blocking keyboard/voice shortcuts, and reading excessively long, robotic TTS sentences.
+* Expected vs actual: Expected conversational interaction where the central orb directly presents the prompt and accepts immediate voice/text answers; actual modal sheet took over the screen and spoke multi-sentence prompts.
+* Severity: Medium (UX friction in high-cadence voice workflows).
+* Workaround (kept): Deprecated modal pop-up scrims (`gateScrim` and `questionScrim`) in favour of central stage status updates on the orb narrative. Approval and questions are surfaced directly in the central blob and voice status line, allowing one-word voice or text answers (`"allow"`, `"deny"`, or options). TTS strings shortened to concise questions (`"Allow <action>?"`, first sentence <= 120 chars) to keep speech synthesis crisp and responsive.
+* Suggestion: Keep voice interfaces strictly modal-free unless user explicitly chooses desktop management views.
+
+## 2026-10-23 — sim.html Monolith Refactoring
+* Task: Modularize the ~3100-line monolithic `sim.html` client for maintainability and clean developer handoff.
+* Steps: Separated monolithic inline CSS into `server/public/sim.css`, and broke down the runtime JavaScript into domain-specific modules in `server/public/js/` (`utils.js`, `orb.js`, `task-ui.js`, `voice.js`, `app.js`), while updating the Express server static asset routes to serve them cleanly.
+* Expected vs actual: Expected seamless separation without breaking test extraction assertions; actual required ensuring test compatibility functions remained cleanly accessible.
+* Severity: Low (Code cleanliness and hackathon code review readiness).
+* Workaround (kept): Both modular individual assets and backwards-compatible script interfaces are preserved. Full test suite (142 unit + 89 tier1 e2e) verified passing without regressions.
