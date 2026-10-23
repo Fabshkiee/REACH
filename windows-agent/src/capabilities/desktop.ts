@@ -27,7 +27,7 @@ export const SendHotkeySchema = z.object({
 export type SendHotkeyInput = z.infer<typeof SendHotkeySchema>;
 
 export const SetClipboardSchema = z.object({
-  text: z.string().max(100000).describe("Text to copy into the Windows system clipboard"),
+  text: z.string().max(100000).describe("Text to copy into the laptop clipboard (Windows or macOS)"),
 });
 export type SetClipboardInput = z.infer<typeof SetClipboardSchema>;
 
@@ -68,6 +68,32 @@ async function runPowerShell(scriptBody: string, args: string[] = []): Promise<s
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+/** pbpaste/pbcopy: the macOS clipboard, same semantics as the PowerShell path. */
+async function runMacClipboardTool(command: "pbpaste" | "pbcopy", stdin?: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(command, [], { stdio: [stdin === undefined ? "ignore" : "pipe", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (d) => { stdout += d.toString("utf8"); });
+    child.stderr?.on("data", (d) => { stderr += d.toString("utf8"); });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error("desktop action timed out after 15s"));
+    }, 15_000);
+    timer.unref?.();
+    child.once("error", (err) => {
+      clearTimeout(timer);
+      reject(new Error(`${command} failed to start: ${err.message}`));
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr.trim() || `${command} exit ${code}`));
+    });
+    if (stdin !== undefined && child.stdin) child.stdin.end(stdin, "utf8");
+  });
 }
 
 export async function inspectWindows(input: InspectWindowsInput = {}): Promise<{ ok: true; windows: Array<{ id: number; process: string; title: string }> }> {
@@ -262,6 +288,14 @@ if (-not $chord) {
 }
 
 export async function setClipboard(input: SetClipboardInput): Promise<{ ok: boolean; length: number; error?: string }> {
+  if (process.platform === "darwin") {
+    try {
+      await runMacClipboardTool("pbcopy", input.text);
+      return { ok: true, length: input.text.length };
+    } catch (err) {
+      return { ok: false, length: 0, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
   const dir = await mkdtemp(join(tmpdir(), "reach-clip-"));
   const textFile = join(dir, "clip.txt");
   try {
@@ -284,6 +318,13 @@ Set-Clipboard -Value $text
 }
 
 export async function getClipboard(): Promise<{ ok: boolean; text: string; error?: string }> {
+  if (process.platform === "darwin") {
+    try {
+      return { ok: true, text: (await runMacClipboardTool("pbpaste")).replace(/\n$/, "") };
+    } catch (err) {
+      return { ok: false, text: "", error: err instanceof Error ? err.message : String(err) };
+    }
+  }
   const script = `
 $ErrorActionPreference = 'SilentlyContinue'
 $val = Get-Clipboard

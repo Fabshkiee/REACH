@@ -233,7 +233,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_paste",
       actionClass: "read" as const,
-      description: "Read the current text on the connected iPhone's clipboard. Requires Developer Mode and a current developer image.",
+      description: "Read the text currently on the iPhone's clipboard (phone → laptop). To send the laptop's clipboard to the phone, use phone.ios_copy. Requires Developer Mode and a current developer image.",
       schema: z.object({
         maxChars: z.number().int().min(1).max(20000).optional(),
         udid: z.string().min(1).max(64).optional(),
@@ -244,7 +244,7 @@ export function registerAgentActions(): void {
     {
       name: "phone.ios_copy",
       actionClass: "interact" as const,
-      description: "Put text on the connected iPhone's clipboard (e.g. a link or address to paste on the phone). Requires Developer Mode and a current developer image.",
+      description: "Put text on the iPhone's clipboard (laptop → phone). Use this when the user asks to paste, send or copy something to their phone; read the laptop's clipboard first with desktop.get_clipboard. Requires Developer Mode and a current developer image.",
       schema: z.object({
         text: z.string().min(1).max(10000),
         udid: z.string().min(1).max(64).optional(),
@@ -326,7 +326,7 @@ export function registerAgentActions(): void {
     {
       name: "desktop.set_clipboard",
       actionClass: "interact" as const,
-      description: "Set the Windows system clipboard text. Useful for copying summaries, code snippets, or URLs to paste into desktop apps.",
+      description: "Set the laptop's clipboard text (Windows or macOS). Useful for copying summaries, code snippets, or URLs to paste into desktop apps.",
       schema: z.object({ text: z.string().max(100000) }),
       timeoutMs: 15_000,
       capability: "set_clipboard",
@@ -334,7 +334,7 @@ export function registerAgentActions(): void {
     {
       name: "desktop.get_clipboard",
       actionClass: "read" as const,
-      description: "Read the current text from the Windows system clipboard.",
+      description: "Read the laptop's clipboard text (Windows or macOS). To send it to the iPhone, pass it to phone.ios_copy.",
       schema: z.object({}),
       timeoutMs: 15_000,
       capability: "get_clipboard",

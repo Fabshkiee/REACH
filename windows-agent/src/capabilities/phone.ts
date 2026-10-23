@@ -517,9 +517,25 @@ export async function iosPaste(input: IosPasteInput): Promise<{ ok: true; udid: 
   return { ok: true, udid: device.udid, text, truncated };
 }
 
+/** iOS may append one trailing newline to pasteboard text; nothing else may differ. */
+export function clipboardMatches(expected: string, echoed: string): boolean {
+  return echoed.replace(/\r?\n$/, "") === expected.replace(/\r?\n$/, "");
+}
+
 export async function iosCopy(input: IosCopyInput): Promise<{ ok: true; udid: string; chars: number }> {
   const device = discoverDevice(input.udid);
-  await withTunnel(device.udid, ["developer", "core-device", "copy", input.text], 30_000);
+  // Read back on the same tunnel: iOS applies pasteboard writes asynchronously,
+  // and a tunnel closed right after `copy` drops them while still exiting 0.
+  const [write, read] = await runInTunnel(device.udid, [
+    { args: ["developer", "core-device", "copy", input.text], timeoutMs: 30_000 },
+    { args: ["developer", "core-device", "paste"], timeoutMs: 30_000 },
+  ]);
+  if (!write || write.code !== 0) {
+    throw new Error(cleanToolError(["developer", "core-device", "copy"], write?.stderr ?? "no output"));
+  }
+  if (!read || read.code !== 0 || !clipboardMatches(input.text, read.stdout)) {
+    throw new Error("the iPhone did not keep the clipboard write — unlock it and try again (writes are dropped while the phone is locked).");
+  }
   return { ok: true, udid: device.udid, chars: input.text.length };
 }
 

@@ -37,13 +37,21 @@ describe("agent capability advertisement", () => {
 
   it("advertises only what this host can actually run", () => {
     const advertised = advertisedCapabilities();
-    const windowsOnly = ["inspect_windows", "focus_window", "type_text", "send_hotkey", "set_clipboard", "get_clipboard"];
+    const windowsOnly = ["inspect_windows", "focus_window", "type_text", "send_hotkey"];
     for (const cap of windowsOnly) {
       if (process.platform === "win32") {
         assert.ok(advertised.includes(cap as never), cap);
       } else {
         // Advertising a Windows-only primitive here would make the planner
         // reason about a capability this machine cannot execute.
+        assert.ok(!advertised.includes(cap as never), cap);
+      }
+    }
+    // The laptop clipboard is implemented for PowerShell and pbpaste/pbcopy.
+    for (const cap of ["set_clipboard", "get_clipboard"]) {
+      if (process.platform === "win32" || process.platform === "darwin") {
+        assert.ok(advertised.includes(cap as never), cap);
+      } else {
         assert.ok(!advertised.includes(cap as never), cap);
       }
     }

@@ -40,14 +40,23 @@ describe("agent desktop capabilities", () => {
     assert.ok(Array.isArray(res.windows));
   });
 
-  windowsOnly("sets and gets clipboard text round-trip", async () => {
-    const testPayload = `REACH_TEST_${Date.now()}_CLIPBOARD`;
-    const setRes = await setClipboard({ text: testPayload });
-    assert.equal(setRes.ok, true);
-    assert.equal(setRes.length, testPayload.length);
+  // Windows drives PowerShell, macOS drives pbpaste/pbcopy. Both write the
+  // real clipboard, so macOS restores the previous text afterwards.
+  const clipboardHost = process.platform === "win32" || process.platform === "darwin" ? it : it.skip;
 
-    const getRes = await getClipboard();
-    assert.equal(getRes.ok, true);
-    assert.equal(getRes.text.trim(), testPayload);
+  clipboardHost("sets and gets clipboard text round-trip", async () => {
+    const previous = process.platform === "darwin" ? await getClipboard() : undefined;
+    const testPayload = `REACH_TEST_${Date.now()}_CLIPBOARD`;
+    try {
+      const setRes = await setClipboard({ text: testPayload });
+      assert.equal(setRes.ok, true);
+      assert.equal(setRes.length, testPayload.length);
+
+      const getRes = await getClipboard();
+      assert.equal(getRes.ok, true);
+      assert.equal(getRes.text.trim(), testPayload);
+    } finally {
+      if (previous?.ok) await setClipboard({ text: previous.text });
+    }
   });
 });

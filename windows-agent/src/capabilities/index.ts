@@ -99,9 +99,10 @@ const WINDOWS_ONLY = new Set<AllowedCapability>([
   "focus_window",
   "type_text",
   "send_hotkey",
-  "set_clipboard",
-  "get_clipboard",
 ]);
+
+/** The laptop clipboard works on Windows (PowerShell) and macOS (pbpaste/pbcopy). */
+const DESKTOP_CLIPBOARD = new Set<AllowedCapability>(["set_clipboard", "get_clipboard"]);
 
 const MACOS_ONLY = new Set<AllowedCapability>([
   "ios_list",
@@ -154,6 +155,7 @@ export function advertisedCapabilities(
   const hasTool = probe.hasTool ?? hasPymobiledevice3;
   return ALLOWED_CAPABILITIES.filter((c) => {
     if (WINDOWS_ONLY.has(c) && platform !== "win32") return false;
+    if (DESKTOP_CLIPBOARD.has(c) && platform !== "win32" && platform !== "darwin") return false;
     if (MACOS_ONLY.has(c) && (platform !== "darwin" || !hasTool())) return false;
     return true;
   });

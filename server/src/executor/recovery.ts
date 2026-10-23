@@ -49,7 +49,7 @@ const HINTS: Array<{ code: string; when: (actionClass: string, error: string) =>
   {
     code: "phone_developer_mode",
     when: (_cls, err) => /Developer Mode|coredevice|CoreDevice|tunnel/i.test(err),
-    hint: "The iPhone bridge needs Developer Mode enabled on the phone (Settings → Privacy & Security → Developer Mode), the phone unlocked, and a reachable tunnel. Ask the user to enable it, then retry once — do not keep retrying.",
+    hint: "Developer Mode is a one-time switch, usually already on: only ask the user to enable it if the phone itself reports it as off (Settings → Privacy & Security → Developer Mode). With Developer Mode on, missing developer services mean the mounted developer image is stale — unmount and remount it with the phone unlocked — or the phone is locked or unreachable.",
   },
   {
     code: "page_rejected",

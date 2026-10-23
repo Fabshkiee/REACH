@@ -8,6 +8,7 @@ import {
   IosPushFileSchema,
   chooseDevice,
   cleanToolError,
+  clipboardMatches,
   clipText,
   mergeDevices,
   parseApps,
@@ -108,6 +109,18 @@ describe("iPhone tool errors", () => {
   it("keeps bounded stderr detail for ordinary failures", () => {
     const msg = cleanToolError(["lockdown", "info"], "x".repeat(400));
     assert.match(msg, /lockdown info failed: x{300}$/);
+  });
+});
+
+describe("iPhone clipboard write verification", () => {
+  it("accepts an exact echo, with or without one trailing newline", () => {
+    assert.equal(clipboardMatches("hello", "hello"), true);
+    assert.equal(clipboardMatches("hello", "hello\n"), true);
+  });
+
+  it("rejects a dropped or altered write", () => {
+    assert.equal(clipboardMatches("hello", ""), false);
+    assert.equal(clipboardMatches("hello", "hell"), false);
   });
 });
 
