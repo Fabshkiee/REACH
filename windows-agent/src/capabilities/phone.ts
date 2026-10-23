@@ -293,12 +293,15 @@ interface TunnelCommand {
   timeoutMs?: number;
 }
 
+/** Serializes tunnel usage: concurrent native tunnels wedge the phone's RSD connections. */
+let tunnelChain: Promise<unknown> = Promise.resolve();
+
 /**
  * Start one native tunnel, run the commands through it sequentially, kill it.
  * A failed command is returned rather than thrown so optional probes (battery)
  * can degrade to null without failing the whole tool.
  */
-async function runInTunnel(udid: string, commands: TunnelCommand[], defaultTimeoutMs = 30_000): Promise<TunnelCommandResult[]> {
+async function startTunnelOnce(udid: string, commands: TunnelCommand[], defaultTimeoutMs = 30_000): Promise<TunnelCommandResult[]> {
   return new Promise((resolve, reject) => {
     const child = spawn("pymobiledevice3", ["remote", "start-tunnel", "--native", "--udid", udid, "--script-mode"], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -371,11 +374,40 @@ async function runInTunnel(udid: string, commands: TunnelCommand[], defaultTimeo
   });
 }
 
+/**
+ * Run one tunneled command, one tunnel at a time. Tunnel startup is flaky
+ * (remoted's RSD handshake races), so a startup failure gets one retry;
+ * command timeouts are not retried because the command may have run.
+ */
+async function runInTunnel(udid: string, commands: TunnelCommand[], defaultTimeoutMs = 30_000): Promise<TunnelCommandResult[]> {
+  const run = tunnelChain.then(async () => {
+    try {
+      return await startTunnelOnce(udid, commands, defaultTimeoutMs);
+    } catch (err) {
+      if (!/^Tunnel (failed|startup timed out)/.test(String(err))) throw err;
+      return startTunnelOnce(udid, commands, defaultTimeoutMs);
+    }
+  });
+  tunnelChain = run.catch(() => undefined);
+  return run;
+}
+
+/**
+ * pymobiledevice3 prints a long hint block that blames Developer Mode when a
+ * developer service is simply absent from the tunnel. Keep the truthful part.
+ */
+export function cleanToolError(args: string[], stderr: string): string {
+  if (/Failed to start service/i.test(stderr)) {
+    return `pymobiledevice3 ${args.join(" ")}: the iPhone does not expose this developer service on the current connection (not a Developer Mode issue).`;
+  }
+  return `pymobiledevice3 ${args.join(" ")} failed: ${stderr.slice(0, 300)}`;
+}
+
 /** One command through a tunnel; rejects when it exits non-zero. */
 async function withTunnel(udid: string, args: string[], timeoutMs = 30_000): Promise<string> {
   const [result] = await runInTunnel(udid, [{ args, timeoutMs }], timeoutMs);
   if (!result || result.code !== 0) {
-    throw new Error(`pymobiledevice3 ${args.join(" ")} failed: ${(result?.stderr ?? "no output").slice(0, 300)}`);
+    throw new Error(cleanToolError(args, result?.stderr ?? "no output"));
   }
   return result.stdout;
 }

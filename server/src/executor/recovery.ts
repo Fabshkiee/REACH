@@ -42,6 +42,11 @@ const HINTS: Array<{ code: string; when: (actionClass: string, error: string) =>
     hint: "Phone discovery failed or was ambiguous. Run phone.ios_list to see paired UDIDs and pass the exact udid; if the list is empty, ask the user to pair the iPhone with the Mac, unlock it, and keep it on the same network.",
   },
   {
+    code: "phone_service_unsupported",
+    when: (_cls, err) => /Failed to start service/i.test(err),
+    hint: "The iPhone does not expose that developer service on the current connection — this is not a Developer Mode issue, and retrying will not help. Name the unavailable capability to the user; phone.ios_list, phone.ios_info and phone.ios_list_files still work over the same connection.",
+  },
+  {
     code: "phone_developer_mode",
     when: (_cls, err) => /Developer Mode|coredevice|CoreDevice|tunnel/i.test(err),
     hint: "The iPhone bridge needs Developer Mode enabled on the phone (Settings → Privacy & Security → Developer Mode), the phone unlocked, and a reachable tunnel. Ask the user to enable it, then retry once — do not keep retrying.",

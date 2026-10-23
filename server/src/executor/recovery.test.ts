@@ -49,6 +49,14 @@ describe("recovery hints (failure shape, never goal text)", () => {
     assert.ok((recoveryHintFor("observe", "Developer Mode is disabled on the phone") ?? "").includes("Developer Mode"));
   });
 
+  it("does not blame Developer Mode when the phone lacks the developer service", () => {
+    const svcErr =
+      'pymobiledevice3 developer core-device hid button mute failed: Failed to start service. Possible reasons are: ' +
+      '- Make sure you first enabled "Developer Mode" via: python3 -m pymobiledevice3 amfi enable-developer-mode';
+    assert.equal(recoveryHintCode("configure", svcErr), "phone_service_unsupported");
+    assert.match(recoveryHintFor("configure", svcErr) ?? "", /not a Developer Mode issue/);
+  });
+
   it("returns undefined when nothing matches", () => {
     assert.equal(recoveryHintFor("read", "some totally novel failure mode"), undefined);
     assert.equal(recoveryHintCode("read", "some totally novel failure mode"), undefined);

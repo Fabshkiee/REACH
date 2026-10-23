@@ -7,6 +7,7 @@ import {
   IosListFilesSchema,
   IosPushFileSchema,
   chooseDevice,
+  cleanToolError,
   clipText,
   mergeDevices,
   parseApps,
@@ -90,6 +91,23 @@ describe("iPhone info parsing", () => {
   it("caps clipboard text with a visible truncated flag", () => {
     assert.deepEqual(clipText("short", 10), { text: "short", truncated: false });
     assert.deepEqual(clipText("0123456789", 4), { text: "0123", truncated: true });
+  });
+});
+
+describe("iPhone tool errors", () => {
+  it("replaces the misleading 'Failed to start service' block with a truthful error", () => {
+    const stderr =
+      'Failed to start service. Possible reasons are:\n- Make sure you first enabled "Developer Mode" via: ' +
+      "python3 -m pymobiledevice3 amfi enable-developer-mode";
+    const msg = cleanToolError(["developer", "core-device", "hid", "button", "mute"], stderr);
+    assert.match(msg, /does not expose this developer service/);
+    assert.match(msg, /not a Developer Mode issue/);
+    assert.doesNotMatch(msg, /amfi enable-developer-mode/);
+  });
+
+  it("keeps bounded stderr detail for ordinary failures", () => {
+    const msg = cleanToolError(["lockdown", "info"], "x".repeat(400));
+    assert.match(msg, /lockdown info failed: x{300}$/);
   });
 });
 
