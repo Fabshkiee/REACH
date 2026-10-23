@@ -5,6 +5,9 @@
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 
+// Keep automated runs from opening Finder/Word windows on the developer machine.
+process.env.REACH_E2E_NO_OPEN = "1";
+
 export const CONFIG = {
   // URLs for live testing if running, otherwise ephemeral
   SERVER_URL: process.env.REACH_SERVER_URL || "http://localhost:3000",

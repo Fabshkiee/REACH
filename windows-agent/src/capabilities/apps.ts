@@ -175,6 +175,10 @@ async function startVerb(pathOrUri: string): Promise<void> {
 
 /** Shared by create_document and open_document. Best-effort: never fails the task. */
 export async function openWithDefaultApp(absPath: string): Promise<{ opened: boolean; openNote?: string }> {
+  // E2E suites create many documents; never leave Finder/Word windows behind.
+  if (process.env.REACH_E2E_NO_OPEN === "1") {
+    return { opened: true, openNote: "suppressed during e2e" };
+  }
   try {
     await startVerb(absPath);
     return { opened: true };
